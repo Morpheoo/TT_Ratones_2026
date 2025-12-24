@@ -1,13 +1,16 @@
 import streamlit as st
+import base64
+import os
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# ================= 1. CONFIGURACIÓN =================
 st.set_page_config(
-    page_title="TT 2026 - Sistema de Análisis EPM",
-    page_icon="🐭",
+    page_title="TT Ratones 2026 - Home",
+    page_icon="🐁",
     layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# 2. SELECTOR DE TEMA (COMPARTIDO)
+# ================= 2. TEMA Y ESTILOS =================
 if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "Oscuro"
 
@@ -18,27 +21,34 @@ theme_mode = st.sidebar.radio(
 )
 st.session_state.theme_mode = theme_mode
 
-# Paleta VERDE según el tema
+# Definición de paletas
 if theme_mode == "Claro":
     colors = {
-        "page_bg": "#d1fae5",      # fondo
+        "page_bg": "#d1fae5",
         "card_bg": "#ecfdf5",
-        "text_main": "#064e3b",    # VERDE OSCURO
-        "shadow": "rgba(15, 23, 42, 0.15)",
-        "primary": "#10b981",
-        "primary_hover": "#059669",
+        "text_main": "#064e3b",
+        "text_sub": "#047857",
+        "title": "#065f46",
+        "shadow": "rgba(15, 23, 42, 0.1)",
+        "border": "#6ee7b7",
+        "hover": "#dcfce7",
+        "icon": "#10b981",
+        "hero_bg": "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
     }
 else:  # Oscuro
     colors = {
         "page_bg": "#022c22",
         "card_bg": "#064e3b",
-        "text_main": "#ecfdf5",    # texto claro en oscuro
-        "shadow": "rgba(0,0,0,0.6)",
-        "primary": "#22c55e",
-        "primary_hover": "#16a34a",
+        "text_main": "#ecfdf5",
+        "text_sub": "#d1fae5",
+        "title": "#ffffff",
+        "shadow": "rgba(0,0,0,0.4)",
+        "border": "#047857",
+        "hover": "#065f46",
+        "icon": "#34d399",
+        "hero_bg": "linear-gradient(135deg, #064e3b 0%, #022c22 100%)",
     }
 
-# 3. CSS GLOBAL PARA HOME
 st.markdown(
     f"""
     <style>
@@ -46,163 +56,247 @@ st.markdown(
         background-color: {colors["page_bg"]};
     }}
 
-    .tt-home-title {{
-        font-family: 'Segoe UI', sans-serif;
-        font-weight: 800;
-        font-size: 2.2rem;
-        color: {colors["text_main"]};
-        letter-spacing: 0.04em;
-        margin-bottom: 0.4rem;
-    }}
-
-    .tt-home-subtitle {{
-        font-size: 1.0rem;
-        color: {colors["text_main"]};
-        opacity: 0.9;
-        margin-bottom: 1.8rem;
-    }}
-
-    .tt-home-card {{
-        background-color: {colors["card_bg"]};
-        border-radius: 18px;
-        padding: 1.6rem 1.8rem;
-        box-shadow: 0 14px 30px {colors["shadow"]};
-        border: 1px solid rgba(15,23,42,0.18);
-        height: 100%;
-    }}
-
-    /* Título y texto dentro de las tarjetas (forzado a verde/clarito) */
-    .tt-home-card-title {{
-        margin-top: 0;
-        margin-bottom: 0.4rem;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: {colors["text_main"]} !important;
-    }}
-
-    .tt-home-card-text {{
-        margin: 0;
-        font-size: 0.9rem;
-        color: {colors["text_main"]} !important;
-        opacity: 0.9;
-    }}
-
-    .tt-home-footer {{
+    /* HERO SECTION */
+    .hero-container {{
+        background: {colors["hero_bg"]};
+        padding: 4rem 2rem;
+        border-radius: 24px;
         text-align: center;
-        margin-top: 2rem;
-        font-size: 0.8rem;
-        opacity: 0.7;
-        color: {colors["text_main"]};
+        box-shadow: 0 10px 30px {colors["shadow"]};
+        margin-bottom: 3rem;
+        border: 1px solid {colors["border"]};
+        animation: fadeIn 0.8s ease-in-out;
+    }}
+    
+    .hero-title {{
+        font-family: 'Segoe UI', sans-serif;
+        font-weight: 900;
+        font-size: 3rem;
+        color: {colors["title"]};
+        margin-bottom: 0.5rem;
+        letter-spacing: -1px;
+    }}
+    
+    .hero-subtitle {{
+        font-size: 1.25rem;
+        color: {colors["text_sub"]};
+        max-width: 800px;
+        margin: 0 auto;
+        line-height: 1.6;
     }}
 
-    .tt-home-badge {{
+    /* GRID DE MÓDULOS */
+    .modules-container {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        padding: 1rem;
+    }}
+
+    .module-card {{
+        background-color: {colors["card_bg"]};
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px {colors["shadow"]};
+        border: 1px solid {colors["border"]};
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }}
+
+    .module-card:hover {{
+        transform: translateY(-8px);
+        box-shadow: 0 20px 25px {colors["shadow"]};
+        border-color: {colors["icon"]};
+    }}
+
+    .card-icon {{
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: {colors["icon"]};
+    }}
+
+    .card-title {{
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: {colors["text_main"]};
+        margin-bottom: 0.8rem;
+    }}
+
+    .card-desc {{
+        font-size: 0.95rem;
+        color: {colors["text_sub"]};
+        line-height: 1.6;
+        opacity: 0.9;
+    }}
+
+    /* ANIMACIONES */
+    @keyframes fadeIn {{
+        from {{ opacity: 0; transform: translateY(20px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* CHECK SESIÓN */
+    .session-box {{
+        background-color: {colors["card_bg"]};
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        border: 1px solid {colors["border"]};
         display: inline-block;
-        padding: 0.25rem 0.7rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        background-color: rgba(16,185,129,0.12);
-        color: {colors["text_main"]};
-        margin-bottom: 0.9rem;
+        margin-top: 1rem;
+        box-shadow: 0 4px 6px {colors["shadow"]};
     }}
-
-    .stButton > button {{
-        background-color: {colors["primary"]};
-        color: white;
-        border: none;
-        border-radius: 999px;
-        padding: 0.45rem 1.1rem;
-        font-size: 0.9rem;
+    .session-text {{
+        color: {colors["text_main"]};
         font-weight: 600;
     }}
-    .stButton > button:hover {{
-        background-color: {colors["primary_hover"]};
+
+    /* FOOTER */
+    .footer {{
+        text-align: center;
+        margin-top: 4rem;
+        padding: 2rem;
+        color: {colors["text_sub"]};
+        font-size: 0.85rem;
+        border-top: 1px solid {colors["border"]};
     }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# 4. PROTECCIÓN DE ACCESO (si quieres activarla, descomenta)
-# if "logged_in" not in st.session_state or not st.session_state.logged_in:
-#     st.warning("⚠️ Debes iniciar sesión en la página **Login** antes de usar el sistema.")
-#     st.stop()
+# ================= 3. LOGIC & ASSETS =================
+def get_img_as_base64(file_path: str):
+    if not os.path.exists(file_path):
+        return None
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
 
-# 5. CONTENIDO DEL HOME
+# Logo
+LOGO_PATH = "logo_ria.png"
+img_base64 = get_img_as_base64(LOGO_PATH)
+if img_base64:
+    logo_html = f'<img src="data:image/png;base64,{img_base64}" style="width: 120px; margin-bottom: 1.5rem;">'
+else:
+    logo_html = '<div style="font-size: 3rem;">🐁</div>'
+
+# ================= 4. LAYOUT =================
+
+# HERO
 st.markdown(
-    '<div class="tt-home-badge">TT 2026-A155 · Laberinto en cruz elevado</div>',
-    unsafe_allow_html=True,
+    f"""
+    <div class="hero-container">
+        {logo_html}
+        <div class="hero-title">TT Ratones 2026</div>
+        <div class="hero-subtitle">
+            Sistema Automatizado de Análisis de Comportamiento en Modelos de Ansiedad (EPM)
+            mediante Visión Artificial e Inteligencia Artificial.
+        </div>
+        {'<div style="margin-top: 2rem;"><span class="session-box"><span class="session-text">✅ Sesión Activa: ' + st.session_state.user + '</span></span></div>' if st.session_state.get("logged_in") else ''}
+    </div>
+    """,
+    unsafe_allow_html=True
 )
+
+if not st.session_state.get("logged_in"):
+    st.markdown(
+        f"""
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div style="background-color: {colors['card_bg']}; display: inline-block; padding: 10px 20px; border-radius: 10px; border: 1px solid {colors['border']};">
+                <span style="color: {colors['text_main']};">🔒 Para acceder a las funciones, por favor inicie sesión en el módulo <strong>Login</strong>.</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# GRID DE TARJETAS
+# Usamos HTML/CSS Grid personalizado para mejor respuesta que st.columns
+st.markdown('<div class="modules-container">', unsafe_allow_html=True)
+
+# Módulo 0
 st.markdown(
-    '<div class="tt-home-title">Bienvenido al Sistema de Análisis EPM</div>',
-    unsafe_allow_html=True,
+    f"""
+    <div class="module-card">
+        <div class="card-icon">🔐</div>
+        <div class="card-title">00 · Control de Acceso</div>
+        <div class="card-desc">
+            Seguridad y gestión de usuarios. Autenticación de investigadores y administradores para proteger los datos experimentales y configurar permisos de uso.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
+
+# Módulo 1
 st.markdown(
-    '<div class="tt-home-subtitle">'
-    'Prototipo para el análisis automatizado y visualización del comportamiento '
-    'de roedores en el laberinto en cruz elevado.'
-    '</div>',
-    unsafe_allow_html=True,
+    f"""
+    <div class="module-card">
+        <div class="card-icon">📥</div>
+        <div class="card-title">01 · Ingesta de Video</div>
+        <div class="card-desc">
+            Módulo de carga y preprocesamiento. Permite subir grabaciones experimentales (MP4, AVI) y realizar recortes temporales precisos para aislar la sesión de prueba.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
-st.write("")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown('<div class="tt-home-card">', unsafe_allow_html=True)
-    st.markdown(
-        "<h3 class='tt-home-card-title'>📥 Ingesta de Video</h3>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<p class='tt-home-card-text'>Carga videos experimentales del laberinto en cruz elevado, "
-        "valida formato, duración y prepara los datos para su análisis.</p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.write("")
-
-    st.markdown('<div class="tt-home-card">', unsafe_allow_html=True)
-    st.markdown(
-        "<h3 class='tt-home-card-title'>⚙️ Configuración de Zonas</h3>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<p class='tt-home-card-text'>Define las regiones de interés (brazos abiertos, cerrados y zona central) "
-        "para el conteo automático de entradas, tiempo de permanencia y eventos.</p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="tt-home-card">', unsafe_allow_html=True)
-    st.markdown(
-        "<h3 class='tt-home-card-title'>🧠 Análisis IA</h3>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<p class='tt-home-card-text'>Ejecuta los modelos de visión por computadora (detección YOLO, "
-        "rastreo y análisis de comportamiento) sobre los videos seleccionados.</p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.write("")
-
-    st.markdown('<div class="tt-home-card">', unsafe_allow_html=True)
-    st.markdown(
-        "<h3 class='tt-home-card-title'>📊 Resultados y Estadísticas</h3>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<p class='tt-home-card-text'>Consulta métricas de ansiedad, gráficos de tiempo en brazos, "
-        "tablas resumen y exportación de resultados para el reporte experimental.</p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
+# Módulo 2
 st.markdown(
-    '<div class="tt-home-footer">ESCOM - IPN · Prototipo académico · No usar en producción</div>',
-    unsafe_allow_html=True,
+    f"""
+    <div class="module-card">
+        <div class="card-icon">⚙️</div>
+        <div class="card-title">02 · Configuración de Zonas</div>
+        <div class="card-desc">
+            Interfaz interactiva para definir las Regiones de Interés (ROI) sobre el laberinto: Brazos Abiertos, Cerrados y Centro. Ajuste automático a la resolución.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Módulo 3
+st.markdown(
+    f"""
+    <div class="module-card">
+        <div class="card-icon">🧠</div>
+        <div class="card-title">03 · Análisis IA</div>
+        <div class="card-desc">
+            Motor de procesamiento basado en YOLO. Detecta al espécimen frame a frame, traza su trayectoria y clasifica su comportamiento en tiempo real.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Módulo 4
+st.markdown(
+    f"""
+    <div class="module-card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">04 · Resultados</div>
+        <div class="card-desc">
+            Dashboard de analítica avanzada. Visualiza mapas de calor, gráficos de permanencia, índices de ansiedad y permite exportar reportes detallados.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# FOOTER
+st.markdown(
+    f"""
+    <div class="footer">
+        ESCOM - Instituto Politécnico Nacional<br>
+        <strong>Trabajo Terminal 2026</strong><br>
+        2025 © Todos los derechos reservados
+    </div>
+    """,
+    unsafe_allow_html=True
 )
