@@ -59,7 +59,7 @@ def process_video(video_path):
             
             # Show processed video
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            st_frame.image(frame, channels="RGB", use_column_width=True)
+            st_frame.image(frame, channels="RGB", use_container_width=True)
             
         progress_bar.progress(min(frame_idx / total_frames, 1.0))
         frame_idx += 1

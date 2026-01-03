@@ -5,7 +5,7 @@ import os
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="TT 2026 - Login", page_icon="🐭", layout="wide")
 
-# ===== AVISO DE PRIVACIDAD =====
+# 2. FUNCIÓN DE IMAGEN
 PRIVACY_NOTICE = """
 **Aviso de Privacidad Simplificado – Sistema de Análisis EPM (TT 2026)**  
 
@@ -46,7 +46,6 @@ Cualquier modificación al presente Aviso de Privacidad será publicada en esta 
 _Fecha de última actualización: diciembre de 2025._
 """
 
-# 2. FUNCIÓN DE IMAGEN
 def get_img_as_base64(file_path: str):
     if not os.path.exists(file_path):
         return None
@@ -202,11 +201,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 5. CREDENCIALES (DEMO)
-USERS = {
-    "investigador@escom.ipn.mx": {"password": "tt2026", "role": "Investigador"},
-    "admin": {"password": "admin", "role": "Administrador"},
-}
+# 5. AUTH UTILITY
+from src.auth import authenticate, register_user
 
 # 6. LÓGICA DE SESIÓN
 if "logged_in" not in st.session_state:
@@ -214,6 +210,7 @@ if "logged_in" not in st.session_state:
 
 if st.session_state.logged_in:
     st.success(f"✅ Bienvenido, {st.session_state.user}")
+    st.info(f"Rol: {st.session_state.role}")
     if st.button("Salir"):
         st.session_state.logged_in = False
         st.rerun()
@@ -223,53 +220,62 @@ if st.session_state.logged_in:
 c1, c2, c3 = st.columns([1, 2, 1])
 
 with c2:
-    with st.form("login_form"):
-        # Logo
-        st.markdown(logo_html, unsafe_allow_html=True)
+    st.markdown(logo_html, unsafe_allow_html=True)
+    st.markdown('<h1 class="tt-title">SISTEMA EPM</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="tt-subtitle">Acceso exclusivo para investigadores IPN</div>', unsafe_allow_html=True)
 
-        # Títulos
-        st.markdown(
-            '<h1 class="tt-title">INICIO DE SESIÓN</h1>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div class="tt-subtitle">Sistema de Análisis EPM - TT 2026</div>',
-            unsafe_allow_html=True,
-        )
+    tab_login, tab_register = st.tabs(["🔐 Iniciar Sesión", "📝 Registro IPN"])
 
-        # Inputs
-        email = st.text_input("Usuario", placeholder="correo@ipn.mx")
-        password = st.text_input(
-            "Contraseña", type="password", placeholder="••••••"
-        )
-
-        # Checkbox de aviso de privacidad
-        aceptar_aviso = st.checkbox(
-            "He leído y acepto el Aviso de Privacidad"
-        )
-
-        st.write("")  # Espacio
-
-        # Botón
-        submitted = st.form_submit_button("INGRESAR")
-
-    # Validación de login + aviso de privacidad
-    if submitted:
-        if not aceptar_aviso:
-            st.error("⚠️ Debes aceptar el Aviso de Privacidad para continuar.")
-        else:
-            u = USERS.get(email)
-            if u and u["password"] == password:
+    with tab_login:
+        with st.form("login_form"):
+            email = st.text_input("Usuario", placeholder="correo@ipn.mx")
+            password = st.text_input("Contraseña", type="password", placeholder="••••••")
+            submitted = st.form_submit_button("INGRESAR")
+        if submitted:
+            user_info = authenticate(email, password)
+            if user_info:
                 st.session_state.logged_in = True
                 st.session_state.user = email
-                st.session_state.role = u["role"]
+                st.session_state.role = user_info["role"]
+                st.session_state.user_name = user_info["name"]
                 st.rerun()
             else:
                 st.error("❌ Credenciales incorrectas")
 
-    # Aviso de privacidad en expander
-    with st.expander("📄 Ver Aviso de Privacidad"):
-        st.markdown(PRIVACY_NOTICE)
+    with tab_register:
+        st.info("Solo se permiten correos @ipn.mx para el registro.")
+        with st.form("register_form"):
+            new_name = st.text_input("Nombre Completo")
+            new_email = st.text_input("Correo Institucional", placeholder="usuario@ipn.mx")
+            new_pass = st.text_input("Contraseña", type="password")
+            confirm_pass = st.text_input("Confirmar Contraseña", type="password")
+            role = st.selectbox("Rol", ["Investigador", "Estudiante"])
+            
+            # Reintegrar checkbox solo para registro
+            aceptar_aviso_reg = st.checkbox("Acepto el Aviso de Privacidad", key="reg_aviso")
+            
+            # Mostrar aviso en expander aquí mismo
+            with st.expander("📄 Ver Aviso de Privacidad"):
+                st.markdown(PRIVACY_NOTICE)
+                
+            reg_submitted = st.form_submit_button("CREAR CUENTA")
+
+        if reg_submitted:
+            if not aceptar_aviso_reg:
+                st.error("⚠️ Debes aceptar el Aviso de Privacidad para crear una cuenta.")
+            elif not new_email.endswith("@ipn.mx"):
+                st.error("❌ El correo debe ser institucional (@ipn.mx).")
+            elif new_pass != confirm_pass:
+                st.error("❌ Las contraseñas no coinciden.")
+            elif len(new_pass) < 6:
+                st.error("❌ La contraseña debe tener al menos 6 caracteres.")
+            else:
+                success, msg = register_user(new_email, new_pass, role, new_name)
+                if success:
+                    st.success(f"✅ {msg}")
+                    st.balloons()
+                else:
+                    st.error(f"❌ {msg}")
 
     # Pie de página
     st.markdown(

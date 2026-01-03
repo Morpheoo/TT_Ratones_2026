@@ -318,6 +318,8 @@ with c2:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =============== 10. EXPORTACIÓN =================
+from src.reporting import generate_pdf_report
+
 st.write("")
 st.markdown(
     '<div class="tt-section-title">📑 Reporte Final</div>',
@@ -335,9 +337,29 @@ with col_d1:
         mime="text/csv",
     )
 with col_d2:
-    if st.button("🖨️ Generar reporte PDF (Simulado)"):
-        st.success("Reporte PDF generado (placeholder para implementación futura).")
-        st.balloons()
+    if st.button("🖨️ Generar reporte PDF"):
+        kpi_data = {
+            "tiempo_total": total_tiempo,
+            "tiempo_abiertos": tiempo_abiertos,
+            "tiempo_cerrados": tiempo_cerrados,
+            "pref_abiertos": indice_ansiedad,
+            "entradas": num_entradas
+        }
+        user_name = st.session_state.get("user_name", "Investigador")
+        role = st.session_state.get("role", "Usuario")
+        
+        try:
+            pdf_path = generate_pdf_report(user_name, role, kpi_data)
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    "💾 Descargar PDF",
+                    data=f,
+                    file_name="reporte_epm_tt2026.pdf",
+                    mime="application/pdf"
+                )
+            st.success("✅ Reporte PDF generado correctamente.")
+        except Exception as e:
+            st.error(f"Error al generar PDF: {e}")
 
 st.markdown("</div>", unsafe_allow_html=True)
 

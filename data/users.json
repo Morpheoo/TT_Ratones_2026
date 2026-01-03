@@ -1,0 +1,12 @@
+{
+    "investigador@escom.ipn.mx": {
+        "password": "dc141544f350e5f4d963826987950198ea48c4f1345c580c69be41b3d302c24e",
+        "role": "Investigador",
+        "name": "Investigador Principal"
+    },
+    "admin": {
+        "password": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+        "role": "Administrador",
+        "name": "Administrador del Sistema"
+    }
+}

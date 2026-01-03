@@ -216,28 +216,37 @@ def checar_zona(punto_xy, zonas_lista):
 
 # ================== 8. BUCLE DE PROCESAMIENTO ==================
 if iniciar:
-    # Cargar modelo (solo si se pide)
+    # Cargar modelo (pose preferido)
     model = None
     if usar_modelo_real:
         try:
-            model = YOLO(modelo_path)
-            st.success(f"Modelo `{modelo_path}` cargado correctamente.")
+            # Intentar cargar best.pt o yolov8n-pose.pt por defecto si es real
+            model_target = modelo_path
+            if model_target == "yolov8n.pt":  # Sugerir pose si usan el default n
+                 st.info("💡 Consejo: Usa un modelo '-pose.pt' para detección postural.")
+            
+            model = YOLO(model_target)
+            st.success(f"Modelo `{model_target}` cargado correctamente.")
         except Exception as e:
             st.error(f"Error cargando modelo: {e}")
             st.stop()
 
     cap = cv2.VideoCapture(ruta_video)
     fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps == 0: fps = 30 # Fallback
+    
     frame_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # Saltamos al segundo de inicio del recorte
     cap.set(cv2.CAP_PROP_POS_MSEC, inicio * 1000)
 
     barra_progreso = st.progress(0)
-    historial_zonas = []
+    
+    # Estructura para resultados reales: [tiempo, zona, x, y, nose_x, nose_y, tail_x, tail_y]
+    resultados_data = [] 
+    
     tiempo_limite = max(fin - inicio, 0.1)  # evitar división entre 0
-
-    st.toast("Iniciando análisis frame por frame...")
+    st.toast("Iniciando análisis con YOLO...")
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -245,36 +254,65 @@ if iniciar:
             break
 
         tiempo_actual_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
-        if tiempo_actual_ms > (fin * 1000):
+        tiempo_s = tiempo_actual_ms / 1000.0
+        
+        if tiempo_s > fin:
             break
 
         centro_raton = (0, 0)
+        nose_pt = (0, 0)
+        tail_pt = (0, 0)
 
         # --- A. DETECCIÓN (YOLO O SIMULACIÓN) ---
         if usar_modelo_real and model:
             results = model(frame, conf=confianza, verbose=False)
             res = results[0]
-
-            # Recorte con bounding boxes
+            
+            # Dibujar detecciones
             frame = res.plot()
 
             if len(res.boxes) > 0:
-                box = res.boxes[0].xywh.cpu().numpy()[0]  # x_centro, y_centro, w, h
+                # Centro por defecto (bounding box)
+                box = res.boxes[0].xywh.cpu().numpy()[0]
                 centro_raton = (int(box[0]), int(box[1]))
+                
+                # Si es modelo Pose, extraemos puntos clave
+                if hasattr(res, "keypoints") and res.keypoints is not None:
+                    try:
+                        pts = res.keypoints.xy.cpu().numpy()[0] # [N, 2]
+                        if len(pts) > 0:
+                            # YOLOv8-Pose suele tener: 0: Nariz, 1-2: Ojos, 3-4: Orejas... 
+                            # Pero esto depende del entrenamiento. Asumiremos 0 como nariz.
+                            nose_pt = (int(pts[0][0]), int(pts[0][1]))
+                            # Usamos la nariz como centro principal si está disponible
+                            if nose_pt != (0, 0):
+                                centro_raton = nose_pt
+                            
+                            # Intentamos agarrar la cola (último punto usualmente en modelos de ratones custom)
+                            if len(pts) > 16: # Asumiendo modelo completo
+                                tail_pt = (int(pts[16][0]), int(pts[16][1]))
+                    except:
+                        pass
         else:
             # Simulación de ratón moviéndose en círculo
             h, w, _ = frame.shape
             import math
-
             t = time.time()
-            cx = int(w / 2 + 100 * math.cos(t * 2))
-            cy = int(h / 2 + 100 * math.sin(t * 2))
+            cx = int(w / 2 + 150 * math.cos(t * 1.5))
+            cy = int(h / 2 + 100 * math.sin(t * 1.5))
             centro_raton = (cx, cy)
             cv2.circle(frame, centro_raton, 10, (0, 0, 255), -1)
 
         # --- B. LÓGICA DE ZONAS ---
         zona_actual = checar_zona(centro_raton, zonas)
-        historial_zonas.append(zona_actual)
+        
+        # Guardamos en la lista para el DataFrame final
+        resultados_data.append({
+            "Tiempo (s)": tiempo_s,
+            "Zona": zona_actual,
+            "x": centro_raton[0],
+            "y": centro_raton[1]
+        })
 
         # --- C. DIBUJAR ZONAS SOBRE EL VIDEO ---
         overlay = frame.copy()
@@ -283,37 +321,31 @@ if iniciar:
             p1 = (int(z["left"]), int(z["top"]))
             p2 = (int(z["left"] + z["width"]), int(z["top"] + z["height"]))
             cv2.rectangle(overlay, p1, p2, color, 2)
-            cv2.putText(
-                overlay,
-                z["Nombre Zona"],
-                (p1[0], p1[1] - 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                color,
-                1,
-            )
+            cv2.putText(overlay, z["Nombre Zona"], (p1[0], p1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
         frame = cv2.addWeighted(overlay, 0.6, frame, 0.4, 0)
 
         # --- D. ACTUALIZAR INTERFAZ ---
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        image_placeholder.image(frame_rgb, channels="RGB", use_column_width=True)
-
+        image_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
         metric_placeholder.metric("Zona actual", zona_actual)
 
-        progreso = (tiempo_actual_ms / 1000 - inicio) / tiempo_limite
+        progreso = (tiempo_s - inicio) / tiempo_limite
         barra_progreso.progress(min(max(progreso, 0.0), 1.0))
 
     cap.release()
     st.success("✅ Análisis completado.")
 
-    # ================== 9. RESUMEN ==================
+    # ================== 9. PERSISTENCIA DE RESULTADOS ==================
+    df_final = pd.DataFrame(resultados_data)
+    st.session_state["resultados_analisis"] = df_final
+    
     st.markdown('<div class="tt-card">', unsafe_allow_html=True)
     st.markdown(
-        '<div class="tt-section-title">📊 Resumen de la sesión</div>',
+        '<div class="tt-section-title">📊 Resumen Guardado</div>',
         unsafe_allow_html=True,
     )
-    df_res = pd.DataFrame(historial_zonas, columns=["Zona"])
-    conteo = df_res["Zona"].value_counts()
+    st.info(f"Se han procesado {len(df_final)} registros. Los resultados están listos en la pestaña de Dashboard.")
+    conteo = df_final["Zona"].value_counts()
     st.bar_chart(conteo)
     st.markdown("</div>", unsafe_allow_html=True)
