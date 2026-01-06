@@ -3,6 +3,16 @@ from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 import pandas as pd
 from moviepy.editor import VideoFileClip
+import os
+import sys
+
+# ================= 0. PERSISTENCIA =================
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+from src.session_utils import load_session, save_session
+
+# Cargar sesión antes de validar login
+load_session()
 
 # =============== 1. VERIFICAR LOGIN ==================
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -257,6 +267,7 @@ if canvas_result.json_data is not None:
                 zonas_para_guardar.append(zona_real)
 
             st.session_state["zonas_configuradas"] = zonas_para_guardar
+            save_session()
             st.success("✅ Configuración guardada y reescalada a la resolución del video.")
             st.write(f"Factor de escala aplicado: **{factor_escala:.2f}×**")
             st.json(zonas_para_guardar)

@@ -1,6 +1,42 @@
 import streamlit as st
 import base64
 import os
+import sys
+
+# ================= 0. PERSISTENCIA Y GUARDIA CPU =================
+# Seteamos la ruta de src para importar utilerías
+sys.path.append(os.path.join(os.getcwd(), "src"))
+from session_utils import load_session, save_session
+
+# La guardia DEBE estar antes de cualquier import de torch/dlc
+if "init_done" not in st.session_state:
+    load_session()
+    st.session_state.init_done = True
+
+# ================= ENTORNO Y SEGURIDAD =================
+# Verificar que estemos usando el entorno correcto (3.11 para DLC)
+if not sys.version.startswith("3.11"):
+    st.error(f"⚠️ **ENTORNO INCORRECTO**: Estás usando Python {sys.version.split()[0]}.")
+    st.info("Para usar DeepLabCut, debes cerrar esta pestaña y ejecutar la aplicación desde el entorno `dlc_env_311`.")
+    st.code(f"Usa el comando: ..\\DeepLabCut\\DeepLabCut\\dlc_env_311\\Scripts\\python.exe -m streamlit run Home.py")
+    if not st.checkbox("Continuar de todos modos (DLC no funcionará)"):
+        st.stop()
+
+# ESCUDO ANTI-CUDA (Para RTX 5060 / Blackwell)
+# Si el usuario eligió CPU, forzamos a TODO el ecosistema Python a ignorar la GPU
+if st.session_state.get("dlc_device_opt") == "CPU (Forzar)":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:32"
+    try:
+        import torch
+        # Monkey-patch para engañar a librerías que ignoran CUDA_VISIBLE_DEVICES
+        torch.cuda.is_available = lambda: False
+        torch.cuda.device_count = lambda: 0
+        torch.cuda.current_device = lambda: -1
+        # Evitar errores de introspección
+        torch.cuda.get_device_properties = lambda x: None
+    except ImportError:
+        pass
 
 # ================= 1. CONFIGURACIÓN =================
 st.set_page_config(
@@ -17,9 +53,52 @@ if "theme_mode" not in st.session_state:
 theme_mode = st.sidebar.radio(
     "Tema de la interfaz",
     ["Claro", "Oscuro"],
-    index=0 if st.session_state.theme_mode == "Claro" else 1,
+    index=0 if st.session_state.get("theme_mode", "Oscuro") == "Claro" else 1,
 )
 st.session_state.theme_mode = theme_mode
+
+# Estado de Hardware
+st.sidebar.markdown("---")
+st.sidebar.subheader("🛠️ Estado de Hardware")
+
+force_cpu = st.session_state.get("dlc_device_opt") == "CPU (Forzar)"
+
+if force_cpu:
+    st.sidebar.success("🛡️ MODO SEGURO: GPU Deshabilitada")
+    st.sidebar.caption("PyTorch reporta: CPU Only")
+else:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            st.sidebar.info(f"🚀 GPU Activa: {gpu_name}")
+        else:
+            st.sidebar.warning("⚠️ No se detectó GPU CUDA")
+    except:
+        st.sidebar.error("❌ Error detectando hardware")
+
+st.sidebar.markdown("---")
+
+if st.sidebar.button("🗑️ Limpiar Sesión y Salir"):
+    from session_utils import clear_session
+    clear_session()
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.rerun()
+
+device_cpu = st.sidebar.toggle(
+    "Modo Alta Estabilidad (CPU)", 
+    value=(st.session_state.dlc_device_opt == "CPU (Forzar)"),
+    help="Recomendado para RTX 5060 para evitar errores de CUDA."
+)
+
+new_device = "CPU (Forzar)" if device_cpu else "Auto (Recomendado)"
+if new_device != st.session_state.dlc_device_opt:
+    st.session_state.dlc_device_opt = new_device
+    save_session()
+    st.sidebar.warning("⚠️ El cambio de hardware requiere reiniciar la app para aplicarse al 100%.")
+
+save_session() # Guardar estado al cambiar tema o device
 
 # Definición de paletas
 if theme_mode == "Claro":

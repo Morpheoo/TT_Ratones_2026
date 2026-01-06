@@ -2,6 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import os
+import sys
+
+# ================= 0. PERSISTENCIA =================
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+from src.session_utils import load_session, save_session
+
+# Cargar sesión antes de validar login
+load_session()
 
 # =============== 1. VERIFICAR LOGIN ==================
 if "logged_in" not in st.session_state or not st.session_state.logged_in:

@@ -1,6 +1,16 @@
 import streamlit as st
 import base64
 import os
+import sys
+
+# Seteamos la ruta de src para importar utilerías
+sys.path.append(os.path.join(os.getcwd(), "src"))
+from session_utils import load_session, save_session
+
+# Cargar sesión previa
+if "init_done" not in st.session_state:
+    load_session()
+    st.session_state.init_done = True
 
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="TT 2026 - Login", page_icon="🐭", layout="wide")
@@ -213,6 +223,8 @@ if st.session_state.logged_in:
     st.info(f"Rol: {st.session_state.role}")
     if st.button("Salir"):
         st.session_state.logged_in = False
+        from src.session_utils import clear_session
+        clear_session()
         st.rerun()
     st.stop()
 
@@ -238,6 +250,7 @@ with c2:
                 st.session_state.user = email
                 st.session_state.role = user_info["role"]
                 st.session_state.user_name = user_info["name"]
+                save_session()
                 st.rerun()
             else:
                 st.error("❌ Credenciales incorrectas")

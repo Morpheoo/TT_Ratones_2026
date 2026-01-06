@@ -1,6 +1,16 @@
 import streamlit as st
 import os
+import sys
 from moviepy.editor import VideoFileClip
+
+# ================= 0. PERSISTENCIA =================
+# Asegurar que podemos importar desde src
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+from src.session_utils import load_session, save_session
+
+# Cargar sesión antes de validar login
+load_session()
 
 # =============== 1. VERIFICAR LOGIN ==================
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -217,6 +227,7 @@ if submitted and video_file is not None:
         
         st.session_state["video_en_edicion"] = ruta_guardado
         st.session_state["id_raton_actual"] = id_raton
+        save_session()
         st.success("✅ Video subido correctamente.")
 
 # =============== 7. EDITOR PERSISTENTE =================
@@ -248,6 +259,7 @@ if "video_en_edicion" in st.session_state:
             st.session_state["ruta_video_actual"] = ruta_actual
             st.session_state["inicio_recorte"] = start
             st.session_state["fin_recorte"] = end
+            save_session()
 
             st.balloons()
             st.success("✅ ¡Datos guardados! Ahora ve a la página **Configuración Zonas**.")

@@ -1,0 +1,43 @@
+{
+    "logged_in": true,
+    "user": "investigador@escom.ipn.mx",
+    "role": "Investigador",
+    "user_name": "Investigador Principal",
+    "ruta_video_actual": "videos_data\\Equipo_TT_Control.mp4",
+    "inicio_recorte": 60.0,
+    "fin_recorte": 80.0,
+    "dlc_device_opt": "CPU (Forzar)",
+    "theme_mode": "Oscuro",
+    "zonas_configuradas": [
+        {
+            "Nombre Zona": "Brazo Abierto 1",
+            "left": 616,
+            "top": 19,
+            "width": 88,
+            "height": 297
+        },
+        {
+            "Nombre Zona": "Brazo Abierto 2",
+            "left": 620,
+            "top": 392,
+            "width": 75,
+            "height": 302
+        },
+        {
+            "Nombre Zona": "Brazo Cerrado 1",
+            "left": 240,
+            "top": 300,
+            "width": 379,
+            "height": 97
+        },
+        {
+            "Nombre Zona": "Brazo Cerrado 2",
+            "left": 700,
+            "top": 313,
+            "width": 401,
+            "height": 86
+        }
+    ],
+    "video_en_edicion": "videos_data\\Equipo_TT_Control.mp4",
+    "id_raton_actual": "Equipo TT"
+}
