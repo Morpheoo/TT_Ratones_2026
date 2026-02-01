@@ -89,6 +89,17 @@ cargar_motores()
 
 from ultralytics import YOLO # Importar aquí para que respete la env var anterior
 
+st.session_state.init_done = True
+
+from src.auth import check_admin_access
+
+# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
+role = st.session_state.get("role")
+if check_admin_access(role):
+    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
+    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
+    st.stop()
+
 # ================== 2. TEMA CLARO / OSCURO ==================
 if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "Oscuro"
@@ -313,21 +324,8 @@ with col_video:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ================== 7. FUNCIÓN GEOMÉTRICA ==================
-def checar_zona(punto_xy, zonas_lista):
-    """
-    Revisa en qué zona cae el punto (x, y) del ratón.
-    Retorna el nombre de la zona o 'Fuera del Laberinto'.
-    """
-    x, y = punto_xy
-    for zona in zonas_lista:
-        x_min = zona["left"]
-        x_max = zona["left"] + zona["width"]
-        y_min = zona["top"]
-        y_max = zona["top"] + zona["height"]
-
-        if x_min <= x <= x_max and y_min <= y <= y_max:
-            return zona["Nombre Zona"]
-    return "Fuera del Laberinto"
+# ================== 7. FUNCIÓN GEOMÉTRICA Y HEURÍSTICAS ==================
+from src.analysis_logic import checar_zona, calcular_distancia, detectar_grooming, detectar_thigmotaxis
 
 # ================== 8. BUCLE DE PROCESAMIENTO ==================
 if iniciar:
@@ -495,15 +493,42 @@ if iniciar:
                     if time_s > fin + 0.5: break # Margen de error
                     x = row[(scorer, rep_bp, 'x')]
                     y = row[(scorer, rep_bp, 'y')]
-                    if np.isnan(x) or np.isnan(y):
-                        zona_actual = "No detectado"
-                    else:
+                    
+                    # --- NUEVA LÓGICA DE COMPORTAMIENTO ---
+                    is_grooming = False
+                    is_thigmotaxis = False
+                    
+                    if not (np.isnan(x) or np.isnan(y)):
                         zona_actual = checar_zona((x, y), zonas)
+                        
+                        # Thigmotaxis
+                        is_thigmotaxis = detectar_thigmotaxis((x,y), zona_actual, zonas)
+                        
+                        # Grooming (Requiere cola)
+                        # Buscamos 'tailbase' o 'tail_base' o el último punto
+                        tail_bp = next((bp for bp in bodyparts if 'tail' in bp), bodyparts[-1])
+                        tx = row[(scorer, tail_bp, 'x')]
+                        ty = row[(scorer, tail_bp, 'y')]
+                        
+                        if i > 0:
+                            # Velocidad aprox (distancia desde frame anterior / tiempo)
+                            prev_row = df_dlc.iloc[i-1]
+                            prev_x = prev_row[(scorer, rep_bp, 'x')]
+                            prev_y = prev_row[(scorer, rep_bp, 'y')]
+                            if not (np.isnan(prev_x) or np.isnan(prev_y)):
+                                dist_frame = calcular_distancia((x,y), (prev_x, prev_y))
+                                vel = dist_frame * fps # px/s
+                                is_grooming = detectar_grooming((x,y), (tx,ty), vel)
+                    else:
+                        zona_actual = "No detectado"
+
                     resultados_data.append({
                         "Tiempo (s)": time_s,
                         "Zona": zona_actual,
                         "x": x,
-                        "y": y
+                        "y": y,
+                        "Grooming": is_grooming,
+                        "Thigmotaxis": is_thigmotaxis
                     })
                 # Mostrar video procesado si existe
                 labeled_video = glob.glob(os.path.join(dest_folder, f"{base_name_usado}*labeled.mp4"))
@@ -595,24 +620,77 @@ if iniciar:
                         except:
                             pass
             else:
-                # Simulación de ratón moviéndose en círculo
-                h, w, _ = frame.shape
-                import math
-                t = time.time()
-                cx = int(w / 2 + 150 * math.cos(t * 1.5))
-                cy = int(h / 2 + 100 * math.sin(t * 1.5))
-                centro_raton = (cx, cy)
+                # Simulación de ratón: Random Walk dentro de las zonas configuradas
+                if zonas:
+                    import random
+                    if "sim_pos" not in st.session_state:
+                         # Iniciar en el centro de la primera zona o del frame
+                         cx_init = int(zonas[0]["left"] + zonas[0]["width"]/2)
+                         cy_init = int(zonas[0]["top"] + zonas[0]["height"]/2)
+                         st.session_state["sim_pos"] = [cx_init, cy_init]
+                         st.session_state["sim_target"] = [cx_init, cy_init]
+
+                    # Mover hacia el objetivo
+                    curr_x, curr_y = st.session_state["sim_pos"]
+                    tgt_x, tgt_y = st.session_state["sim_target"]
+                    
+                    dx = tgt_x - curr_x
+                    dy = tgt_y - curr_y
+                    dist = (dx**2 + dy**2)**0.5
+                    
+                    speed = 15  # Pixeles por frame
+                    
+                    if dist < speed:
+                        # Llegó, nuevo objetivo
+                        z_dest = random.choice(zonas)
+                        tgt_x = z_dest["left"] + random.random() * z_dest["width"]
+                        tgt_y = z_dest["top"] + random.random() * z_dest["height"]
+                        st.session_state["sim_target"] = [tgt_x, tgt_y]
+                    else:
+                        # Avanzar
+                        curr_x += (dx / dist) * speed
+                        curr_y += (dy / dist) * speed
+                        st.session_state["sim_pos"] = [curr_x, curr_y]
+                    
+                    centro_raton = (int(curr_x), int(curr_y))
+                else:
+                    # Fallback circular si no hay zonas
+                    h, w, _ = frame.shape
+                    import math
+                    t = time.time()
+                    cx = int(w / 2 + 150 * math.cos(t * 1.5))
+                    cy = int(h / 2 + 100 * math.sin(t * 1.5))
+                    centro_raton = (cx, cy)
+                
                 cv2.circle(frame, centro_raton, 10, (0, 0, 255), -1)
 
-            # --- B. LÓGICA DE ZONAS ---
+            # --- B. LÓGICA DE ZONAS Y COMPORTAMIENTO ---
             zona_actual = checar_zona(centro_raton, zonas)
             
+            # Thigmotaxis
+            is_thigmotaxis = detectar_thigmotaxis(centro_raton, zona_actual, zonas)
+            
+            # Grooming
+            # Necesitamos velocidad. Usamos variable estática o session state para frame anterior
+            if 'prev_pos' not in st.session_state:
+                st.session_state.prev_pos = centro_raton
+            
+            dist_frame = calcular_distancia(centro_raton, st.session_state.prev_pos)
+            vel = dist_frame * fps # px/s aprox
+            st.session_state.prev_pos = centro_raton
+            
+            is_grooming = False
+            if nose_pt != (0,0) and tail_pt != (0,0):
+                is_grooming = detectar_grooming(nose_pt, tail_pt, vel)
+
             # Guardamos en la lista para el DataFrame final
             resultados_data.append({
                 "Tiempo (s)": tiempo_s,
                 "Zona": zona_actual,
                 "x": centro_raton[0],
-                "y": centro_raton[1]
+                "y": centro_raton[1],
+                "Grooming": is_grooming,
+                "Thigmotaxis": is_thigmotaxis
             })
 
             # --- C. DIBUJAR ZONAS SOBRE EL VIDEO ---
@@ -637,9 +715,82 @@ if iniciar:
         cap.release()
         st.success("✅ Análisis completado.")
 
-    # ================== 9. PERSISTENCIA DE RESULTADOS ==================
+    # ================== 9. PERSISTENCIA EN BASE DE DATOS ==================
     df_final = pd.DataFrame(resultados_data)
     st.session_state["resultados_analisis"] = df_final
+    
+    # Calcular métricas globales
+    total_time = len(df_final) / (fps if 'fps' in locals() else 30.0)
+    grooming_total = df_final["Grooming"].sum() / (fps if 'fps' in locals() else 30.0)
+    thigmo_total = df_final["Thigmotaxis"].sum() / (fps if 'fps' in locals() else 30.0)
+    
+    time_open = df_final[df_final["Zona"].str.contains("Abierto")]["Tiempo (s)"].count() / fps
+    time_closed = df_final[df_final["Zona"].str.contains("Cerrado")]["Tiempo (s)"].count() / fps
+    time_center = df_final[df_final["Zona"].str.contains("Centro")]["Tiempo (s)"].count() / fps
+    
+    # Guardar en PostgreSQL
+    try:
+        from src.db.connection import get_db_engine
+        from sqlalchemy import text
+        
+        engine = get_db_engine()
+        if engine:
+            with engine.connect() as conn:
+                # 1. Insertar Experimento (si no existe lógica previa de creación, lo creamos aquí)
+                # OJO: Idealmente esto se crea en Ingesta, pero por ahora lo registramos al finalizar análisis
+                # Asumimos que el usuario actual es el creador.
+                usr_email = st.session_state.get("user", "admin")
+                
+                # Buscar ID de usuario
+                res_usr = conn.execute(text("SELECT id FROM users WHERE username = :u"), {"u": usr_email}).fetchone()
+                user_id = res_usr[0] if res_usr else None
+                
+                insert_exp = text("""
+                    INSERT INTO experiments (rat_id, treatment, experiment_date, responsible, video_path, duration_seconds, created_by, processed)
+                    VALUES (:rid, :treat, CURRENT_DATE, :resp, :path, :dur, :uid, TRUE)
+                    RETURNING id
+                """)
+                
+                # Datos de sesión o defaults
+                rat_id = st.session_state.get("id_raton_actual", "Unknown-Rat")
+                treatment = "Experimental" # Debería venir de Ingesta
+                responsible = st.session_state.get("user_name", "Investigador")
+                
+                res_exp = conn.execute(insert_exp, {
+                    "rid": rat_id,
+                    "treat": treatment,
+                    "resp": responsible,
+                    "path": ruta_video,
+                    "dur": total_time,
+                    "uid": user_id
+                }).fetchone()
+                
+                exp_id = res_exp[0]
+                
+                # 2. Insertar Resultados
+                insert_res = text("""
+                    INSERT INTO analysis_results 
+                    (experiment_id, total_distance, time_open_arms, time_closed_arms, time_center, grooming_duration, thigmotaxis_duration, status)
+                    VALUES (:eid, 0, :topen, :tclosed, :tcen, :groom, :thig, 'completed')
+                """)
+                
+                conn.execute(insert_res, {
+                    "eid": exp_id,
+                    "topen": time_open,
+                    "tclosed": time_closed,
+                    "tcen": time_center,
+                    "groom": grooming_total,
+                    "thig": thigmo_total
+                })
+                conn.commit()
+                st.toast("✅ Resultados guardados en Base de Datos exitosamente.")
+                print(f"[+] Experimento {exp_id} guardado en BD.")
+        else:
+            st.error("No se pudo conectar a la BD para guardar resultados.")
+            
+    except Exception as e:
+        st.error(f"Error guardando en BD: {e}")
+        print(f"[-] Error DB Save: {e}")
     
     st.markdown('<div class="tt-card">', unsafe_allow_html=True)
     st.markdown(
@@ -647,6 +798,20 @@ if iniciar:
         unsafe_allow_html=True,
     )
     st.info(f"Se han procesado {len(df_final)} registros. Los resultados están listos en la pestaña de Dashboard.")
-    conteo = df_final["Zona"].value_counts()
-    st.bar_chart(conteo)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("📍 Permanencia en Zonas")
+        conteo = df_final["Zona"].value_counts()
+        st.bar_chart(conteo)
+    
+    with c2:
+        st.subheader("🐭 Comportamientos Avanzados")
+        total_time = len(df_final) / (fps if 'fps' in locals() else 30.0)
+        grooming_total = df_final["Grooming"].sum() / (fps if 'fps' in locals() else 30.0)
+        thigmo_total = df_final["Thigmotaxis"].sum() / (fps if 'fps' in locals() else 30.0)
+        
+        st.metric("Acicalamiento (Grooming)", f"{grooming_total:.1f} s")
+        st.metric("Contacto Paredes (Thigmotaxis)", f"{thigmo_total:.1f} s")
+        st.metric("Tiempo Total Analizado", f"{total_time:.1f} s")
     st.markdown("</div>", unsafe_allow_html=True)

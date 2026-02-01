@@ -17,6 +17,17 @@ if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
     st.stop()
 
+# Cargar sesión y establecer init_done si no está ya
+if not st.session_state.get("init_done"):
+    load_session()
+    st.session_state.init_done = True
+
+# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
+if st.session_state.get("role") == "admin":
+    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
+    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
+    st.stop()
+
 # =============== 2. SELECTOR DE TEMA =================
 if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "Oscuro"
@@ -208,7 +219,7 @@ with st.form("registro_experimento"):
         fecha = st.date_input("Fecha del Experimento")
         responsable = st.text_input("Responsable", value="Equipo TT")
     
-    video_file = st.file_uploader("Cargar Video (MP4 / MOV)", type=["mp4", "mov"])
+    video_file = st.file_uploader("Cargar Video (MP4 / MOV / AVI)", type=["mp4", "mov", "avi"])
     
     submitted = st.form_submit_button("Cargar Video")
 

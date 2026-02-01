@@ -42,3 +42,6 @@ data/resultados/
 videos_data/
 *.pt
 !yolov8n.pt
+
+venv_311/
+.streamlit/secrets.toml

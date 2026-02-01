@@ -19,6 +19,12 @@ if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
     st.stop()
 
+# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
+if st.session_state.get("role") == "admin":
+    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
+    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
+    st.stop()
+
 # =============== 2. SELECTOR DE TEMA =================
 if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "Oscuro"
@@ -191,6 +197,88 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# =============== 7.5 HERRAMIENTAS DE PLANTILLA =================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚡ Plantillas")
+
+import src.zone_templates as template_manager
+
+# =============== 7.5 HERRAMIENTAS DE PLANTILLA =================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 💾 Gestor de Plantillas")
+
+if "canvas_key" not in st.session_state:
+    st.session_state["canvas_key"] = "canvas_zonas_v1"
+
+
+
+# --- Cargar / Borrar Plantilla ---
+plantillas_disponibles = template_manager.list_templates()
+if plantillas_disponibles:
+    st.sidebar.markdown("---")
+    st.sidebar.caption("Mis Plantillas")
+    p_seleccionada = st.sidebar.selectbox("Seleccionar", plantillas_disponibles)
+    
+    col_p1, col_p2 = st.sidebar.columns(2)
+    if col_p1.button("📂 Cargar"):
+        data = template_manager.load_template(p_seleccionada)
+        if data:
+            st.session_state["canvas_initial_json"] = data["canvas"]
+            st.session_state["lista_nombres_zonas"] = data["names"]
+            import uuid
+            st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
+            st.rerun()
+            
+    if col_p2.button("🗑️ Borrar"):
+        template_manager.delete_template(p_seleccionada)
+        st.rerun()
+else:
+    st.sidebar.info("No hay plantillas guardadas.")
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🧩 Cargar Default (Cruz EPM)"):
+    # Valores por defecto optimizados (+35px X offset, brazos ajustados)
+    cx = (ANCHO_CANVAS // 2) + 35
+    cy = ALTO_CANVAS // 2
+    
+    ancho_brazo = 80
+    largo_abierto = 180
+    largo_cerrado = 220 
+    
+    # Colores
+    color_abierto = "rgba(244, 63, 94, 0.35)"
+    color_cerrado = "rgba(59, 130, 246, 0.35)" # Azul
+    color_centro = "rgba(234, 179, 8, 0.35)"   # Amarillo
+
+    preset_objects = [
+        {"type": "rect", "left": cx - ancho_brazo//2, "top": cy - ancho_brazo//2, 
+         "width": ancho_brazo, "height": ancho_brazo, "fill": color_centro, "stroke": "#ffffff", "strokeWidth": 2},
+        {"type": "rect", "left": cx - ancho_brazo//2, "top": cy - ancho_brazo//2 - largo_cerrado, 
+         "width": ancho_brazo, "height": largo_cerrado, "fill": color_cerrado, "stroke": "#ffffff", "strokeWidth": 2},
+        {"type": "rect", "left": cx - ancho_brazo//2, "top": cy + ancho_brazo//2, 
+         "width": ancho_brazo, "height": largo_cerrado, "fill": color_cerrado, "stroke": "#ffffff", "strokeWidth": 2},
+        {"type": "rect", "left": cx - ancho_brazo//2 - largo_abierto, "top": cy - ancho_brazo//2, 
+         "width": largo_abierto, "height": ancho_brazo, "fill": color_abierto, "stroke": "#ffffff", "strokeWidth": 2},
+        {"type": "rect", "left": cx + ancho_brazo//2, "top": cy - ancho_brazo//2, 
+         "width": largo_abierto, "height": ancho_brazo, "fill": color_abierto, "stroke": "#ffffff", "strokeWidth": 2},
+    ]
+    
+    plantilla_json = {"version": "4.4.0", "objects": preset_objects}
+    st.session_state["canvas_initial_json"] = plantilla_json
+    st.session_state["lista_nombres_zonas"] = ["Centro 1", "Brazo Cerrado 1", "Brazo Cerrado 2", "Brazo Abierto 1", "Brazo Abierto 2"]
+    import uuid
+    st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
+    st.rerun()
+
+
+if st.sidebar.button("🗑️ Limpiar Pantalla"):
+    st.session_state["canvas_initial_json"] = None
+    st.session_state["lista_nombres_zonas"] = []
+    # Force reload
+    import uuid
+    st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
+    st.rerun()
+
 # =============== 8. CANVAS =================
 st.markdown('<div class="tt-card">', unsafe_allow_html=True)
 canvas_result = st_canvas(
@@ -202,59 +290,94 @@ canvas_result = st_canvas(
     height=ALTO_CANVAS,
     width=ANCHO_CANVAS,
     drawing_mode="rect",
-    key="canvas_zonas",
+    initial_drawing=st.session_state.get("canvas_initial_json", None),
+    key=st.session_state["canvas_key"],
 )
 st.markdown("</div>", unsafe_allow_html=True)
 
-# =============== 9. NOMBRES Y REESCALADO =================
+# --- Guardar Plantilla Actual (Debe ir después del canvas para leer canvas_result) ---
+with st.sidebar.expander("Guardar Actual"):
+    nombre_plantilla = st.text_input("Nombre de la plantilla")
+    if st.button("Guardar"):
+        if canvas_result.json_data and nombre_plantilla:
+            template_manager.save_template(
+                nombre_plantilla, 
+                canvas_result.json_data, 
+                st.session_state.get("lista_nombres_zonas", [])
+            )
+            st.toast(f"Plantilla '{nombre_plantilla}' guardada!")
+        else:
+            st.error("Dibuja algo o ponle nombre.")
+
+# =============== 9. NOMBRES Y EDICIÓN/BORRADO =================
 if canvas_result.json_data is not None:
     objects = pd.json_normalize(canvas_result.json_data["objects"])
 
     if "lista_nombres_zonas" not in st.session_state:
         st.session_state["lista_nombres_zonas"] = []
 
+    # Sincronización básica de longitud
     num_cajas = len(objects)
     num_nombres = len(st.session_state["lista_nombres_zonas"])
 
     if num_cajas > num_nombres:
         diferencia = num_cajas - num_nombres
         for _ in range(diferencia):
-            tipo_base = tipo_zona_visual
-            conteo_previo = sum(
-                1 for nombre in st.session_state["lista_nombres_zonas"]
-                if nombre.startswith(tipo_base)
-            )
-            nuevo_nombre = f"{tipo_base} {conteo_previo + 1}"
-            st.session_state["lista_nombres_zonas"].append(nuevo_nombre)
+            st.session_state["lista_nombres_zonas"].append(f"{tipo_zona_visual} {len(st.session_state['lista_nombres_zonas']) + 1}")
     elif num_cajas < num_nombres:
         st.session_state["lista_nombres_zonas"] = st.session_state["lista_nombres_zonas"][:num_cajas]
 
     if not objects.empty:
         st.markdown('<div class="tt-card">', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="tt-section-title">📝 Zonas identificadas</div>',
-            unsafe_allow_html=True,
-        )
+        
+        c_table, c_actions = st.columns([2, 1])
+        
+        with c_table:
+            st.markdown('<div class="tt-section-title">📝 Zonas identificadas</div>', unsafe_allow_html=True)
+            datos_visuales = objects[["left", "top", "width", "height"]].copy()
+            datos_visuales["Nombre Zona"] = st.session_state["lista_nombres_zonas"]
 
-        datos_visuales = objects[["left", "top", "width", "height"]].copy()
-        datos_visuales["Nombre Zona"] = st.session_state["lista_nombres_zonas"]
+            df_editado = st.data_editor(
+                datos_visuales,
+                num_rows="fixed",
+                column_config={
+                    "left": st.column_config.NumberColumn("X", disabled=True),
+                    "top": st.column_config.NumberColumn("Y", disabled=True),
+                    "Nombre Zona": st.column_config.TextColumn("Nombre", disabled=False),
+                },
+                key="editor_zonas_auto",
+            )
+            # Actualizar nombres en tiempo real
+            st.session_state["lista_nombres_zonas"] = df_editado["Nombre Zona"].tolist()
 
-        df_editado = st.data_editor(
-            datos_visuales,
-            num_rows="dynamic",
-            column_config={
-                "left": st.column_config.NumberColumn("X (canvas)", disabled=True),
-                "top": st.column_config.NumberColumn("Y (canvas)", disabled=True),
-                "width": "Ancho",
-                "height": "Alto",
-                "Nombre Zona": st.column_config.TextColumn("Nombre", disabled=False),
-            },
-            key="editor_zonas_auto",
-        )
+        with c_actions:
+            st.markdown('<div class="tt-section-title">🗑️ Eliminar Específicas</div>', unsafe_allow_html=True)
+            to_delete = st.multiselect("Seleccionar zonas para borrar:", options=df_editado["Nombre Zona"])
+            
+            if st.button("Eliminar Seleccionadas") and to_delete:
+                # Lógica de borrado: Mapear nombres a índices, remover de la lista de objetos y recargar
+                indices_to_delete = [i for i, name in enumerate(st.session_state["lista_nombres_zonas"]) if name in to_delete]
+                
+                # Filtrar objetos JSON
+                current_objects = canvas_result.json_data["objects"]
+                new_objects = [obj for i, obj in enumerate(current_objects) if i not in indices_to_delete]
+                
+                # Filtrar nombres
+                new_names = [name for i, name in enumerate(st.session_state["lista_nombres_zonas"]) if i not in indices_to_delete]
+                
+                # Actualizar Estado
+                updated_json = canvas_result.json_data.copy()
+                updated_json["objects"] = new_objects
+                
+                st.session_state["canvas_initial_json"] = updated_json
+                st.session_state["lista_nombres_zonas"] = new_names
+                
+                import uuid
+                st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
+                st.rerun()
 
-        st.session_state["lista_nombres_zonas"] = df_editado["Nombre Zona"].tolist()
-
-        if st.button("💾 Guardar configuración final"):
+        st.markdown("---")
+        if st.button("💾 Guardar configuración final del experimento"):
             zonas_para_guardar = []
             for reg in df_editado.to_dict("records"):
                 zona_real = {
@@ -269,7 +392,6 @@ if canvas_result.json_data is not None:
             st.session_state["zonas_configuradas"] = zonas_para_guardar
             save_session()
             st.success("✅ Configuración guardada y reescalada a la resolución del video.")
-            st.write(f"Factor de escala aplicado: **{factor_escala:.2f}×**")
             st.json(zonas_para_guardar)
 
         st.markdown("</div>", unsafe_allow_html=True)

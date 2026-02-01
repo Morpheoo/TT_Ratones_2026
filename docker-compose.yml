@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: tt_ratones_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin_secure_password
+      POSTGRES_DB: ratones_lab
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Opcional: Interfaz web para ver la BD fácilmente
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_ratones
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ratones.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

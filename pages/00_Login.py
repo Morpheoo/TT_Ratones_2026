@@ -211,17 +211,19 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 5. AUTH UTILITY
-from src.auth import authenticate, register_user
+
+
+# 5. AUTH UTILITY (Force Reload)
+from src.auth import authenticate, register_user, verify_otp, resend_verification_code, request_password_reset, reset_password
 
 # 6. LÓGICA DE SESIÓN
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if st.session_state.logged_in:
-    st.success(f"✅ Bienvenido, {st.session_state.user}")
+    st.success(f"Bienvenido, {st.session_state.user}")
     st.info(f"Rol: {st.session_state.role}")
-    if st.button("Salir"):
+    if st.button("Cerrar Sesión"):
         st.session_state.logged_in = False
         from src.session_utils import clear_session
         clear_session()
@@ -236,59 +238,185 @@ with c2:
     st.markdown('<h1 class="tt-title">SISTEMA EPM</h1>', unsafe_allow_html=True)
     st.markdown('<div class="tt-subtitle">Acceso exclusivo para investigadores IPN</div>', unsafe_allow_html=True)
 
-    tab_login, tab_register = st.tabs(["🔐 Iniciar Sesión", "📝 Registro IPN"])
-
-    with tab_login:
-        with st.form("login_form"):
-            email = st.text_input("Usuario", placeholder="correo@ipn.mx")
-            password = st.text_input("Contraseña", type="password", placeholder="••••••")
-            submitted = st.form_submit_button("INGRESAR")
-        if submitted:
-            user_info = authenticate(email, password)
-            if user_info:
-                st.session_state.logged_in = True
-                st.session_state.user = email
-                st.session_state.role = user_info["role"]
-                st.session_state.user_name = user_info["name"]
-                save_session()
-                st.rerun()
-            else:
-                st.error("❌ Credenciales incorrectas")
-
-    with tab_register:
-        st.info("Solo se permiten correos @ipn.mx para el registro.")
-        with st.form("register_form"):
-            new_name = st.text_input("Nombre Completo")
-            new_email = st.text_input("Correo Institucional", placeholder="usuario@ipn.mx")
-            new_pass = st.text_input("Contraseña", type="password")
-            confirm_pass = st.text_input("Confirmar Contraseña", type="password")
-            role = st.selectbox("Rol", ["Investigador", "Estudiante"])
+    # MODIFICACIÓN: Si hay verificación pendiente, ocultamos los tabs para no confundir
+    if st.session_state.get("show_verification"):
+        st.info(f"📧 Hemos enviado un código de verificación a: **{st.session_state.get('pending_email')}**")
+        st.warning("⚠️ Revisa tu carpeta de SPAM o 'Correo no deseado'.")
+        
+        st.markdown("### 🔐 Ingresa el Código")
+        with st.form("verify_form"):
+            otp_input = st.text_input("Código de 6 dígitos", max_chars=6, placeholder="Ej: 123456")
+            verify_btn = st.form_submit_button("VERIFICAR CUENTA")
             
-            # Reintegrar checkbox solo para registro
-            aceptar_aviso_reg = st.checkbox("Acepto el Aviso de Privacidad", key="reg_aviso")
-            
-            # Mostrar aviso en expander aquí mismo
-            with st.expander("📄 Ver Aviso de Privacidad"):
-                st.markdown(PRIVACY_NOTICE)
-                
-            reg_submitted = st.form_submit_button("CREAR CUENTA")
-
-        if reg_submitted:
-            if not aceptar_aviso_reg:
-                st.error("⚠️ Debes aceptar el Aviso de Privacidad para crear una cuenta.")
-            elif not new_email.endswith("@ipn.mx"):
-                st.error("❌ El correo debe ser institucional (@ipn.mx).")
-            elif new_pass != confirm_pass:
-                st.error("❌ Las contraseñas no coinciden.")
-            elif len(new_pass) < 6:
-                st.error("❌ La contraseña debe tener al menos 6 caracteres.")
-            else:
-                success, msg = register_user(new_email, new_pass, role, new_name)
+            if verify_btn:
+                success, msg = verify_otp(st.session_state.get("pending_email"), otp_input)
                 if success:
-                    st.success(f"✅ {msg}")
+                    st.success("✅ ¡Cuenta verificada! Accediendo...")
+                    st.session_state["show_verification"] = False
+                    st.session_state["pending_email"] = None
                     st.balloons()
+                    # Opcional: Auto-login si guardamos credentials
+                    st.rerun()
                 else:
                     st.error(f"❌ {msg}")
+                    
+        # Botón de reenvío fuera del form para no enviar el form principal
+        col_resend, col_back = st.columns([1, 1])
+        with col_resend:
+            if st.button("🔄 Reenviar Código"):
+                success_rs, msg_rs = resend_verification_code(st.session_state.get("pending_email"))
+                if success_rs:
+                    st.toast(msg_rs)
+                else:
+                    st.error(msg_rs)
+                    
+        with col_back:
+            if st.button("⬅️ Volver"):
+                st.session_state["show_verification"] = False
+                st.session_state["pending_email"] = None
+                st.rerun()
+
+    elif st.session_state.get("show_recovery"):
+        # PANTALLA DE RECUPERACIÓN DE CONTRASEÑA
+        st.markdown("### 🔄 Recuperar Contraseña")
+        
+        if not st.session_state.get("recovery_step_2"):
+            # PASO 1: Solicitar Correo
+            st.info("Ingresa tu correo institucional para recibir un código de recuperación.")
+            with st.form("recovery_req_form"):
+                rec_email = st.text_input("Correo Registrado", placeholder="usuario@ipn.mx")
+                req_btn = st.form_submit_button("ENVIAR CÓDIGO")
+                
+                if req_btn:
+                    success, msg = request_password_reset(rec_email)
+                    if success:
+                        st.session_state["recovery_email"] = rec_email
+                        st.session_state["recovery_step_2"] = True
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+            
+            if st.button("⬅️ Volver al Login"):
+                st.session_state["show_recovery"] = False
+                st.rerun()
+                
+        else:
+            # PASO 2: Ingresar OTP y Nueva pass
+            st.success(f"Código enviado a: {st.session_state.get('recovery_email')}")
+            with st.form("recovery_reset_form"):
+                otp_rec = st.text_input("Código de Verificación", max_chars=6)
+                new_p1 = st.text_input("Nueva Contraseña", type="password")
+                new_p2 = st.text_input("Confirmar Nueva Contraseña", type="password")
+                reset_btn = st.form_submit_button("CAMBIAR CONTRASEÑA")
+                
+                if reset_btn:
+                    if new_p1 != new_p2:
+                        st.error("Las contraseñas no coinciden.")
+                    elif len(new_p1) < 6:
+                        st.error("Mínimo 6 caracteres.")
+                    else:
+                        success, msg = reset_password(st.session_state.get("recovery_email"), otp_rec, new_p1)
+                        if success:
+                            st.success(msg)
+                            st.balloons()
+                            # Resetear estados y volver a login
+                            st.session_state["show_recovery"] = False
+                            st.session_state["recovery_step_2"] = False
+                            st.session_state["recovery_email"] = None
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                            
+            if st.button("⬅️ Cancelar"):
+                st.session_state["show_recovery"] = False
+                st.session_state["recovery_step_2"] = False
+                st.rerun()
+
+    else:
+        # PANTALLA NORMAL (Login / Registro)
+        tab_login, tab_register = st.tabs(["🔐 Iniciar Sesión", "📝 Registro IPN"])
+
+        with tab_login:
+            with st.form("login_form"):
+                email = st.text_input("Usuario", placeholder="correo@ipn.mx")
+                password = st.text_input("Contraseña", type="password", placeholder="••••••")
+                submitted = st.form_submit_button("INGRESAR")
+                
+                if submitted:
+                    # Intentar login
+                    auth_result = authenticate(email, password)
+                    
+                    if auth_result and auth_result.get("status") == "ACTIVE":
+                        st.session_state.logged_in = True
+                        st.session_state.user = auth_result["email"]
+                        st.session_state.role = auth_result["role"]
+                        st.session_state.user_name = auth_result["name"]
+                        save_session()
+                        st.success(f"✅ Bienvenido {auth_result['name']}")
+                        st.rerun()
+                        
+                    elif auth_result and auth_result.get("status") == "SUSPENDED":
+                        st.error("⛔ Tu cuenta ha sido SUSPENDIDA por un administrador.")
+                        st.warning("Contacta al administrador si crees que es un error.")
+
+                    elif auth_result and auth_result.get("status") == "NOT_VERIFIED":
+                        st.session_state["pending_email"] = email
+                        st.warning("⚠️ Tu cuenta no está verificada. Revisa tu correo IPN.")
+                        st.session_state["show_verification"] = True
+                        st.rerun()
+                        
+                    else:
+                        st.error("❌ Credenciales incorrectas o usuario no encontrado.")
+            
+            # Botón de Olvidé mi contraseña
+            st.markdown("---")
+            if st.button("¿Olvidaste tu contraseña?", type="secondary"):
+                st.session_state["show_recovery"] = True
+                st.rerun()
+
+        if st.session_state.get("show_verification"):
+           pass # Ya se mostró arriba
+
+
+        with tab_register:
+            st.info("Solo se permiten correos @ipn.mx o @alumno.ipn.mx para el registro.")
+            with st.form("register_form"):
+                new_name = st.text_input("Nombre Completo")
+                new_email = st.text_input("Correo Institucional", placeholder="usuario@alumno.ipn.mx")
+                new_pass = st.text_input("Contraseña", type="password", key="reg_pass")
+                confirm_pass = st.text_input("Confirmar Contraseña", type="password", key="reg_confirm")
+                new_role = st.selectbox("Rol", ["Investigador", "Estudiante"], key="reg_role")
+                
+                # Reintegrar checkbox solo para registro
+                aceptar_aviso_reg = st.checkbox("Acepto el Aviso de Privacidad", key="reg_aviso")
+                
+                # Mostrar aviso en expander aquí mismo
+                with st.expander("📄 Ver Aviso de Privacidad"):
+                    st.markdown(PRIVACY_NOTICE)
+                    
+                reg_submitted = st.form_submit_button("CREAR CUENTA")
+
+            if reg_submitted:
+                if not aceptar_aviso_reg:
+                    st.error("⚠️ Debes aceptar el Aviso de Privacidad para crear una cuenta.")
+                elif not (new_email.endswith("@ipn.mx") or new_email.endswith("@alumno.ipn.mx")):
+                    st.error("❌ El correo debe ser institucional (@ipn.mx o @alumno.ipn.mx).")
+                elif new_pass != confirm_pass:
+                    st.error("❌ Las contraseñas no coinciden.")
+                elif len(new_pass) < 6:
+                    st.error("❌ La contraseña debe tener al menos 6 caracteres.")
+                else:
+                    success, msg = register_user(new_email, new_pass, new_role, new_name)
+                    if success:
+                        st.success(f"✅ {msg}")
+                        # Auto-mostrar pantalla de verificación
+                        st.session_state["pending_email"] = new_email
+                        st.session_state["show_verification"] = True
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {msg}")
 
     # Pie de página
     st.markdown(

@@ -13,12 +13,16 @@ if "init_done" not in st.session_state:
     load_session()
     st.session_state.init_done = True
 
+# Inicializar dlc_device_opt si no existe
+if "dlc_device_opt" not in st.session_state:
+    st.session_state.dlc_device_opt = "Auto (Recomendado)"
+
 # ================= ENTORNO Y SEGURIDAD =================
 # Verificar que estemos usando el entorno correcto (3.11 para DLC)
 if not sys.version.startswith("3.11"):
     st.error(f"⚠️ **ENTORNO INCORRECTO**: Estás usando Python {sys.version.split()[0]}.")
-    st.info("Para usar DeepLabCut, debes cerrar esta pestaña y ejecutar la aplicación desde el entorno `dlc_env_311`.")
-    st.code(f"Usa el comando: ..\\DeepLabCut\\DeepLabCut\\dlc_env_311\\Scripts\\python.exe -m streamlit run Home.py")
+    st.info("Para usar DeepLabCut, debes cerrar esta pestaña y ejecutar la aplicación desde el entorno `venv_311`.")
+    st.code(f"Usa el comando: .\\venv_311\\Scripts\\python.exe -m streamlit run Home.py")
     if not st.checkbox("Continuar de todos modos (DLC no funcionará)"):
         st.stop()
 
@@ -41,7 +45,7 @@ if st.session_state.get("dlc_device_opt") == "CPU (Forzar)":
 # ================= 1. CONFIGURACIÓN =================
 st.set_page_config(
     page_title="TT Ratones 2026 - Home",
-    page_icon="🐁",
+    page_icon="logo_ria.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -79,7 +83,7 @@ else:
 
 st.sidebar.markdown("---")
 
-if st.sidebar.button("🗑️ Limpiar Sesión y Salir"):
+if st.sidebar.button("Cerrar Sesión"):
     from session_utils import clear_session
     clear_session()
     for key in list(st.session_state.keys()):

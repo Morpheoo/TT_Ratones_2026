@@ -4,6 +4,8 @@ import numpy as np
 import plotly.express as px
 import os
 import sys
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 # ================= 0. PERSISTENCIA =================
 if os.getcwd() not in sys.path:
@@ -16,6 +18,12 @@ load_session()
 # =============== 1. VERIFICAR LOGIN ==================
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
+    st.stop()
+
+# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
+if st.session_state.get("role") == "admin":
+    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
+    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
     st.stop()
 
 # OJO: set_page_config ya se hace en Login/Home. No lo repetimos aquí para evitar error.
@@ -149,8 +157,57 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# =============== 5. CARGA DE DATOS (REAL O SIMULADA) =================
-if "resultados_analisis" not in st.session_state:
+# =============== 5. CARGA DE DATOS (HISTORIAL DB) =================
+from src.db.connection import get_db_engine
+from sqlalchemy import text
+
+st.sidebar.markdown("### 📂 Historial de Experimentos")
+engine = get_db_engine()
+df_db = None
+
+if engine:
+    try:
+        with engine.connect() as conn:
+            # Listar experimentos recientes
+            query_list = text("""
+                SELECT id, rat_id, treatment, experiment_date, created_at 
+                FROM experiments 
+                ORDER BY created_at DESC LIMIT 10
+            """)
+            exps = conn.execute(query_list).fetchall()
+            
+            opciones_exp = {f"{e[1]} ({e[2]}) - {e[3]} [ID:{e[0]}]": e[0] for e in exps}
+            
+            sel_exp_label = st.sidebar.selectbox("Cargar experimento previo:", ["Seleccionar..."] + list(opciones_exp.keys()))
+            
+            if sel_exp_label != "Seleccionar...":
+                exp_id = opciones_exp[sel_exp_label]
+                
+                # Cargar métricas de ese experimento
+                q_res = text("""
+                    SELECT * FROM analysis_results WHERE experiment_id = :eid ORDER BY timestamp DESC LIMIT 1
+                """)
+                res_data = conn.execute(q_res, {"eid": exp_id}).fetchone()
+                
+                if res_data:
+                    # Si tuviéramos tabla detallada de frames, la cargaríamos aquí.
+                    # Por ahora simulamos el DF temporal si no existe o usamos lógica híbrida.
+                    # Mapear columnas de BD a variables locales para visualización
+                    st.session_state["db_metrics"] = {
+                        "total_time": 300, # Placeholder si no guardamos duración
+                        "open": res_data.time_open_arms,
+                        "closed": res_data.time_closed_arms,
+                        "center": res_data.time_center,
+                        "grooming": res_data.grooming_duration,
+                        "thigmo": res_data.thigmotaxis_duration
+                    }
+                    st.success(f"Datos cargados del Experimento ID: {exp_id}")
+                else:
+                    st.warning("Experiment sin resultados procesados.")
+    except Exception as e:
+        st.sidebar.error(f"Error BD: {e}")
+
+if "resultados_analisis" not in st.session_state and "db_metrics" not in st.session_state:
     st.markdown('<div class="tt-card">', unsafe_allow_html=True)
     st.warning("⚠️ No hay datos de un análisis reciente.")
 
@@ -182,6 +239,8 @@ if "resultados_analisis" not in st.session_state:
                 "Zona": zonas_sim,
                 "x": x_sim,
                 "y": y_sim,
+                "Grooming": np.zeros(n_frames),
+                "Thigmotaxis": np.zeros(n_frames)
             }
         )
 
@@ -207,7 +266,21 @@ indice_ansiedad = (tiempo_abiertos / total_tiempo) * 100 if total_tiempo > 0 els
 # =============== 7. PANEL DE MÉTRICAS =================
 st.markdown('<div class="tt-section-title">🧬 Indicadores Clave de Ansiedad</div>', unsafe_allow_html=True)
 
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+# Si viene de DB, usamos esos valores
+if "db_metrics" in st.session_state:
+    m = st.session_state["db_metrics"]
+    total_tiempo = m.get("open", 0) + m.get("closed", 0) + m.get("center", 0)
+    tiempo_abiertos = m.get("open", 0)
+    tiempo_cerrados = m.get("closed", 0)
+    grooming_val = m.get("grooming", 0)
+    thigmo_val = m.get("thigmo", 0)
+    indice_ansiedad = (tiempo_abiertos / total_tiempo * 100) if total_tiempo > 0 else 0
+else:
+    # Viene de dataframe en memoria
+    grooming_val = df["Grooming"].sum() * (1/10) if "Grooming" in df.columns else 0
+    thigmo_val = df["Thigmotaxis"].sum() * (1/10) if "Thigmotaxis" in df.columns else 0
+
+kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
 
 with kpi1:
     st.markdown('<div class="tt-metric-card">', unsafe_allow_html=True)
@@ -217,23 +290,26 @@ with kpi1:
 with kpi2:
     st.markdown('<div class="tt-metric-card">', unsafe_allow_html=True)
     st.metric(
-        "Tiempo en Brazos Abiertos",
+        "T. Brazos Abiertos",
         f"{tiempo_abiertos:.1f} s",
-        delta=f"{indice_ansiedad:.1f}% del total",
+        delta=f"{indice_ansiedad:.1f}%",
         delta_color="normal" if indice_ansiedad > 20 else "inverse",
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
 with kpi3:
     st.markdown('<div class="tt-metric-card">', unsafe_allow_html=True)
-    st.metric("Tiempo en Brazos Cerrados", f"{tiempo_cerrados:.1f} s")
+    st.metric("T. Brazos Cerrados", f"{tiempo_cerrados:.1f} s")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with kpi4:
-    cambios = df["Zona"] != df["Zona"].shift(1)
-    num_entradas = cambios.sum()
     st.markdown('<div class="tt-metric-card">', unsafe_allow_html=True)
-    st.metric("Actividad (Entradas)", f"{num_entradas}")
+    st.metric("Acicalamiento", f"{grooming_val:.1f} s")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with kpi5:
+    st.markdown('<div class="tt-metric-card">', unsafe_allow_html=True)
+    st.metric("Contacto Pared", f"{thigmo_val:.1f} s")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =============== 8. GRÁFICAS INTERACTIVAS =================
@@ -327,7 +403,72 @@ with c2:
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# =============== 10. EXPORTACIÓN =================
+# =============== 10. MINERÍA DE DATOS (K-MEANS) =================
+st.write("")
+st.markdown(
+    '<div class="tt-section-title">🧠 Minería de Datos (Clustering de Comportamiento)</div>',
+    unsafe_allow_html=True,
+)
+st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+
+if len(df) > 10:
+    st.info("🤖 El algoritmo K-Means agrupa automáticamente los momentos del experimento en 'Estados de Comportamiento' basados en velocidad y posición.")
+    
+    # 1. Preparar datos para clustering
+    # Calculamos velocidad instantánea entre puntos
+    df_ml = df.copy()
+    df_ml["dx"] = df_ml["x"].diff().fillna(0)
+    df_ml["dy"] = df_ml["y"].diff().fillna(0)
+    df_ml["velocity"] = np.sqrt(df_ml["dx"]**2 + df_ml["dy"]**2)
+    
+    # Distancia al centro (asumiendo centro aprox en 400,300 de canvas 800x600 o calcular media)
+    center_x, center_y = 400, 300
+    df_ml["dist_center"] = np.sqrt((df_ml["x"] - center_x)**2 + (df_ml["y"] - center_y)**2)
+    
+    # Features para el modelo
+    X = df_ml[["velocity", "dist_center"]].values
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # 2. Entrenar K-Means
+    n_clusters = st.slider("Número de Agrupamientos (Clusters)", 2, 5, 3)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    df_ml["Cluster"] = kmeans.fit_predict(X_scaled)
+    
+    # 3. Visualizar
+    col_k1, col_k2 = st.columns([2, 1])
+    
+    with col_k1:
+        fig_cluster = px.scatter(
+            df_ml,
+            x="x",
+            y="y",
+            color=df_ml["Cluster"].astype(str),
+            title="Mapa de Comportamientos Identificados",
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        fig_cluster.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color=colors["text_main"])
+        )
+        # Invertir Y para que coincida con video
+        fig_cluster.update_yaxes(autorange="reversed")
+        st.plotly_chart(fig_cluster, use_container_width=True)
+        
+    with col_k2:
+        st.markdown("**Análisis de Clusters:**")
+        # Interpretar clusters (básico)
+        comps = df_ml.groupby("Cluster")[["velocity", "dist_center"]].mean()
+        for c_id, row in comps.iterrows():
+            vel_desc = "Alta" if row["velocity"] > df_ml["velocity"].mean() else "Baja"
+            pos_desc = "Periferia" if row["dist_center"] > df_ml["dist_center"].mean() else "Centro"
+            st.markdown(f"- **Grupo {c_id}:** Movilidad {vel_desc}, Tendencia a {pos_desc}")
+            
+else:
+    st.warning("Necesitamos más datos para ejecutar Minería de Datos.")
+
+st.markdown("</div>", unsafe_allow_html=True)
 from src.reporting import generate_pdf_report
 
 st.write("")

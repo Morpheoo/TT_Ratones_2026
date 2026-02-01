@@ -1,0 +1,549 @@
+--- Page 66 ---
+Pennington et al. indican que los sistemas automatizados, como EzTrack, tienen la capacidad de
+reemplazar el registro manual. Estos sistemas posibilitan seguir el recorrido del animal y estimar
+métricas con mayor exactitud [5]. Esto ha permitido una disminución del sesgo observador y una
+mejora de la reproducibilidad, convirtiéndose en un instrumento accesible y reproducible [5].
+
+Mathis et al. subrayan que tecnologías como DeepLabCut posibilitan la estimación de la postura del
+animal sin requerir marcadores [12]. Esto extiende el análisis del EPM a aspectos más detallados de la
+conducta, como los micro movimientos y los patrones de exploración.
+
+Mobbs et al. [40] describen que la amígdala, el hipocampo y la corteza prefrontal intervienen en el
+control de la ansiedad, pues se activan ante circunstancias de peligro. El EPM ha posibilitado el
+reconocimiento de la interrelación entre estos sistemas de               defensa y exploración, proporcionando
+pruebas sobre la neurobiología de la ansiedad, y de acuerdo con Bailey, Capozzi y Lowry, el EPM es
+un modelo traslacional, ya que los patrones de ansiedad detectados en roedores están vinculados a
+trastornos en seres humanos [10].
+
+Su diseño simple, parámetros definidos y validación farmacológica lo hacen un modelo sólido para
+investigar la ansiedad al medir directamente la conducta de aproximación-evitación en un ambiente
+controlado.
+3.5 Sistema operativo
+El sistema operativo (SO)        es el software que se ejecuta en una computadora, actuando como un
+intermediario entre el hardware y el software. El SO decide qué proceso recibirá acceso a la CPU y
+por cuánto tiempo, gestiona la memoria RAM asignando espacio a cada aplicación y protegiendo ese
+espacio. También administra el disco duro para que se puedan guardar y recuperar archivos.
+3.5.1 Windows 10/11
+Windows es un sistema operativo creado por Microsoft. Este software se compone de un grupo de
+programas que permiten gestionar y controlar el funcionamiento de varias partes de un ordenador,
+como la memoria, el disco duro y los dispositivos periféricos [83].
+3.6 Lenguaje de programación
+Un lenguaje de programación es un conjunto de reglas, símbolos y palabras clave que permiten la
+creación  de  instrucciones.  Estas  instrucciones  se  combinan  para  formar  un  programa  que  una
+computadora puede ejecutar y así llevar a cabo tareas específicas. La principal función de un lenguaje
+de programación es facilitar a los desarrolladores la escritura de algoritmos de manera lógica y
+estructurada.
+3.6.1 Python
+Python se erige como un lenguaje de programación robusto y de fácil asimilación. Su diseño incorpora
+estructuras de datos de alto nivel notablemente eficientes, complementadas por una metodología de
+programación orientada a objetos. La funcionalidad del intérprete de Python es extensible mediante la
+incorporación de nuevas funciones y tipos de datos implementados en lenguajes de bajo nivel como C
+o  C++.    Esto,  a  su  vez,  posiciona  a  Python  como  un  lenguaje  de  extensión  óptimo  para  la
+personalización de aplicaciones preexistentes [84].
+
+                                                                                                                      66
+
+--- Page 67 ---
+Capítulo 4. Análisis
+4.1 Requerimientos
+
+4.1.1 Requerimientos Funcionales (RF)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      Tabla 3: "Requerimientos Funcionales (RF)"
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                  67
+
+--- Page 68 ---
+4.1.2 Requerimientos No Funcionales (RNF)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                       Tabla 4: "Requerimientos No Funcionales (RNF)
+4.1.3 Reglas del negocio
+Las reglas del negocio constituyen los principios rectores que orientan la planificación, ejecución y
+validación     de     cada     iteración     dentro     de     la          metodología     espiral     de     Boehm.
+Estas reglas establecen los límites, prioridades y criterios de éxito del proyecto, asegurando que el
+desarrollo    mantenga    su    enfoque    académico,    ético    y    técnico    en    todo    momento.
+Cada iteración de la espiral tiene que ser planificada, llevada a cabo y evaluada según las pautas que
+se describen a continuación.
+
+Las reglas del negocio permiten:
+
+    •    Estandarizar las decisiones y acciones, evitando ambigüedad en los procesos.
+
+                                                                                                                           68
+
+--- Page 69 ---
+    •    Garantizar cumplimiento con políticas académicas, técnicas y éticas.
+
+    •    Reducir riesgos y errores, al establecer con claridad las condiciones y los límites del flujo de
+         trabajo.
+
+    •    Alinear la planificación y validación del prototipo conforme a los criterios de éxito definidos.
+
+Estas reglas tienen que redactarse          en un lenguaje que sea claro, comprobable y medible. En este
+proyecto, las normas de la empresa garantizarán que:
+
+    •    Cada iteración cumpla con los estándares éticos y metodológicos del IPN.
+
+    •    Los resultados de IA y minería de datos deben ser trazables y validados.
+
+    •    Las decisiones acerca de los ajustes o mejoras de modelo se toman utilizando en métricas
+         objetivas.
+
+Cada  iteración  de  la  espiral  debe  planificarse,  ejecutarse  y  evaluarse  conforme  a  estas  reglas,
+garantizando  un  desarrollo  controlado,  reproducible  y  alineado  con  los  objetivos  científicos  y
+académicos del Trabajo Terminal.
+
+A continuación, se detallan las reglas de negocio que rigen la operación, validación y mantenimiento
+del   prototipo      de   análisis   automatizado   de   comportamiento   en   modelos   de   ansiedad.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                          69
+
+--- Page 70 ---
+Cada regla está formulada de manera verificable, clara y orientada a buenas prácticas de ingeniería de
+software:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                Tabla 5: "Reglas de Negocio"
+4.2 Análisis de las herramientas a utilizar
+Las herramientas por utilizar en este prototipo se dividen de la siguiente manera:
+
+
+                                                                                                                          70
+
+--- Page 71 ---
+    •    Técnicas de visión por computadora.
+    •    Arquitectura de aprendizaje profundo (Deep Learning).
+    •    Algoritmos de clasificación (Clustering).
+    •    Herramientas estadísticas.
+    •    Conceptos etológicos para análisis de ansiedad.
+4.2.1 Análisis de técnicas de detección de objetos
+Se analizaron las siguientes técnicas de detección de objetos:
+
+
+
+
+
+
+
+
+
+                       Tabla 6: "Tabla de análisis de técnicas de detección de objetos [autoría propia]"
+
+Se optó por utilizar YOLO         (You Only Look Once)          sobre otras herramientas debido a que su tiempo
+de inferencia fue menor que         varias implementaciones de Faster R          -CNN con solo un tiempo de 13.5
+milisegundos [55]. También suele ser más preciso que Retina Ne                 t y EfficientDet por márgenes de más
+de 40% [56]. Por otra parte, Adhikari et al sostienen que              YOLO equilibra mejores factores como la
+precisión, velocidad, robustez y facilidad de         uso [57].
+4.2.2 Análisis de técnicas de estimación de pose con aprendizaje profundo
+Se analizaron las siguientes      técnicas de estimación de pose con aprendizaje profundo               :
+
+
+
+
+
+
+
+
+
+          Tabla 7: "Tabla de análisis de técnicas de estimación de pose con aprendizaje profundo [autoría propia]"
+A pesar de que     DLC (DeepLabCut), DPK (DeepPoseKit) y SLEAP poseen características similares
+entre sí. DLC ofrece una mejor precisión a diferencia de DPK y SLEAP, dicha precisión de DLC puede
+ser comparada con la precisión humana.              DLC es más robusto que           LEAP y SLEAP para manejar
+oclusiones [58].     DLC puede ser entrenado para ser preciso con datasets pequeños de 100 a 200
+imágenes, en comparación con otras herramientas que utilizan mayores cantidades de datos y no
+alcanzan una precisión como la de         DLC [59].
+
+
+4.2.3 Análisis de técnicas de estimación de pose
+Se analizaron las siguientes técnicas de estimación de pose             :
+
+
+
+
+
+
+                                                                                                                         71
+
+--- Page 72 ---
+                        Tabla 8: "Tabla de análisis de técnicas de estimación de pose [autoría propia]"
+Según Lauer et al, Pose Estimation basada en DLC suele ser precisa sin necesidad de un marcador
+además de que es adaptable a varias especies de animales [60]. Mientras tanto, Kinect Skeleton y Vicon
+requieren de marcadores y es limitado en entornos naturales [61].
+4.2.4 Análisis de herramientas de seguimiento visual
+Se analizaron las siguientes herramientas de seguimiento visual:
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      Tabla 9: "Tabla de análisis de herramientas de seguimiento visual [autoría propia]"
+
+Se eligió CAMShift gracias a su simplicidad y eficiencia. CAMShift es basado en color y es útil en
+entornos controlados [62]. En cambio, MeanShift se pierde fácilmente con cambios de escala [63].
+CAMShift no requiere una carga significativa de recursos computacionales a diferencia de CSRT y
+KLT que, no solo requieren más recursos, sino que también no funciona bien con oclusiones [64].
+4.2.5 Análisis de arquitecturas de redes neuronales profundas para visión por
+computadora
+
+
+
+
+
+
+
+
+
+
+
+
+  Tabla 10: "Tabla de análisis de arquitecturas de redes neuronales profundas para visión por computadora [autoría propia]"
+Se optó por usar CNN como arquitectura para visión por computadora debido a que, a diferencia de
+MLP, CNN aplica filtros para detectar patrones jerárquicos, desde bordes                      hasta objetos. En cambio,
+
+                                                                                                                           72
+
+--- Page 73 ---
+MLP trata a la imagen como un vector plano ignorando relaciones especiales [65]. Según Rajagukguk
+et al, CNN tiene una aplicación exitosa en la supervisión de animales [66].
+4.2.6 Análisis de arquitecturas de aprendizaje profundo para series temporales
+De forma conjunta, se optó por utilizar las siguientes arquitecturas:
+
+    •   RNN (Red Neuronal Recurrente).
+    •   LSTM (Long Short-Term Memory).
+    •   Transformers.
+Según Cole, RNN incorpora cada nueva secuencia y la salida depende de las secuencias ingresadas
+con anterioridad, además de que maneja entradas y salidas de longitud variable [67]. Por otra parte, las
+LSTM retienen información por largos períodos de tiempos capturando tendencias de largo plazo [68].
+Mientras tanto, los Transformers suelen examinar las secuencias de entrada simultáneamente en vez
+de paso a paso [69].
+4.2.7 Análisis de técnicas de minería de datos
+Se optó por utilizar K-Means ya que reduce la complejidad de una imagen ya que se puede utilizar
+como herramienta de apoyo para segmentar poblaciones [70]. Por otra parte, Random Forest ayuda a
+clasificar el comportamiento animal a partir de datos de postura o movimiento, según Rew et al [71].
+Las Máquinas de Soporte Vectorial (SVM) son una opción robusta para clasificar comportamientos de
+animales cuando se cuentan con datos de etiquetado para el entrenamiento, según Mosquera et al [72].
+4.2.8 Análisis de sistemas operativos
+Se analizaron los siguientes sistemas operativos:
+
+
+
+
+
+
+
+Se optó por usar Windows como sistema operativo del prototipo debido a su compatibilidad con
+herramientas  de  Deep  Learning  además  de  que  hay  soporte  técnico  comercial  que  evita
+incompatibilidades entre herramientas.
+4.2.9 Análisis de los lenguajes de programación
+Se analizaron los siguientes lenguajes de programación:
+
+
+
+
+
+
+
+
+
+
+                                                                                                                    73
+
+--- Page 74 ---
+Se optó por utilizar el lenguaje de programación Python debido a su velocidad de desarrollo y
+rendimiento en tareas de Machine Learning.
+4.3 Análisis de riesgos
+En concordancia con la metodología espiral de Boehm, se determina un proceso sistemático
+para detectar, evaluar y manejar los riesgos relacionados con el desarrollo del prototipo. Este
+procedimiento es un elemento fundamental de la planificación porque posibilita prever eventos
+que tienen el potencial de afectar la calidad del sistema, su continuidad operativa o la fiabilidad
+de  los  resultados  experimentales.  El  manejo adecuado de  estos riesgos tiene como objetivo
+preservar la estabilidad del equipo laboral, garantizar la disponibilidad e integridad de los datos y
+asegurar que se alcancen dentro del plazo y de manera apropiada las metas científicas e institucionales
+del proyecto.
+
+Para comenzar con el análisis, se detectaron varios factores de riesgo en función de su tipo y se agrupan
+de acuerdo con su naturaleza, y cómo se relacionan con el ciclo de vida del proyecto:
+
+    •    Económico: Eventos que afectan los costos del proyecto, como sobrecosto en infraestructura o
+         recursos.
+
+    •    Operativo: Situaciones que afectan la continuidad operativa o la ejecución diaria del proyecto.
+
+    •    Temporal: Factores que pueden provocar retrasos debido a la complejidad de tareas, procesos
+         lentos o dependencias entre componentes.
+
+    •    Técnico: Riesgos relacionados con el funcionamiento del software, modelos de IA, datos,
+         hardware o infraestructura tecnológica.
+
+    •    Recursos:  Limitaciones  o  falta  de  disponibilidad  de  hardware,  software,  personal  o
+         herramientas necesarias para avanzar.
+
+    •    Organizacional:  Fallas  internas  relacionadas  con  procesos  administrativos,  alineación  de
+         objetivos o estructura del equipo.
+
+    •    Falta  de  claridad:  Problemas  derivados  de  comunicación  deficiente,  roles  indefinidos  o
+         instrucciones ambiguas entre los integrantes del equipo.
+
+    •    Externo: Factores fuera del control del equipo, como contingencias institucionales, sociales o
+         fallas de servicios externos.
+
+    •    Personal: Problemas interpersonales o de comunicación que afectan el flujo de trabajo y la
+         comprensión de objetivos.
+Para clasificar cada riesgo el equipo          definió criterios y rangos porcentuales           en  una tabla auxiliar
+llamada “Tabla de Evaluación de Impacto”, en donde se establece el nivel de severidad que tendría un
+riesgo si  este  llegara a presentarse, expresado mediante valores porcentuales asociados a afectación
+menor, compromiso de entregables o impacto crítico para el proyecto
+
+
+
+
+                                                                                                                        74
+
+--- Page 75 ---
+                                  Tabla 6. Tabla de Evaluación de Impacto [autoría propia]
+
+Tras establecer los grados de impacto, se calculó el riesgo total vinculado a cada evento usando la
+siguiente fórmula:
+
+                                 RE (Riesgo) = P (Probabilidad) x I (Impacto)
+
+Esta expresión se refiere al modelo que la literatura acepta en gran medida para medir el nivel de
+riesgo. En esta, RE significa exposición total al riesgo, P es la probabilidad de ocurrencia expresada
+como porcentaje e I es la severidad del impacto también en porcentaje.
+
+La fórmula se fundamenta en la definición oficial de riesgo de la norma internacional ISO 31000, que
+lo describe como la combinación entre la probabilidad de un evento y sus consecuencias [53].
+Asimismo, coincide con la definición presentada por el National Institute of Standards and Technology
+(NIST) específicamente en la “NIST Special Publication 800-30”, una guía de 95 páginas para la
+evaluación de riesgos, en la cual el riesgo se define como el producto de la probabilidad de que un
+evento ocurra y el impacto que genera dentro del sistema evaluado [54]. Dada la publicación de
+Beazley Group [52], esta misma relación matemática se utiliza en guías aplicadas para el análisis de
+riesgo, las cuales son empleadas en el sector de la ciberseguridad y tecnológico,                        por lo que su
+aplicación es completamente coherente con proyectos relacionados con ingeniería y software.
+
+Finalmente, se presenta la Tabla de Clasificación de Riesgos, que permite identificar y categorizar
+cada riesgo según su nivel de impacto real, facilitando la evaluación objetiva de su severidad y la
+priorización de las medidas de mitigación correspondientes
+
+
+
+
+
+
+
+
+
+
+                                                                                                                        75
+

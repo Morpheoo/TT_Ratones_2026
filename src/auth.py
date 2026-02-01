@@ -1,66 +1,227 @@
-import json
-import os
+import random
 import hashlib
-
-# Path to the users database
-USERS_DB = os.path.join("data", "users.json")
+from sqlalchemy import text
+from .db.connection import get_db_engine
+from .email_utils import send_verification_email
 
 def hash_password(password: str) -> str:
-    """Simple SHA-256 hashing for demo purposes."""
+    """Simple SHA-256 hashing."""
     return hashlib.sha256(password.encode()).hexdigest()
 
-def ensure_db_exists():
-    """Ensure the data directory and users.json exist."""
-    os.makedirs("data", exist_ok=True)
-    if not os.path.exists(USERS_DB):
-        # Default users
-        default_users = {
-            "investigador@escom.ipn.mx": {
-                "password": hash_password("tt2026"),
-                "role": "Investigador",
-                "name": "Investigador Principal"
-            },
-            "admin": {
-                "password": hash_password("admin"),
-                "role": "Administrador",
-                "name": "Administrador del Sistema"
-            }
-        }
-        with open(USERS_DB, "w", encoding="utf-8") as f:
-            json.dump(default_users, f, indent=4)
-
 def authenticate(email, password):
-    """Authenticate a user against the JSON database."""
-    ensure_db_exists()
+    """Authenticate a user against the PostgreSQL database."""
+    engine = get_db_engine()
+    if not engine:
+        return None
+
     try:
-        with open(USERS_DB, "r", encoding="utf-8") as f:
-            users = json.load(f)
-        
-        user_info = users.get(email)
-        if user_info and user_info["password"] == hash_password(password):
-            return user_info
+        with engine.connect() as conn:
+            # Buscar usuario por email (username en el schema es el email)
+            # El schema usa 'username' pero el login pide email. Asumimos username = email.
+            query = text("SELECT id, username, password_hash, role FROM users WHERE username = :email")
+            result = conn.execute(query, {"email": email}).fetchone()
+            
+            if result:
+                # result: (id, username, password_hash, role)
+                stored_hash = result[2]
+                role = result[3]
+                # En el futuro, podríamos tener una columna 'name' real. Por ahora usamos el username/email.
+                name = result[1] 
+                
+                if stored_hash == hash_password(password):
+                    # Verificar si la cuenta está activa (SUSPENSIÓN)
+                    check_active = text("SELECT is_active, is_verified FROM users WHERE id = :uid")
+                    res_status = conn.execute(check_active, {"uid": result[0]}).fetchone()
+                    
+                    is_active = res_status[0]
+                    is_ver = res_status[1]
+
+                    if is_active is False:
+                        return {"status": "SUSPENDED", "email": email}
+
+                    if is_ver is None: # Si por alguna razón es NULL, asumimos False o legacy
+                        is_ver = False
+                        
+                    if not is_ver:
+                        return {"status": "NOT_VERIFIED", "email": email}
+                        
+                    return {
+                        "name": name,
+                        "role": role,
+                        "email": email,
+                        "status": "ACTIVE"
+                    }
     except Exception as e:
-        print(f"Error during authentication: {e}")
+        print(f"[-] Error en autenticación BD: {e}")
+    
     return None
 
+def validate_ipn_domain(email: str) -> bool:
+    """Valida si el correo pertenece al dominio IPN."""
+    allowed_domains = ["@ipn.mx", "@alumno.ipn.mx"]
+    return any(email.endswith(dom) for dom in allowed_domains)
+
+def check_admin_access(role: str) -> bool:
+    """Verifica si el rol tiene acceso de administrador."""
+    return role == "admin"
+
 def register_user(email, password, role, name):
-    """Register a new user in the system."""
-    ensure_db_exists()
+    """Register a new user in the PostgreSQL database with pending verification."""
+    
+    # 1. Validar Dominio IPN
+    if not validate_ipn_domain(email):
+        return False, "❌ Registro restringido. Debes usar un correo institucional (@ipn.mx o @alumno.ipn.mx)."
+        
+    engine = get_db_engine()
+    if not engine:
+        return False, "No hay conexión a la base de datos."
+
     try:
-        with open(USERS_DB, "r", encoding="utf-8") as f:
-            users = json.load(f)
-        
-        if email in users:
-            return False, "El usuario ya existe."
-        
-        users[email] = {
-            "password": hash_password(password),
-            "role": role,
-            "name": name
-        }
-        
-        with open(USERS_DB, "w", encoding="utf-8") as f:
-            json.dump(users, f, indent=4)
-        return True, "Usuario registrado exitosamente."
+        with engine.connect() as conn:
+            # 2. Verificar si existe
+            check = text("SELECT id FROM users WHERE username = :email")
+            if conn.execute(check, {"email": email}).fetchone():
+                return False, "⚠️ El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
+            
+            # 3. Generar Código OTP
+            otp_code = str(random.randint(100000, 999999))
+            
+            # 4. Insertar como No Verificado con Timestamp
+            insert = text("""
+                INSERT INTO users (username, password_hash, role, is_verified, verification_code, verification_code_created_at) 
+                VALUES (:email, :pwd, :role, FALSE, :otp, CURRENT_TIMESTAMP)
+            """)
+            
+            conn.execute(insert, {
+                "email": email,
+                "pwd": hash_password(password),
+                "role": role,
+                "otp": otp_code
+            })
+            conn.commit()
+            
+            # 5. Enviar Correo
+            print(f"[*] Enviando código {otp_code} a {email}...")
+            sent, msg = send_verification_email(email, otp_code)
+            
+            if not sent:
+                print(f"[-] Fallo envío de correo: {msg}")
+                # Opcional: Podríamos borrar el usuario o dejarlo para reintento. 
+                # Por ahora retornamos éxito parcial user UX.
+                return True, f"Usuario creado, pero hubo error enviando correo: {msg}. (Código simulado para debug: {otp_code})"
+            
+            return True, "✅ Código de verificación enviado a tu correo IPN."
+            
     except Exception as e:
-        return False, f"Error al registrar usuario: {e}"
+        return False, f"Error BD: {e}"
+
+def verify_otp(email, code):
+    """Verifica el código OTP y activa la cuenta. Incluye validación de expiración (5 mins)."""
+    engine = get_db_engine()
+    try:
+        with engine.connect() as conn:
+            # Buscar usuario, código y timestamp
+            query = text("SELECT id, verification_code, verification_code_created_at FROM users WHERE username = :email")
+            res = conn.execute(query, {"email": email}).fetchone()
+            
+            if not res:
+                return False, "Usuario no encontrado."
+                
+            db_code = res[1]
+            created_at = res[2]
+            
+            # Validación de expiración (5 minutos)
+            if created_at:
+                check_time = text("""
+                    SELECT EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - verification_code_created_at))/60 
+                    FROM users WHERE username = :e
+                """)
+                minutes_passed = conn.execute(check_time, {"e": email}).scalar() or 0
+                
+                if minutes_passed > 5:
+                    return False, "⏳ El código ha expirado (más de 5 mins). Solicita uno nuevo."
+
+            if str(db_code).strip() == str(code).strip():
+                # Activar
+                update = text("UPDATE users SET is_verified = TRUE, verification_code = NULL WHERE username = :email")
+                conn.execute(update, {"email": email})
+                conn.commit()
+                return True, "¡Cuenta verificada exitosamente!"
+            else:
+                return False, "Código incorrecto."
+    except Exception as e:
+        return False, f"Error: {e}"
+
+def resend_verification_code(email):
+    """Genera un nuevo código y actualiza el timestamp."""
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            # Verificar si existe el usuario primero
+            check = text("SELECT id FROM users WHERE username = :email")
+            if not conn.execute(check, {"email": email}).fetchone():
+                return False, "Usuario no encontrado."
+
+            new_otp = str(random.randint(100000, 999999))
+            
+            update = text("""
+                UPDATE users 
+                SET verification_code = :otp, verification_code_created_at = CURRENT_TIMESTAMP 
+                WHERE username = :email
+            """)
+            conn.execute(update, {"otp": new_otp, "email": email})
+            conn.commit()
+            
+            sent, msg = send_verification_email(email, new_otp)
+            if sent:
+                return True, "✅ Nuevo código enviado."
+            else:
+                return False, f"Error enviando correo: {msg} (Código debug: {new_otp})"
+    except Exception as e:
+        return False, f"Error BD: {e}"
+
+def request_password_reset(email):
+    """Inicia el proceso de recuperación de contraseña."""
+    return resend_verification_code(email) # Reutilizamos la lógica de generar OTP
+
+def reset_password(email, otp, new_password):
+    """Verifica OTP y actualiza la contraseña."""
+    engine = get_db_engine()
+    try:
+        with engine.connect() as conn:
+            # 1. Verificar OTP
+            query = text("SELECT verification_code, verification_code_created_at FROM users WHERE username = :email")
+            res = conn.execute(query, {"email": email}).fetchone()
+            
+            if not res:
+                return False, "Usuario no encontrado."
+            
+            db_code = res[0]
+            created_at = res[1]
+            
+            # Checar expiración (reutilizando lógica, idealmente refactorizar en función helper)
+            if created_at:
+                check_time = text("""
+                    SELECT EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - verification_code_created_at))/60 
+                    FROM users WHERE username = :e
+                """)
+                minutes_passed = conn.execute(check_time, {"e": email}).scalar() or 0
+                if minutes_passed > 5:
+                     return False, "⏳ El código ha expirado."
+
+            if str(db_code).strip() != str(otp).strip():
+                return False, "Código incorrecto."
+
+            # 2. Actualizar Password
+            update = text("""
+                UPDATE users 
+                SET password_hash = :pwd, verification_code = NULL, is_verified = TRUE 
+                WHERE username = :email
+            """)
+            conn.execute(update, {"pwd": hash_password(new_password), "email": email})
+            conn.commit()
+            
+            return True, "✅ Contraseña actualizada exitosamente."
+            
+    except Exception as e:
+        return False, f"Error BD: {e}"
