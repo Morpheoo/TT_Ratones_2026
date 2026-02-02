@@ -1,12 +1,22 @@
 import random
-import hashlib
+import random
+import bcrypt
 from sqlalchemy import text
 from .db.connection import get_db_engine
 from .email_utils import send_verification_email
 
 def hash_password(password: str) -> str:
-    """Simple SHA-256 hashing."""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Bcrypt hashing."""
+    # Hash password with a randomly generated salt
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    return hashed.decode('utf-8')
+
+def check_password(password: str, hashed: str) -> bool:
+    """Verify password against bcrypt hash."""
+    try:
+         return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    except ValueError:
+         return False
 
 def authenticate(email, password):
     """Authenticate a user against the PostgreSQL database."""
@@ -28,7 +38,7 @@ def authenticate(email, password):
                 # En el futuro, podríamos tener una columna 'name' real. Por ahora usamos el username/email.
                 name = result[1] 
                 
-                if stored_hash == hash_password(password):
+                if check_password(password, stored_hash):
                     # Verificar si la cuenta está activa (SUSPENSIÓN)
                     check_active = text("SELECT is_active, is_verified FROM users WHERE id = :uid")
                     res_status = conn.execute(check_active, {"uid": result[0]}).fetchone()
@@ -86,34 +96,41 @@ def register_user(email, password, role, name):
             # 3. Generar Código OTP
             otp_code = str(random.randint(100000, 999999))
             
-            # 4. Insertar como No Verificado con Timestamp
-            insert = text("""
-                INSERT INTO users (username, password_hash, role, is_verified, verification_code, verification_code_created_at) 
-                VALUES (:email, :pwd, :role, FALSE, :otp, CURRENT_TIMESTAMP)
-            """)
-            
-            conn.execute(insert, {
-                "email": email,
-                "pwd": hash_password(password),
-                "role": role,
-                "otp": otp_code
-            })
-            conn.commit()
-            
-            # 5. Enviar Correo
-            print(f"[*] Enviando código {otp_code} a {email}...")
-            sent, msg = send_verification_email(email, otp_code)
-            
-            if not sent:
-                print(f"[-] Fallo envío de correo: {msg}")
-                # Opcional: Podríamos borrar el usuario o dejarlo para reintento. 
-                # Por ahora retornamos éxito parcial user UX.
-                return True, f"Usuario creado, pero hubo error enviando correo: {msg}. (Código simulado para debug: {otp_code})"
+            # Start transaction explicitly
+            with conn.begin(): 
+                # 4. Insertar como No Verificado con Timestamp
+                insert = text("""
+                    INSERT INTO users (username, password_hash, role, is_verified, verification_code, verification_code_created_at) 
+                    VALUES (:email, :pwd, :role, FALSE, :otp, CURRENT_TIMESTAMP)
+                """)
+                
+                conn.execute(insert, {
+                    "email": email,
+                    "pwd": hash_password(password),
+                    "role": role,
+                    "otp": otp_code
+                })
+                # No commit yet - handled by context manager if no exception raised
+                # But we want to send email BEFORE committing? 
+                # Actually, best practice: Insert (Commit) -> Send Email -> If Fail, Delete or Mark Error.
+                # However, to simulate "Rollback on Email Fail" as requested:
+                
+                # 5. Enviar Correo
+                print(f"[*] Enviando código {otp_code} a {email}...")
+                sent, msg = send_verification_email(email, otp_code)
+                
+                if not sent:
+                    print(f"[-] Fallo envío de correo: {msg}")
+                    # Raise exception to trigger rollback of the transaction context
+                    raise Exception(f"Fallo envío de correo: {msg}")
+                
+                # If we get here, transaction commits automatically on exit of with block
             
             return True, "✅ Código de verificación enviado a tu correo IPN."
             
     except Exception as e:
-        return False, f"Error BD: {e}"
+        # If email failed (raised Exception), the DB insert is rolled back.
+        return False, f"Error en registro: {e}"
 
 def verify_otp(email, code):
     """Verifica el código OTP y activa la cuenta. Incluye validación de expiración (5 mins)."""

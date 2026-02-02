@@ -33,12 +33,7 @@ if st.session_state.get("dlc_device_opt") == "CPU (Forzar)":
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:32"
     try:
         import torch
-        # Monkey-patch para engañar a librerías que ignoran CUDA_VISIBLE_DEVICES
-        torch.cuda.is_available = lambda: False
-        torch.cuda.device_count = lambda: 0
-        torch.cuda.current_device = lambda: -1
-        # Evitar errores de introspección
-        torch.cuda.get_device_properties = lambda x: None
+        # Se confía en CUDA_VISIBLE_DEVICES para deshabilitar GPU
     except ImportError:
         pass
 

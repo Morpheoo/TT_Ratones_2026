@@ -9,11 +9,14 @@ from sqlalchemy.orm import sessionmaker
 # pero Docker networking es preferible si la app también corre en Docker.
 # Asumiremos localhost para desarrollo híbrido.
 
-DB_USER = os.getenv("POSTGRES_USER", "admin")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "admin_secure_password")
+DB_USER = os.getenv("POSTGRES_USER")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("POSTGRES_DB", "ratones_lab")
+DB_NAME = os.getenv("POSTGRES_DB")
+
+if not all([DB_USER, DB_PASSWORD, DB_NAME]):
+    raise ValueError("❌ Faltan variables de entorno críticas de Base de Datos (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB).")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
