@@ -2,6 +2,10 @@ import os
 import time
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env (si existe)
+load_dotenv()
 
 # Configuración de Conexión (Coincide con docker-compose.yml)
 # En Docker, el host es el nombre del servicio 'db'. 

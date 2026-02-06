@@ -64,8 +64,42 @@ def cargar_motores():
     # Cargar DeepLabCut
     if deeplabcut is None:
         try:
+            # --- HOTFIX: Patch tf_keras to include legacy_tf_layers ---
+            import os
+            os.environ["TF_USE_LEGACY_KERAS"] = "1"
+            import tensorflow as tf
+            import tf_keras
+            if not hasattr(tf_keras, "legacy_tf_layers"):
+                try:
+                    tf_keras.legacy_tf_layers = tf.compat.v1.layers
+                    print("[HOTFIX] Patched tf_keras.legacy_tf_layers = tf.compat.v1.layers")
+                except Exception as e:
+                    print(f"[HOTFIX WARNING] Could not patch legacy_tf_layers: {e}")
+            # -------------------------------------------------------------
+
             import deeplabcut as dlc_lib
             deeplabcut = dlc_lib
+            
+            # --- HOTFIX: Reload modules to apply patches (Windows Path Limit) ---
+            import importlib
+            try:
+                # 1. Reload the patched inference module
+                import deeplabcut.modelzoo.api.superanimal_inference
+                importlib.reload(deeplabcut.modelzoo.api.superanimal_inference)
+                
+                # 2. Reload the adapter which uses the inference module
+                import deeplabcut.modelzoo.api.spatiotemporal_adapt
+                importlib.reload(deeplabcut.modelzoo.api.spatiotemporal_adapt)
+
+                # 3. Reload the predict logic which uses the adapter
+                import deeplabcut.pose_estimation_tensorflow.predict_supermodel
+                importlib.reload(deeplabcut.pose_estimation_tensorflow.predict_supermodel)
+                
+                print("[HOTFIX] DeepLabCut modules reloaded successfully.")
+            except Exception as e:
+                print(f"[HOTFIX WARNING] Could not reload DLC modules: {e}")
+            # -------------------------------------------------------------------
+            
         except Exception as e:
             dlc_import_error = f"{type(e).__name__}: {str(e)}"
             
@@ -400,20 +434,47 @@ if iniciar:
                 
                 original_clip.close()
                 
-                # 4. Cargar motores y ejecutar
-                cargar_motores()
+                # 4. EJECUTAR ANÁLISIS EN SUBPROCESO (GPU ENV)
+                print("[DLC] Preparando ejecución en entorno GPU (venv_310)...")
                 
-                deeplabcut.video_inference_superanimal(
-                    [video_para_analizar],
-                    superanimal_name=model_name,
-                    model_name="hrnet_w32",
-                    detector_name="fasterrcnn_resnet50_fpn_v2",
-                    video_adapt=adapt,
-                    dest_folder=dest,
-                    create_labeled_video=True,
-                    device="cpu" if force_cpu else "auto"
+                # Definir rutas del entorno GPU
+                venv_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
+                script_path = os.path.abspath(os.path.join("src", "scripts", "run_superanimal.py"))
+                
+                if not os.path.exists(venv_python):
+                   raise FileNotFoundError(f"No se encontró el entorno GPU en: {venv_python}")
+                
+                # Construir comando
+                cmd = [
+                    venv_python,
+                    script_path,
+                    "--video", video_para_analizar,
+                    "--model", model_name
+                ]
+                
+                print(f"[DLC] Ejecutando comando: {' '.join(cmd)}")
+                
+                # Ejecutar subprocess y capturar salida en tiempo real
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1,
+                    creationflags=subprocess.CREATE_NO_WINDOW
                 )
                 
+                # Leer salida línea por línea para logs
+                for line in iter(process.stdout.readline, ''):
+                    print(f"[Subprocess] {line.strip()}")
+                    # Podríamos parsear % aquí si el script lo escupiera
+                
+                process.stdout.close()
+                return_code = process.wait()
+                
+                if return_code != 0:
+                    raise Exception(f"El análisis falló con código de salida {return_code}. Revisa la consola para más detalles.")
+
                 # Guardar el resultado en el diccionario compartido
                 analysis_state["video_final"] = video_para_analizar
                 analysis_state["done"] = True
@@ -469,12 +530,39 @@ if iniciar:
                 # Intentar convertir de h5 a csv si solo existe h5
                 h5_files = glob.glob(os.path.join(dest_folder, f"{base_name_usado}*.h5"))
                 if h5_files:
-                    deeplabcut.analyze_videos_converth5_to_csv(dest_folder, [video_usado], videotype='mp4')
+                    deeplabcut.analyze_videos_converth5_to_csv([video_usado], videotype='mp4', listofvideos=True)
                     possible_files = glob.glob(os.path.join(dest_folder, f"{base_name_usado}*.csv"))
 
-            if possible_files:
                 # Cargar el archivo con más reciente (usualmente el adaptado si existe)
                 latest_csv = max(possible_files, key=os.path.getctime)
+                
+                # --- INTEGRACIÓN NUEVA: GENERACIÓN DE VIDEO PERSONALIZADO ---
+                try:
+                    import json
+                    import sys
+                    status_container.update(label="🎨 Generando video etiquetado (esto puede tardar unos minutos)...", state="running")
+                    
+                    zones_json = json.dumps(st.session_state.get("zonas_configuradas", []))
+                    render_script = os.path.abspath(os.path.join("src", "scripts", "render_video.py"))
+                    
+                    # Usamos el mismo python de la app (venv_311) para asegurar dependencias de cv2/moviepy
+                    render_cmd = [
+                        sys.executable, 
+                        render_script,
+                        "--video", video_usado,
+                        "--csv", latest_csv,
+                        "--zones", zones_json
+                    ]
+                    
+                    print(f"[App] Ejecutando renderizado: {render_cmd}")
+                    subprocess.run(render_cmd, check=True)
+                    st.toast("✅ Video etiquetado generado correctamente")
+                    
+                except Exception as e:
+                    print(f"Error generando video: {e}")
+                    st.error(f"Error generando video etiquetado: {e}")
+                # -------------------------------------------------------------
+
                 df_dlc = pd.read_csv(latest_csv, header=[0, 1, 2], index_col=0)
                 # Convertir formato DLC a formato de la App
                 scorer = df_dlc.columns.get_level_values(0)[0]
@@ -533,7 +621,27 @@ if iniciar:
                 # Mostrar video procesado si existe
                 labeled_video = glob.glob(os.path.join(dest_folder, f"{base_name_usado}*labeled.mp4"))
                 if labeled_video:
-                    st.video(labeled_video[0])
+                    video_path = labeled_video[0]
+                    st.info(f"📁 Cargando video desde: `{os.path.basename(video_path)}`")
+                    
+                    # Leemos el archivo como bytes
+                    try:
+                        with open(video_path, 'rb') as vf:
+                            video_bytes = vf.read()
+                        
+                        # Usamos un key único basado en el tiempo para forzar recarga en el navegador
+                        import time
+                        st.video(video_bytes, format="video/mp4")
+                        
+                        # Botón de descarga de respaldo
+                        st.download_button(
+                            label="⬇️ Descargar Video Etiquetado (Si no se reproduce arriba)",
+                            data=video_bytes,
+                            file_name=os.path.basename(video_path),
+                            mime="video/mp4"
+                        )
+                    except Exception as ev:
+                        st.error(f"Error leyendo video: {ev}")
             else:
                 st.error("No se encontraron archivos de resultados de DeepLabCut.")
                 st.stop()
@@ -728,6 +836,20 @@ if iniciar:
     time_closed = df_final[df_final["Zona"].str.contains("Cerrado")]["Tiempo (s)"].count() / fps
     time_center = df_final[df_final["Zona"].str.contains("Centro")]["Tiempo (s)"].count() / fps
     
+    # --- Guardar persistencia de CSV detallado ---
+    import datetime
+    video_basename = os.path.basename(ruta_video)
+    timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_filename = f"detailed_{timestamp_str}_{video_basename}.csv"
+    
+    # Crear carpeta si no existe
+    results_dir = os.path.join(os.getcwd(), "data", "results")
+    os.makedirs(results_dir, exist_ok=True)
+    
+    csv_path = os.path.join(results_dir, csv_filename)
+    df_final.to_csv(csv_path, index=False)
+    print(f"[+] Detalle guardado en: {csv_path}")
+    
     # Guardar en PostgreSQL
     try:
         from src.db.connection import get_db_engine
@@ -767,20 +889,21 @@ if iniciar:
                 
                 exp_id = res_exp[0]
                 
-                # 2. Insertar Resultados
+                # 2. Insertar Resultados (Incluyendo trajectory_path)
                 insert_res = text("""
                     INSERT INTO analysis_results 
-                    (experiment_id, total_distance, time_open_arms, time_closed_arms, time_center, grooming_duration, thigmotaxis_duration, status)
-                    VALUES (:eid, 0, :topen, :tclosed, :tcen, :groom, :thig, 'completed')
+                    (experiment_id, total_distance, time_open_arms, time_closed_arms, time_center, grooming_duration, thigmotaxis_duration, status, trajectory_path)
+                    VALUES (:eid, 0, :topen, :tclosed, :tcen, :groom, :thig, 'completed', :path)
                 """)
                 
                 conn.execute(insert_res, {
                     "eid": exp_id,
-                    "topen": time_open,
-                    "tclosed": time_closed,
-                    "tcen": time_center,
-                    "groom": grooming_total,
-                    "thig": thigmo_total
+                    "topen": float(time_open),
+                    "tclosed": float(time_closed),
+                    "tcen": float(time_center),
+                    "groom": float(grooming_total),
+                    "thig": float(thigmo_total),
+                    "path": csv_path
                 })
                 conn.commit()
                 st.toast("✅ Resultados guardados en Base de Datos exitosamente.")

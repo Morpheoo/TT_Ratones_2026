@@ -25,6 +25,7 @@ datas = [
 args = [
     'run_app.py',            # Tu archivo lanzador
     '--name=Sistema_EPM',    # Nombre del EXE
+    '--icon=logo_ria.ico',   # Icono de la aplicación
     '--onefile',             # ¿Un solo archivo .exe? (Mejor pon --onedir si quieres debuggear, pero --onefile es más limpio)
     '--clean',               # Limpiar caché antes de empezar
     '--noconfirm',           # No preguntar si sobrescribe

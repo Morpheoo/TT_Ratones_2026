@@ -190,8 +190,6 @@ if engine:
                 res_data = conn.execute(q_res, {"eid": exp_id}).fetchone()
                 
                 if res_data:
-                    # Si tuviéramos tabla detallada de frames, la cargaríamos aquí.
-                    # Por ahora simulamos el DF temporal si no existe o usamos lógica híbrida.
                     # Mapear columnas de BD a variables locales para visualización
                     st.session_state["db_metrics"] = {
                         "total_time": 300, # Placeholder si no guardamos duración
@@ -201,6 +199,20 @@ if engine:
                         "grooming": res_data.grooming_duration,
                         "thigmo": res_data.thigmotaxis_duration
                     }
+                    
+                    # Intentar cargar CSV detallado si existe
+                    if hasattr(res_data, 'trajectory_path') and res_data.trajectory_path and os.path.exists(res_data.trajectory_path):
+                        try:
+                            df_loaded = pd.read_csv(res_data.trajectory_path)
+                            st.session_state["resultados_analisis"] = df_loaded
+                            st.toast("✅ Datos detallados cargados exitosamente.")
+                        except Exception as e:
+                             st.error(f"Error cargando archivo de trayectoria: {e}")
+                    else:
+                        # Si no hay CSV, limpiamos para no mostrar datos de otro exp
+                        if "resultados_analisis" in st.session_state:
+                            del st.session_state["resultados_analisis"]
+                    
                     st.success(f"Datos cargados del Experimento ID: {exp_id}")
                 else:
                     st.warning("Experiment sin resultados procesados.")
@@ -251,34 +263,57 @@ if "resultados_analisis" not in st.session_state and "db_metrics" not in st.sess
         st.markdown("</div>", unsafe_allow_html=True)
         st.stop()
 
-# Recuperamos el DataFrame ya existente
-df = st.session_state["resultados_analisis"]
+# Recuperamos el DataFrame de manera segura
+df = st.session_state.get("resultados_analisis")
 
 # =============== 6. CÁLCULO DE KPIs =================
-resumen_zonas = df.groupby("Zona")["Tiempo (s)"].count() * (1 / 10)  # 10 FPS aprox
-total_tiempo = resumen_zonas.sum()
+# Valores por defecto para layout seguro
+resumen_zonas = None
+total_tiempo = 0
+tiempo_abiertos = 0
+tiempo_cerrados = 0
+indice_ansiedad = 0
+grooming_val = 0
+thigmo_val = 0
+num_entradas = 0
 
-tiempo_abiertos = resumen_zonas.filter(like="Abierto").sum()
-tiempo_cerrados = resumen_zonas.filter(like="Cerrado").sum()
-
-indice_ansiedad = (tiempo_abiertos / total_tiempo) * 100 if total_tiempo > 0 else 0.0
+if df is not None:
+    resumen_zonas = df.groupby("Zona")["Tiempo (s)"].count() * (1 / 10)  # 10 FPS aprox
+    total_tiempo = resumen_zonas.sum()
+    tiempo_abiertos = resumen_zonas.filter(like="Abierto").sum()
+    tiempo_cerrados = resumen_zonas.filter(like="Cerrado").sum()
+    indice_ansiedad = (tiempo_abiertos / total_tiempo) * 100 if total_tiempo > 0 else 0.0
 
 # =============== 7. PANEL DE MÉTRICAS =================
 st.markdown('<div class="tt-section-title">🧬 Indicadores Clave de Ansiedad</div>', unsafe_allow_html=True)
 
-# Si viene de DB, usamos esos valores
+# Si viene de DB, usamos esos valores PRIORITARIAMENTE si no hay DF o para complementar
 if "db_metrics" in st.session_state:
     m = st.session_state["db_metrics"]
-    total_tiempo = m.get("open", 0) + m.get("closed", 0) + m.get("center", 0)
-    tiempo_abiertos = m.get("open", 0)
-    tiempo_cerrados = m.get("closed", 0)
-    grooming_val = m.get("grooming", 0)
-    thigmo_val = m.get("thigmo", 0)
-    indice_ansiedad = (tiempo_abiertos / total_tiempo * 100) if total_tiempo > 0 else 0
+    # Si tenemos DF, total_tiempo ya se calculó arriba, pero DB es la verdad histórica
+    # Sin embargo, para consistencia visual si acabamos de analizar, preferimos DF.
+    # Aquí la lógica: Si df es None, OBLIGATORIAMENTE usamos DB.
+    if df is None:
+        total_tiempo = m.get("open", 0) + m.get("closed", 0) + m.get("center", 0)
+        tiempo_abiertos = m.get("open", 0)
+        tiempo_cerrados = m.get("closed", 0)
+        grooming_val = m.get("grooming", 0)
+        thigmo_val = m.get("thigmo", 0)
+        indice_ansiedad = (tiempo_abiertos / total_tiempo * 100) if total_tiempo > 0 else 0
+        num_entradas = m.get("num_entradas", 0)
 else:
-    # Viene de dataframe en memoria
-    grooming_val = df["Grooming"].sum() * (1/10) if "Grooming" in df.columns else 0
-    thigmo_val = df["Thigmotaxis"].sum() * (1/10) if "Thigmotaxis" in df.columns else 0
+    # Si no hay DB metrics, usamos lo calculado del DF
+    if df is not None:
+        grooming_val = df["Grooming"].sum() * (1/10) if "Grooming" in df.columns else 0
+        thigmo_val = df["Thigmotaxis"].sum() * (1/10) if "Thigmotaxis" in df.columns else 0
+        
+        # Cálculo aproximado de entradas a brazos abiertos
+        num_entradas = 0
+        if "Zona" in df.columns:
+            # Detectar transiciones: (Zona actual contiene "Abierto") Y (Zona previa NO contiene "Abierto")
+            is_open = df["Zona"].astype(str).str.contains("Abierto")
+            entries = (is_open & (~is_open.shift(1).fillna(False))).sum()
+            num_entradas = int(entries)
 
 kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
 
@@ -312,163 +347,212 @@ with kpi5:
     st.metric("Contacto Pared", f"{thigmo_val:.1f} s")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# =============== 8. GRÁFICAS INTERACTIVAS =================
+# =============== 8. GRÁFICAS INTERACTIVAS (SOLO SI HAY DATOS DETALLADOS) =================
 st.write("")
 
-col_graf1, col_graf2 = st.columns([2, 1])
-
-with col_graf1:
-    st.markdown('<div class="tt-card">', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="tt-section-title">📈 Etograma Temporal</div>',
-        unsafe_allow_html=True,
-    )
-    fig_timeline = px.scatter(
-        df,
-        x="Tiempo (s)",
-        y="Zona",
-        color="Zona",
-        title="Posición del ratón a lo largo del tiempo",
-        height=350,
-    )
-    fig_timeline.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=colors["text_main"]),
-        legend=dict(bgcolor="rgba(0,0,0,0)"),
-    )
-    st.plotly_chart(fig_timeline, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with col_graf2:
-    st.markdown('<div class="tt-card">', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="tt-section-title">🍰 Distribución de Tiempo</div>',
-        unsafe_allow_html=True,
-    )
-    fig_pie = px.pie(
-        names=resumen_zonas.index,
-        values=resumen_zonas.values,
-        hole=0.4,
-        title="Preferencia de zona",
-    )
-    fig_pie.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=colors["text_main"]),
-        legend=dict(bgcolor="rgba(0,0,0,0)"),
-    )
-    st.plotly_chart(fig_pie, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# =============== 9. MAPA DE CALOR =================
-st.write("")
-st.markdown(
-    '<div class="tt-section-title">🗺️ Mapa de Trayectoria (Heatmap)</div>',
-    unsafe_allow_html=True,
-)
-c1, c2 = st.columns([3, 1])
-
-with c1:
-    st.markdown('<div class="tt-card">', unsafe_allow_html=True)
-    fig_map = px.density_heatmap(
-        df,
-        x="x",
-        y="y",
-        nbinsx=30,
-        nbinsy=30,
-        color_continuous_scale="Viridis",
-        title="Zonas de mayor permanencia",
-    )
-    fig_map.update_yaxes(autorange="reversed")
-    fig_map.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=colors["text_main"]),
-    )
-    st.plotly_chart(fig_map, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with c2:
-    st.markdown('<div class="tt-card">', unsafe_allow_html=True)
-    st.markdown(
-        """
-        **Interpretación:**
-
-        - Zonas más brillantes indican donde el espécimen pasó más tiempo.
-        - Acumulación en brazos cerrados → mayor nivel de ansiedad.
-        - Mayor exploración en brazos abiertos → efecto ansiolítico del tratamiento.
-        """,
-        unsafe_allow_html=False,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# =============== 10. MINERÍA DE DATOS (K-MEANS) =================
-st.write("")
-st.markdown(
-    '<div class="tt-section-title">🧠 Minería de Datos (Clustering de Comportamiento)</div>',
-    unsafe_allow_html=True,
-)
-st.markdown('<div class="tt-card">', unsafe_allow_html=True)
-
-if len(df) > 10:
-    st.info("🤖 El algoritmo K-Means agrupa automáticamente los momentos del experimento en 'Estados de Comportamiento' basados en velocidad y posición.")
+def generate_zone_colors(df):
+    """Genera un mapa de colores consistente basado en palabras clave."""
+    unique_zones = sorted(df["Zona"].unique())
+    color_map = {}
     
-    # 1. Preparar datos para clustering
-    # Calculamos velocidad instantánea entre puntos
-    df_ml = df.copy()
-    df_ml["dx"] = df_ml["x"].diff().fillna(0)
-    df_ml["dy"] = df_ml["y"].diff().fillna(0)
-    df_ml["velocity"] = np.sqrt(df_ml["dx"]**2 + df_ml["dy"]**2)
+    # Paletas
+    reds = ["#ef4444", "#dc2626", "#b91c1c", "#fca5a5", "#f87171"]
+    blues = ["#3b82f6", "#2563eb", "#1d4ed8", "#93c5fd", "#60a5fa"]
+    greens = ["#10b981", "#059669", "#047857", "#6ee7b7", "#34d399"]
+    grays = ["#6b7280", "#9ca3af", "#4b5563"]
     
-    # Distancia al centro (asumiendo centro aprox en 400,300 de canvas 800x600 o calcular media)
-    center_x, center_y = 400, 300
-    df_ml["dist_center"] = np.sqrt((df_ml["x"] - center_x)**2 + (df_ml["y"] - center_y)**2)
+    r_idx, b_idx, g_idx, gr_idx = 0, 0, 0, 0
     
-    # Features para el modelo
-    X = df_ml[["velocity", "dist_center"]].values
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    for zone in unique_zones:
+        z_lower = zone.lower()
+        if "abierto" in z_lower:
+            color_map[zone] = reds[r_idx % len(reds)]
+            r_idx += 1
+        elif "cerrado" in z_lower:
+            color_map[zone] = blues[b_idx % len(blues)]
+            b_idx += 1
+        elif "centro" in z_lower:
+            color_map[zone] = greens[g_idx % len(greens)]
+            g_idx += 1
+        else:
+            color_map[zone] = grays[gr_idx % len(grays)]
+            gr_idx += 1
+            
+    return color_map
+
+if df is not None:
+    # Generar colores consistentes
+    zone_color_map = generate_zone_colors(df)
     
-    # 2. Entrenar K-Means
-    n_clusters = st.slider("Número de Agrupamientos (Clusters)", 2, 5, 3)
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    df_ml["Cluster"] = kmeans.fit_predict(X_scaled)
-    
-    # 3. Visualizar
-    col_k1, col_k2 = st.columns([2, 1])
-    
-    with col_k1:
-        fig_cluster = px.scatter(
-            df_ml,
-            x="x",
-            y="y",
-            color=df_ml["Cluster"].astype(str),
-            title="Mapa de Comportamientos Identificados",
-            color_discrete_sequence=px.colors.qualitative.Pastel
+    col_graf1, col_graf2 = st.columns([2, 1])
+
+    with col_graf1:
+        st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="tt-section-title">📈 Etograma Temporal</div>',
+            unsafe_allow_html=True,
         )
-        fig_cluster.update_layout(
+        fig_timeline = px.scatter(
+            df,
+            x="Tiempo (s)",
+            y="Zona",
+            color="Zona",
+            title="Posición del ratón a lo largo del tiempo",
+            height=350,
+            color_discrete_map=zone_color_map # <--- APLICAR COLORES
+        )
+        fig_timeline.update_layout(
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color=colors["text_main"])
+            font=dict(color=colors["text_main"]),
+            legend=dict(bgcolor="rgba(0,0,0,0)"),
         )
-        # Invertir Y para que coincida con video
-        fig_cluster.update_yaxes(autorange="reversed")
-        st.plotly_chart(fig_cluster, use_container_width=True)
-        
-    with col_k2:
-        st.markdown("**Análisis de Clusters:**")
-        # Interpretar clusters (básico)
-        comps = df_ml.groupby("Cluster")[["velocity", "dist_center"]].mean()
-        for c_id, row in comps.iterrows():
-            vel_desc = "Alta" if row["velocity"] > df_ml["velocity"].mean() else "Baja"
-            pos_desc = "Periferia" if row["dist_center"] > df_ml["dist_center"].mean() else "Centro"
-            st.markdown(f"- **Grupo {c_id}:** Movilidad {vel_desc}, Tendencia a {pos_desc}")
-            
-else:
-    st.warning("Necesitamos más datos para ejecutar Minería de Datos.")
+        st.plotly_chart(fig_timeline, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("</div>", unsafe_allow_html=True)
+    with col_graf2:
+        st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="tt-section-title">🍰 Distribución de Tiempo</div>',
+            unsafe_allow_html=True,
+        )
+        # Asegurarnos de tener resumen_zonas
+        if resumen_zonas is None:
+             resumen_zonas = df.groupby("Zona")["Tiempo (s)"].count() * (1 / 10)
+
+        fig_pie = px.pie(
+            names=resumen_zonas.index,
+            values=resumen_zonas.values,
+            hole=0.4,
+            title="Preferencia de zona",
+            color=resumen_zonas.index, # Importante: mapear color a los nombres
+            color_discrete_map=zone_color_map # <--- APLICAR COLORES
+        )
+        fig_pie.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color=colors["text_main"]),
+            legend=dict(bgcolor="rgba(0,0,0,0)"),
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # =============== 9. MAPA DE CALOR =================
+    st.write("")
+    st.markdown(
+        '<div class="tt-section-title">🗺️ Mapa de Trayectoria (Heatmap)</div>',
+        unsafe_allow_html=True,
+    )
+    c1, c2 = st.columns([3, 1])
+
+    with c1:
+        st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+        fig_map = px.density_heatmap(
+            df,
+            x="x",
+            y="y",
+            nbinsx=30,
+            nbinsy=30,
+            color_continuous_scale="Viridis",
+            title="Zonas de mayor permanencia",
+        )
+        fig_map.update_yaxes(autorange="reversed")
+        fig_map.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color=colors["text_main"]),
+        )
+        st.plotly_chart(fig_map, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+        st.markdown(
+            """
+            **Interpretación:**
+
+            - Zonas más brillantes indican donde el espécimen pasó más tiempo.
+            - Acumulación en brazos cerrados → mayor nivel de ansiedad.
+            - Mayor exploración en brazos abiertos → efecto ansiolítico del tratamiento.
+            """,
+            unsafe_allow_html=False,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # =============== 10. MINERÍA DE DATOS (K-MEANS) =================
+    st.write("")
+    st.markdown(
+        '<div class="tt-section-title">🧠 Minería de Datos (Clustering de Comportamiento)</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+
+    if len(df) > 10:
+        st.info("🤖 El algoritmo K-Means agrupa automáticamente los momentos del experimento en 'Estados de Comportamiento' basados en velocidad y posición.")
+        
+        # 1. Preparar datos para clustering
+        # Calculamos velocidad instantánea entre puntos
+        df_ml = df.copy()
+        df_ml["dx"] = df_ml["x"].diff().fillna(0)
+        df_ml["dy"] = df_ml["y"].diff().fillna(0)
+        df_ml["velocity"] = np.sqrt(df_ml["dx"]**2 + df_ml["dy"]**2)
+        
+        # Distancia al centro (asumiendo centro aprox en 400,300 de canvas 800x600 o calcular media)
+        center_x, center_y = 400, 300
+        df_ml["dist_center"] = np.sqrt((df_ml["x"] - center_x)**2 + (df_ml["y"] - center_y)**2)
+        
+        # Features para el modelo
+        X = df_ml[["velocity", "dist_center"]].values
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        
+        # 2. Entrenar K-Means
+        n_clusters = st.slider("Número de Agrupamientos (Clusters)", 2, 5, 3)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        df_ml["Cluster"] = kmeans.fit_predict(X_scaled)
+        
+        # 3. Visualizar
+        col_k1, col_k2 = st.columns([2, 1])
+        
+        with col_k1:
+            fig_cluster = px.scatter(
+                df_ml,
+                x="x",
+                y="y",
+                color=df_ml["Cluster"].astype(str),
+                title="Mapa de Comportamientos Identificados",
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
+            fig_cluster.update_layout(
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color=colors["text_main"])
+            )
+            # Invertir Y para que coincida con video
+            fig_cluster.update_yaxes(autorange="reversed")
+            st.plotly_chart(fig_cluster, use_container_width=True)
+            
+        with col_k2:
+            st.markdown("**Análisis de Clusters:**")
+            # Interpretar clusters (básico)
+            comps = df_ml.groupby("Cluster")[["velocity", "dist_center"]].mean()
+            for c_id, row in comps.iterrows():
+                vel_desc = "Alta" if row["velocity"] > df_ml["velocity"].mean() else "Baja"
+                pos_desc = "Periferia" if row["dist_center"] > df_ml["dist_center"].mean() else "Centro"
+                st.markdown(f"- **Grupo {c_id}:** Movilidad {vel_desc}, Tendencia a {pos_desc}")
+                
+    else:
+        st.warning("Necesitamos más datos para ejecutar Minería de Datos.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+else:
+    # MENSAJE ALTERNATIVO SI NO HAY DATOS CRUDOS
+    st.info("ℹ️ Estás visualizando un registro histórico sin datos de trayectoria detallados. Las gráficas de movimiento (Mapas de calor, Etogramas) solo están disponibles para el análisis recién ejecutado.")
+
+# =============== 11. REPORTE FINAL =================
+import importlib
+import src.reporting
+importlib.reload(src.reporting)
 from src.reporting import generate_pdf_report
 
 st.write("")
@@ -480,13 +564,17 @@ st.markdown('<div class="tt-card">', unsafe_allow_html=True)
 
 col_d1, col_d2 = st.columns(2)
 with col_d1:
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "📥 Descargar datos crudos (CSV)",
-        data=csv,
-        file_name="analisis_raton.csv",
-        mime="text/csv",
-    )
+    if df is not None:
+        csv = df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "📥 Descargar datos crudos (CSV)",
+            data=csv,
+            file_name="analisis_raton.csv",
+            mime="text/csv",
+        )
+    else:
+        st.warning("Datos CSV no disponibles para este registro.")
+
 with col_d2:
     if st.button("🖨️ Generar reporte PDF"):
         kpi_data = {
@@ -500,7 +588,50 @@ with col_d2:
         role = st.session_state.get("role", "Usuario")
         
         try:
-            pdf_path = generate_pdf_report(user_name, role, kpi_data)
+            plot_paths = []
+            
+            # Solo generamos gráficas en el PDF si tenemos el DF para crearlas
+            if df is not None:
+                # 1. Guardar gráficas temporalmente
+                temp_dir = "reports/temp"
+                os.makedirs(temp_dir, exist_ok=True)
+                
+                # --- Ajustes visuales para PDF (Forzar tema claro) ---
+                def prepare_for_pdf(fig):
+                    fig.update_layout(
+                        template="plotly_white",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="black", size=14)
+                    )
+                    return fig
+                
+                # Etograma
+                path_timeline = os.path.join(temp_dir, "timeline.png")
+                # Se asume que fig_timeline existe porque estamos dentro del if df is not None
+                fig_timeline_pdf = prepare_for_pdf(fig_timeline)
+                fig_timeline_pdf.write_image(path_timeline, width=800, height=400, scale=2)
+                plot_paths.append(path_timeline)
+                
+                # Pie Chart
+                path_pie = os.path.join(temp_dir, "pie.png")
+                fig_pie_pdf = prepare_for_pdf(fig_pie)
+                # Pie necesita trazos legibles
+                fig_pie_pdf.update_traces(textfont_color="black", marker=dict(line=dict(color='#000000', width=1)))
+                fig_pie_pdf.write_image(path_pie, width=600, height=400, scale=2)
+                plot_paths.append(path_pie)
+                
+                # Heatmap
+                path_map = os.path.join(temp_dir, "heatmap.png")
+                fig_map_pdf = prepare_for_pdf(fig_map)
+                # Heatmap font fix
+                fig_map_pdf.update_coloraxes(colorbar_tickfont=dict(color="black"))
+                fig_map_pdf.write_image(path_map, width=600, height=500, scale=2)
+                plot_paths.append(path_map)
+            
+            # 2. Generar PDF con gráficas (si las hay) o solo métricas
+            pdf_path = generate_pdf_report(user_name, role, kpi_data, plots=plot_paths)
+            
             with open(pdf_path, "rb") as f:
                 st.download_button(
                     "💾 Descargar PDF",

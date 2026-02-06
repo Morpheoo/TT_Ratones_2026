@@ -4,14 +4,27 @@ import os
 
 class EPMReport(FPDF):
     def header(self):
-        # Arial bold 15
-        self.set_font('Arial', 'B', 15)
-        # Move to the right
-        self.cell(80)
+        # IPN Colors
+        burgundy = (108, 19, 43)
+        gold = (185, 151, 91)
+        
+        # Header bar
+        self.set_fill_color(*burgundy)
+        self.rect(0, 0, 210, 25, 'F')
+        
         # Title
-        self.cell(30, 10, 'Reporte de Analisis EPM - TT 2026', 0, 0, 'C')
-        # Line break
-        self.ln(20)
+        self.set_font('Arial', 'B', 15)
+        self.set_text_color(255, 255, 255) # White
+        self.set_y(5)
+        self.cell(0, 10, 'Reporte de Analisis EPM - TT 2026', 0, 1, 'C')
+        
+        # Subtitle or Institute
+        self.set_font('Arial', '', 10)
+        self.cell(0, 5, 'Escuela Superior de Computo - IPN', 0, 0, 'C')
+        
+        # Restore colors for body
+        self.set_text_color(0, 0, 0)
+        self.ln(25)
 
     def footer(self):
         # Position at 1.5 cm from bottom
@@ -21,10 +34,11 @@ class EPMReport(FPDF):
         # Page number
         self.cell(0, 10, 'Pagina ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
 
-def generate_pdf_report(user_name, role, kpis, filename="reporte_epm.pdf"):
+def generate_pdf_report(user_name, role, kpis, plots=None, filename="reporte_epm.pdf"):
     """
     Generates a PDF report with the session results.
     kpis: dictionary with values like 'tiempo_total', 'tiempo_abiertos', etc.
+    plots: optional list of paths to image files to include.
     """
     pdf = EPMReport()
     pdf.alias_nb_pages()
@@ -66,6 +80,20 @@ def generate_pdf_report(user_name, role, kpis, filename="reporte_epm.pdf"):
         text = "El especimen muestra una alta exploracion de brazos abiertos, lo cual puede indicar un efecto ansiolitico."
         
     pdf.multi_cell(0, 10, text)
+    
+    # Graphs
+    if plots:
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, 'Graficas del Analisis', 0, 1)
+        pdf.ln(5)
+        
+        for p_path in plots:
+            if os.path.exists(p_path):
+                # Center image: A4 width is 210mm. If image is 160mm wide, x = (210-160)/2 = 25
+                # Using 170mm width to fit margins
+                pdf.image(p_path, x=20, w=170)
+                pdf.ln(5)
 
     # Save
     os.makedirs("reports", exist_ok=True)

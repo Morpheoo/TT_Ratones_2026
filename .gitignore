@@ -44,6 +44,12 @@ videos_data/
 !yolov8n.pt
 
 venv_311/
+venv_310/
+dlc_weights/
+data/models/
+data/results/
+hf_cache/
+debug.txt
 .streamlit/secrets.toml
 .streamlit_session.json
 .env

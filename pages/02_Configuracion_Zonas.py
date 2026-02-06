@@ -334,15 +334,26 @@ if canvas_result.json_data is not None:
         
         with c_table:
             st.markdown('<div class="tt-section-title">📝 Zonas identificadas</div>', unsafe_allow_html=True)
+            # Calcular Coordenadas Reales (Escaladas) para visualización
             datos_visuales = objects[["left", "top", "width", "height"]].copy()
             datos_visuales["Nombre Zona"] = st.session_state["lista_nombres_zonas"]
+
+            # Añadir columnas de coordenadas reales (Solo lectura)
+            datos_visuales["Real X"] = (datos_visuales["left"] * factor_escala).astype(int)
+            datos_visuales["Real Y"] = (datos_visuales["top"] * factor_escala).astype(int)
+            datos_visuales["Real W"] = (datos_visuales["width"] * factor_escala).astype(int)
+            datos_visuales["Real H"] = (datos_visuales["height"] * factor_escala).astype(int)
 
             df_editado = st.data_editor(
                 datos_visuales,
                 num_rows="fixed",
                 column_config={
-                    "left": st.column_config.NumberColumn("X", disabled=True),
-                    "top": st.column_config.NumberColumn("Y", disabled=True),
+                    "left": st.column_config.NumberColumn("Canvas X", disabled=True, help="Coordenada en la pantalla de dibujo"),
+                    "top": st.column_config.NumberColumn("Canvas Y", disabled=True, help="Coordenada en la pantalla de dibujo"),
+                    "width": st.column_config.NumberColumn("Canvas W", disabled=True),
+                    "height": st.column_config.NumberColumn("Canvas H", disabled=True),
+                    "Real X": st.column_config.NumberColumn("REAL X (Video)", disabled=True, help=f"Posición real en el video {ancho_real}x{alto_real}"),
+                    "Real Y": st.column_config.NumberColumn("REAL Y (Video)", disabled=True),
                     "Nombre Zona": st.column_config.TextColumn("Nombre", disabled=False),
                 },
                 key="editor_zonas_auto",

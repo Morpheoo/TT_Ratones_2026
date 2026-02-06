@@ -40,7 +40,7 @@ if st.session_state.get("dlc_device_opt") == "CPU (Forzar)":
 # ================= 1. CONFIGURACIÓN =================
 st.set_page_config(
     page_title="TT Ratones 2026 - Home",
-    page_icon="logo_ria.png",
+    page_icon="logo_ria_desktop.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -254,7 +254,8 @@ def get_img_as_base64(file_path: str):
     return base64.b64encode(data).decode()
 
 # Logo
-LOGO_PATH = "logo_ria.png"
+# Logo
+LOGO_PATH = "logo_ria_desktop.png"
 img_base64 = get_img_as_base64(LOGO_PATH)
 if img_base64:
     logo_html = f'<img src="data:image/png;base64,{img_base64}" style="width: 120px; margin-bottom: 1.5rem;">'

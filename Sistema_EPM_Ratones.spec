@@ -43,6 +43,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='logo_ria.ico',
 )
 coll = COLLECT(
     exe,
