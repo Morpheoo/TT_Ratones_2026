@@ -3,48 +3,48 @@
     "user": "hportocarreror1700@alumno.ipn.mx",
     "role": "estudiante",
     "user_name": "hportocarreror1700@alumno.ipn.mx",
-    "ruta_video_actual": "videos_data\\5minprueba_Control.mp4",
-    "inicio_recorte": 21.0,
-    "fin_recorte": 320.0,
+    "ruta_video_actual": "videos_data\\prueba_2min_Control.mp4",
+    "inicio_recorte": 58.0,
+    "fin_recorte": 179.0,
     "dlc_device_opt": "Auto (Recomendado)",
     "theme_mode": "Oscuro",
     "zonas_configuradas": [
         {
             "Nombre Zona": "Brazo Abierto 1",
-            "left": 603,
-            "top": 25,
-            "width": 68,
-            "height": 286
+            "left": 627,
+            "top": 24,
+            "width": 62,
+            "height": 288
         },
         {
-            "Nombre Zona": "Brazo Cerrado 2",
-            "left": 598,
+            "Nombre Zona": "Brazo Abierto 2",
+            "left": 622,
             "top": 396,
-            "width": 64,
+            "width": 60,
             "height": 294
         },
         {
-            "Nombre Zona": "Centro 3",
-            "left": 209,
-            "top": 302,
-            "width": 384,
-            "height": 96
+            "Nombre Zona": "Brazo Cerrado 3",
+            "left": 236,
+            "top": 308,
+            "width": 376,
+            "height": 84
         },
         {
-            "Nombre Zona": "Centro 4",
-            "left": 675,
+            "Nombre Zona": "Brazo Cerrado 4",
+            "left": 696,
             "top": 318,
-            "width": 385,
-            "height": 83
+            "width": 382,
+            "height": 86
         },
         {
             "Nombre Zona": "Centro 5",
-            "left": 601,
-            "top": 316,
-            "width": 68,
+            "left": 614,
+            "top": 318,
+            "width": 75,
             "height": 75
         }
     ],
-    "video_en_edicion": "videos_data\\5minprueba_Control.mp4",
-    "id_raton_actual": "5minprueba"
+    "video_en_edicion": "videos_data\\prueba_2min_Control.mp4",
+    "id_raton_actual": "prueba_2min"
 }

@@ -52,4 +52,24 @@ hf_cache/
 debug.txt
 .streamlit/secrets.toml
 .streamlit_session.json
+
+# Large Dataset Files
+dataset_tt/
+*.mov
+*.mp4
+*.avi
+*.h5
+*.pickle
+
+# SimBA Project large files
+data/simba_projects/SimBA_EPM_Analysis/project_folder/videos/
+data/simba_projects/SimBA_EPM_Analysis/project_folder/csv/machine_results/
+
+
+# SimBA large intermediate files
 .env
+data/simba_projects/SimBA_EPM_Analysis/project_folder/frames/
+data/simba_projects/SimBA_EPM_Analysis/project_folder/csv/features_extracted/
+data/simba_projects/SimBA_EPM_Analysis/project_folder/csv/outlier_corrected_movement/
+data/simba_projects/SimBA_EPM_Analysis/project_folder/csv/outlier_corrected_movement_location/
+ffmpeg.zip

@@ -342,6 +342,12 @@ with col_cfg:
                     st.code(dlc_import_error)
             
     iniciar = st.button("▶️ INICIAR ANÁLISIS")
+    
+    st.markdown("---")
+    st.markdown('<div class="tt-section-title">🧬 Análisis Completo (SimBA)</div>', unsafe_allow_html=True)
+    st.info("Ejecuta el pipeline completo: DLC -> SimBA -> Video Final (5 mins)")
+    iniciar_completo = st.button("▶️ EJECUTAR FULL PIPELINE")
+    
     st.markdown("</div>", unsafe_allow_html=True)
 
     # Placeholder para la métrica de zona actual
@@ -362,6 +368,68 @@ with col_video:
 from src.analysis_logic import checar_zona, calcular_distancia, detectar_grooming, detectar_thigmotaxis
 
 # ================== 8. BUCLE DE PROCESAMIENTO ==================
+if iniciar_completo:
+    st.toast("Iniciando Pipeline Completo...")
+    status_container = st.status("Ejecutando Full Pipeline (esto tomará varios minutos)...", expanded=True)
+    log_area = st.empty()
+    
+    try:
+        # Ruta al script
+        script_path = os.path.abspath(os.path.join("src", "scripts", "full_pipeline.py"))
+        venv_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
+        
+        if not os.path.exists(venv_python):
+             st.error("No se encontró el entorno venv_310")
+             st.stop()
+             
+        cmd = [venv_python, script_path]
+        
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        
+        logs = []
+        for line in iter(process.stdout.readline, ''):
+            clean_line = line.strip()
+            logs.append(clean_line)
+            # Mantener solo las últimas 20 líneas para no saturar UI
+            log_text = "\n".join(logs[-20:]) 
+            log_area.code(log_text, language="bash")
+            print(f"[Pipeline] {clean_line}")
+            
+        process.stdout.close()
+        return_code = process.wait()
+        
+        if return_code == 0:
+            status_container.update(label="✅ Pipeline completado con éxito!", state="complete")
+            st.success("¡Análisis completo terminado!")
+            
+            # Buscar video resultante
+            # El script full_pipeline guarda en videos/R5B20_01mar24_full_behavior_h264.mp4
+            # Pero el nombre depende de la variable en el script.
+            # Buscamos el h264 más reciente en la carpeta de videos del proyecto SimBA
+            project_videos_dir = os.path.join("data", "simba_projects", "SimBA_EPM_Analysis", "project_folder", "videos")
+            if os.path.exists(project_videos_dir):
+                files = glob.glob(os.path.join(project_videos_dir, "*_behavior_h264.mp4"))
+                if files:
+                    latest_video = max(files, key=os.path.getctime)
+                    st.info(f"Video generado: {os.path.basename(latest_video)}")
+                    st.video(latest_video)
+                else:
+                    st.warning("No se encontró el video final generado.")
+        else:
+            status_container.update(label="❌ Error en el pipeline", state="error")
+            st.error("El pipeline falló. Revisa los logs arriba.")
+            
+    except Exception as e:
+        status_container.update(label="❌ Error de ejecución", state="error")
+        st.error(f"Error lanzando subprocess: {e}")
+
 if iniciar:
     if motor == "DeepLabCut SuperAnimal":
         # --- MODO DEEPLABCUT ---
