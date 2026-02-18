@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import sys
 from moviepy.editor import VideoFileClip
+import re
 
 # ================= 0. PERSISTENCIA =================
 # Asegurar que podemos importar desde src
@@ -252,28 +253,74 @@ if "video_en_edicion" in st.session_state:
         clip = VideoFileClip(ruta_actual)
         duracion = clip.duration
 
-        rango = st.slider(
-            "Selecciona el rango de análisis (segundos):",
-            min_value=0.0,
-            max_value=float(duracion),
-            value=(0.0, float(duracion)),
-            step=1.0,
-            key="slider_recorte",
-        )
+        def fmt_seconds_to_mmss(s: float) -> str:
+            s = max(0, int(s))
+            mm = s // 60
+            ss = s % 60
+            return f"{mm:02d}:{ss:02d}"
 
-        start, end = rango
+        def parse_mmss_to_seconds(text: str):
+            text = (text or "").strip()
+            # Accept formats like mm:ss or m:ss or ss
+            m = re.match(r"^(\d+):(\d{1,2})$", text)
+            if m:
+                minutes = int(m.group(1))
+                seconds = int(m.group(2))
+                return minutes * 60 + seconds
+            # fallback: plain seconds number
+            if re.match(r"^\d+$", text):
+                return int(text)
+            return None
 
-        st.video(ruta_actual, start_time=int(start))
-        st.info(f"⏱️ Se analizará del segundo **{start}** al **{end}**.")
+        # Defaults for inputs
+        default_start = fmt_seconds_to_mmss(0)
+        default_end = fmt_seconds_to_mmss(duracion)
 
-        if st.button("💾 Confirmar recorte y procesar"):
-            st.session_state["ruta_video_actual"] = ruta_actual
-            st.session_state["inicio_recorte"] = start
-            st.session_state["fin_recorte"] = end
-            save_session()
+        c1, c2 = st.columns(2)
+        with c1:
+            start_text = st.text_input("Inicio (mm:ss)", value=default_start, key="inicio_recorte_text", placeholder="mm:00")
 
-            st.balloons()
-            st.success("✅ ¡Datos guardados! Ahora ve a la página **Configuración Zonas**.")
+        with c2:
+            end_text = st.text_input("Fin (mm:ss)", value=default_end, key="fin_recorte_text", placeholder="mm:00")
+
+        start_seconds = parse_mmss_to_seconds(start_text)
+        end_seconds = parse_mmss_to_seconds(end_text)
+
+        # Validate inputs
+        valid = True
+        if start_seconds is None:
+            st.error("Formato inválido para Inicio. Use mm:ss o segundos enteros.")
+            valid = False
+        if end_seconds is None:
+            st.error("Formato inválido para Fin. Use mm:ss o segundos enteros.")
+            valid = False
+        if valid:
+            if start_seconds < 0 or start_seconds > duracion:
+                st.error("El tiempo de Inicio está fuera de rango del video.")
+                valid = False
+            if end_seconds < 0 or end_seconds > duracion:
+                st.error("El tiempo de Fin está fuera de rango del video.")
+                valid = False
+            if start_seconds >= end_seconds:
+                st.error("El tiempo de Inicio debe ser menor que el tiempo de Fin.")
+                valid = False
+
+        # Show video starting at parsed start time if valid, otherwise default to 0
+        if valid:
+            st.video(ruta_actual, start_time=int(start_seconds))
+            st.info(f"⏱️ Se analizará de **{fmt_seconds_to_mmss(start_seconds)}** a **{fmt_seconds_to_mmss(end_seconds)}** ({start_seconds}–{end_seconds} s).")
+
+            if st.button("💾 Confirmar recorte y procesar"):
+                st.session_state["ruta_video_actual"] = ruta_actual
+                st.session_state["inicio_recorte"] = start_seconds
+                st.session_state["fin_recorte"] = end_seconds
+                save_session()
+
+                st.balloons()
+                st.success("✅ ¡Datos guardados! Ahora ve a la página **Configuración Zonas**.")
+        else:
+            # still show full video preview if parsing invalid
+            st.video(ruta_actual)
 
         clip.close()
 
