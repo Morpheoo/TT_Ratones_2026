@@ -213,9 +213,44 @@ st.markdown('<div class="tt-ingesta-card">', unsafe_allow_html=True)
 
 with st.form("registro_experimento"):
     c1, c2 = st.columns(2)
+    # Intentar leer tratamientos previos desde la BD para ofrecer sugerencias
+    prev_treatments = []
+    try:
+        from src.db.connection import get_db_engine
+        from sqlalchemy import text
+        engine = get_db_engine()
+        if engine:
+            with engine.connect() as conn:
+                rows = conn.execute(text("SELECT DISTINCT treatment FROM experiments ORDER BY treatment"))
+                prev_treatments = [r[0] for r in rows.fetchall() if r[0]]
+    except Exception:
+        prev_treatments = []
+
     with c1:
         id_raton = st.text_input("ID del Espécimen", placeholder="Ej. MOUSE-001")
-        tratamiento = st.selectbox("Tratamiento", ["Control", "Diazepam", "Buspirona"])
+        # Campo de texto libre para tratamiento con sugerencias (autocompletado básico)
+        if "tratamiento_text" not in st.session_state:
+            st.session_state["tratamiento_text"] = ""
+
+        tratamiento_input = st.text_input(
+            "Tratamiento",
+            value=st.session_state.get("tratamiento_text", ""),
+            key="tratamiento_text",
+            placeholder="Escribe o elige un tratamiento"
+        )
+
+        # Mostrar todos los tratamientos guardados como opciones clicables (además del input libre)
+        if prev_treatments:
+            st.markdown("**Tratamientos guardados:**")
+            # Mostrar en filas de hasta 6 botones
+            per_row = 6
+            for i in range(0, len(prev_treatments), per_row):
+                row = prev_treatments[i:i+per_row]
+                cols_buttons = st.columns(len(row))
+                for j, label in enumerate(row):
+                    if cols_buttons[j].button(label, key=f"trat_btn_{i+j}"):
+                        st.session_state["tratamiento_text"] = label
+                        st.experimental_rerun()
     with c2:
         fecha = st.date_input("Fecha del Experimento")
         responsable = st.text_input("Responsable", value="Equipo TT")
@@ -231,6 +266,8 @@ if submitted and video_file is not None:
     if not id_raton:
         st.error("⚠️ Falta el ID del ratón.")
     else:
+        # Preferir el texto del campo libre (guardado en session), o vacío si no existe
+        tratamiento = (st.session_state.get("tratamiento_text") or "").strip()
         nombre_limpio = f"{id_raton}_{tratamiento}.mp4".replace(" ", "_")
         ruta_guardado = os.path.join("videos_data", nombre_limpio)
         
@@ -239,6 +276,8 @@ if submitted and video_file is not None:
         
         st.session_state["video_en_edicion"] = ruta_guardado
         st.session_state["id_raton_actual"] = id_raton
+        # Guardar tratamiento en la sesión para que el procesamiento lo persista en BD
+        st.session_state["treatment"] = tratamiento
         save_session()
         st.success("✅ Video subido correctamente.")
 
@@ -314,7 +353,41 @@ if "video_en_edicion" in st.session_state:
                 st.session_state["ruta_video_actual"] = ruta_actual
                 st.session_state["inicio_recorte"] = start_seconds
                 st.session_state["fin_recorte"] = end_seconds
+                # Persistir sesión
                 save_session()
+
+                # Guardar/asegurar tratamiento en la base de datos para histórico/autocompletado
+                try:
+                    from src.db.connection import get_db_engine
+                    from sqlalchemy import text
+                    engine = get_db_engine()
+                    if engine:
+                        with engine.connect() as conn:
+                            # Intentar obtener el id del usuario
+                            usr_email = st.session_state.get("user", "admin")
+                            res_usr = conn.execute(text("SELECT id FROM users WHERE username = :u"), {"u": usr_email}).fetchone()
+                            user_id = res_usr[0] if res_usr else None
+
+                            # Si ya existe un experimento con este video_path, actualizar su treatment y marcar processed=False
+                            existing = conn.execute(text("SELECT id FROM experiments WHERE video_path = :path LIMIT 1"), {"path": ruta_actual}).fetchone()
+                            if existing:
+                                conn.execute(text("UPDATE experiments SET treatment = :treat, processed = FALSE WHERE id = :eid"), {"treat": st.session_state.get("treatment", ""), "eid": existing[0]})
+                            else:
+                                # Insertar registro mínimo para preservar tratamiento en histórico
+                                conn.execute(text(
+                                    """
+                                    INSERT INTO experiments (rat_id, treatment, experiment_date, responsible, video_path, duration_seconds, created_by, processed)
+                                    VALUES (:rid, :treat, CURRENT_DATE, :resp, :path, NULL, :uid, FALSE)
+                                    """), {
+                                    "rid": st.session_state.get("id_raton_actual", "Unknown-Rat"),
+                                    "treat": st.session_state.get("treatment", ""),
+                                    "resp": st.session_state.get("user_name", "Investigador"),
+                                    "path": ruta_actual,
+                                    "uid": user_id
+                                })
+                            conn.commit()
+                except Exception as e:
+                    st.error(f"Error guardando tratamiento en BD: {e}")
 
                 st.balloons()
                 st.success("✅ ¡Datos guardados! Ahora ve a la página **Configuración Zonas**.")

@@ -935,27 +935,50 @@ if iniciar:
                 res_usr = conn.execute(text("SELECT id FROM users WHERE username = :u"), {"u": usr_email}).fetchone()
                 user_id = res_usr[0] if res_usr else None
                 
-                insert_exp = text("""
-                    INSERT INTO experiments (rat_id, treatment, experiment_date, responsible, video_path, duration_seconds, created_by, processed)
-                    VALUES (:rid, :treat, CURRENT_DATE, :resp, :path, :dur, :uid, TRUE)
-                    RETURNING id
-                """)
-                
                 # Datos de sesión o defaults
                 rat_id = st.session_state.get("id_raton_actual", "Unknown-Rat")
-                treatment = "Experimental" # Debería venir de Ingesta
+                # Obtener tratamiento guardado por la página de Ingesta (puede venir como 'treatment' o 'tratamiento_text')
+                treatment = st.session_state.get("treatment") or st.session_state.get("tratamiento_text") or "Experimental"
                 responsible = st.session_state.get("user_name", "Investigador")
-                
-                res_exp = conn.execute(insert_exp, {
-                    "rid": rat_id,
-                    "treat": treatment,
-                    "resp": responsible,
-                    "path": ruta_video,
-                    "dur": total_time,
-                    "uid": user_id
-                }).fetchone()
-                
-                exp_id = res_exp[0]
+
+                # Evitar duplicados: si ya existe un experimento con este video_path, actualizarlo
+                existing = conn.execute(text("SELECT id FROM experiments WHERE video_path = :path LIMIT 1"), {"path": ruta_video}).fetchone()
+                if existing:
+                    # Actualizar datos y marcar como procesado
+                    res_update = conn.execute(text(
+                        """
+                        UPDATE experiments
+                        SET treatment = :treat,
+                            experiment_date = CURRENT_DATE,
+                            responsible = :resp,
+                            duration_seconds = :dur,
+                            created_by = COALESCE(:uid, created_by),
+                            processed = TRUE
+                        WHERE id = :eid
+                        RETURNING id
+                        """), {
+                        "treat": treatment,
+                        "resp": responsible,
+                        "dur": total_time,
+                        "uid": user_id,
+                        "eid": existing[0]
+                    }).fetchone()
+                    exp_id = res_update[0]
+                else:
+                    insert_exp = text("""
+                        INSERT INTO experiments (rat_id, treatment, experiment_date, responsible, video_path, duration_seconds, created_by, processed)
+                        VALUES (:rid, :treat, CURRENT_DATE, :resp, :path, :dur, :uid, TRUE)
+                        RETURNING id
+                    """)
+                    res_exp = conn.execute(insert_exp, {
+                        "rid": rat_id,
+                        "treat": treatment,
+                        "resp": responsible,
+                        "path": ruta_video,
+                        "dur": total_time,
+                        "uid": user_id
+                    }).fetchone()
+                    exp_id = res_exp[0]
                 
                 # 2. Insertar Resultados (Incluyendo trajectory_path)
                 insert_res = text("""
