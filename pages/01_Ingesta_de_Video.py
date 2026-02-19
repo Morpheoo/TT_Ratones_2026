@@ -233,7 +233,7 @@ with st.form("registro_experimento"):
             st.session_state["tratamiento_text"] = ""
 
         tratamiento_input = st.text_input(
-            "Tratamiento",
+            "ID del Tratamiento",
             value=st.session_state.get("tratamiento_text", ""),
             key="tratamiento_text",
             placeholder="Escribe o elige un tratamiento"
