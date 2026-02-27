@@ -181,6 +181,13 @@ tipo_zona_visual = st.sidebar.radio(
     ("Brazo Abierto", "Brazo Cerrado", "Centro"),
 )
 
+# El usuario puede alternar entre modo creación (dibujar rectángulos) y
+# modo edición (seleccionar y transformar los rectángulos existentes).
+modo_interaccion = st.sidebar.radio(
+    "Operación:",
+    ("Agregar zonas", "Editar/mover zonas"),
+)
+
 colores = {
     "Brazo Abierto": "rgba(244, 63, 94, 0.35)",
     "Brazo Cerrado": "rgba(59, 130, 246, 0.35)",
@@ -192,7 +199,9 @@ st.markdown(
     '<div class="tt-card">'
     '<div class="tt-section-title">🖊️ Dibujo de ROIs sobre el fotograma</div>'
     '<p>Haz clic y arrastra para dibujar rectángulos sobre el laberinto. '
-    'Puedes cambiar el tipo de zona en el menú lateral.</p>'
+    'Cuando termines puedes cambiar al modo <strong>Editar/mover zonas</strong> ' 
+    'para seleccionar cualquier rectángulo y ajustar sus esquinas a tu ' 
+    'elección.</p>'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -281,6 +290,8 @@ if st.sidebar.button("🗑️ Limpiar Pantalla"):
 
 # =============== 8. CANVAS =================
 st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+# elegir modo de dibujo según lo seleccionado en la barra lateral
+canvas_drawing_mode = "rect" if modo_interaccion == "Agregar zonas" else "transform"
 canvas_result = st_canvas(
     fill_color=color_actual,
     stroke_width=2,
@@ -289,7 +300,7 @@ canvas_result = st_canvas(
     update_streamlit=True,
     height=ALTO_CANVAS,
     width=ANCHO_CANVAS,
-    drawing_mode="rect",
+    drawing_mode=canvas_drawing_mode,
     initial_drawing=st.session_state.get("canvas_initial_json", None),
     key=st.session_state["canvas_key"],
 )
