@@ -2,29 +2,31 @@
 Full pipeline: Analyze a new video with trained SimBA classifiers.
 Steps:
   1. Trim video to 2 minutes
-  2. Run DeepLabCut SuperAnimal analysis
+  2. Run DeepLabCut SuperAnimal analysis (GPU)
   3. Convert H5 to CSV for SimBA
   4. Import into SimBA project
-  5. Extract features
-  6. Run inference with trained classifiers
+  5. Extract features (SimBA)
+  6. Run inference with trained classifiers (SimBA)
   7. Generate annotated video with behavior overlays
 """
 import os
 import sys
+
+# Force Keras 2 compatibility (CRITICAL for DeepLabCut in TF 2.16+)
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 import shutil
 import glob
 import configparser
 import site
 import traceback
-
 import argparse
+import subprocess
 
 # ── Configuration ──────────────────────────────────────────────
 INPUT_VIDEO = r"C:\Users\chavi\OneDrive\Desktop\dataser_tt_mejorado\R5B20_01mar24.mp4"
 VIDEO_NAME = "R5B20_01mar24_full"
 ZONES_JSON = "[]"
-# TRIM_START = 30       # seconds to skip at the start
-# TRIM_DURATION = 120   # 2 minutes
 
 PROJECT_DIR = os.path.abspath(".")
 SIMBA_PROJECT = os.path.join(PROJECT_DIR, "data", "simba_projects", "SimBA_EPM_Analysis", "project_folder")
@@ -123,17 +125,70 @@ def step2_dlc_analysis():
     if existing:
         print(f"  DLC results already exist: {existing[0]}")
         return True
+        
+    # Check TensorFlow version for GPU support (Windows Native GPU dropped after 2.10)
+    try:
+        import tensorflow as tf
+        tf_ver = tf.__version__
+        print(f"  TensorFlow Version: {tf_ver}")
+        
+        # If running in venv_311 (TF 2.11+) -> Respawn in venv_310 (TF 2.10)
+        # Windows Native GPU support was dropped in TF 2.10.
+        # Any version > 2.10 must use venv_310 for GPU.
+        major, minor, patch = tf_ver.split(".")[:3]
+        if int(major) == 2 and int(minor) > 10:
+             print(f"  [WARN] TF {tf_ver} > 2.10 detected (No GPU on Windows). Respawning in venv_310...")
+             venv_python = os.path.abspath(os.path.join(PROJECT_DIR, "venv_310", "Scripts", "python.exe"))
+             if not os.path.exists(venv_python):
+                 print(f"  [ERROR] venv_310 python not found at: {venv_python}")
+                 return False
+            
+             cmd = [venv_python, os.path.abspath(__file__), "--video", INPUT_VIDEO, "--step", "2"]
+             # If using downscaled video, pass that? No, Step 2 recalculates TRIMMED_VIDEO
+             # Actually, main() sets TRIMMED_VIDEO = INPUT_VIDEO initially.
+             # Step 1 sets TRIMMED_VIDEO = downscaled.
+             # When spawning step 2 directly, we need to know if we should use downscaled.
+             # Standard pipeline ALWAYS downscales if step 1 runs.
+             # If running standalone step 2, we should check if downscaled exists and use it.
+             
+             # The spawned process will run step2_dlc_analysis.
+             # We need to ensure TRIMMED_VIDEO is correct in the subprocess.
+             # Let's pass a flag or handle it in main?
+             # Easier: Just check for downscaled video here in the subprocess too.
+             
+             print(f"  Running: {' '.join(cmd)}")
+             import subprocess
+             ret = subprocess.call(cmd)
+             if ret != 0:
+                 print("  [ERROR] DLC analysis failed in venv_310")
+                 return False
+             return True
+
+    except ImportError:
+        pass
+    
+    # If we are here, we are either in venv_310 OR we decided to run anyway.
+    # Check for downscaled video preference
+    # In this script, Step 1 updates global TRIMMED_VIDEO. 
+    # If we are in a subprocess, TRIMMED_VIDEO is just INPUT_VIDEO.
+    # We should check if the downscaled version exists and prefer it.
+    base = os.path.splitext(os.path.basename(INPUT_VIDEO))[0]
+    downscaled = os.path.join(WORK_DIR, f"{base}_down-50.mp4")
+    target_video = TRIMMED_VIDEO
+    if os.path.exists(downscaled):
+        print(f"  Found downscaled video: {downscaled}")
+        target_video = downscaled
     
     from deeplabcut.modelzoo.api.superanimal_inference import video_inference
     
-    print(f"  Analyzing (Fast Mode): {TRIMMED_VIDEO}")
+    print(f"  Analyzing (Fast Mode): {target_video}")
     print(f"  Model: {SUPERANIMAL_NAME}")
     
     video_inference(
-        videos=[TRIMMED_VIDEO],
+        videos=[target_video],
         superanimal_name=SUPERANIMAL_NAME,
         videotype="mp4",
-        batchsize=16,
+        batchsize=8,
     )
     print("  DLC analysis complete!")
     return True
@@ -277,12 +332,29 @@ def step5_extract_features():
         print("  Features already extracted!")
         return True
     
-    from simba.feature_extractors.feature_extractor_user_defined import UserDefinedFeatureExtractor
-    
-    extractor = UserDefinedFeatureExtractor(config_path=CONFIG_PATH)
-    extractor.run()
-    print("  Feature extraction complete!")
-    return True
+    try:
+        from simba.feature_extractors.feature_extractor_user_defined import UserDefinedFeatureExtractor
+        extractor = UserDefinedFeatureExtractor(config_path=CONFIG_PATH)
+        extractor.run()
+        print("  Feature extraction complete!")
+        return True
+    except ImportError:
+        print("  [WARN] SimBA not found in current environment. Respawning step with venv_310...")
+        venv_python = os.path.abspath(os.path.join(PROJECT_DIR, "venv_310", "Scripts", "python.exe"))
+        if not os.path.exists(venv_python):
+             print(f"  [ERROR] venv_310 python not found at: {venv_python}")
+             return False
+        
+        cmd = [venv_python, os.path.abspath(__file__), "--video", INPUT_VIDEO, "--step", "5"]
+        if ZONES_JSON != "[]":
+            cmd.extend(["--zones", ZONES_JSON])
+            
+        print(f"  Running: {' '.join(cmd)}")
+        ret = subprocess.call(cmd)
+        if ret != 0:
+            print("  [ERROR] Feature extraction failed in venv_310")
+            return False
+        return True
 
 
 def step6_run_inference():
@@ -294,27 +366,41 @@ def step6_run_inference():
     results_dir = os.path.join(SIMBA_PROJECT, "csv", "machine_results")
     if os.path.exists(os.path.join(results_dir, f"{VIDEO_NAME}.csv")):
         print("  Inference results already exist!")
-        # Still show summary
+        # Still show summary? Only if we can read it.
     
-    from simba.model.inference_batch import InferenceBatch
-    
-    inferencer = InferenceBatch(config_path=CONFIG_PATH)
-    inferencer.run()
-    
-    # Print summary
-    import pandas as pd
-    result_path = os.path.join(results_dir, f"{VIDEO_NAME}.csv")
-    if os.path.exists(result_path):
-        df = pd.read_csv(result_path)
-        fps = 30.0
-        total = len(df)
-        g_frames = int(df["Grooming"].sum())
-        t_frames = int(df["Thigmotaxis"].sum())
-        print(f"\n  Results for {VIDEO_NAME}:")
-        print(f"    Grooming:    {g_frames} frames ({g_frames/total*100:.1f}%) = {g_frames/fps:.1f}s")
-        print(f"    Thigmotaxis: {t_frames} frames ({t_frames/total*100:.1f}%) = {t_frames/fps:.1f}s")
-    
-    return True
+    try:
+        from simba.model.inference_batch import InferenceBatch
+        inferencer = InferenceBatch(config_path=CONFIG_PATH)
+        inferencer.run()
+        
+        # Print summary
+        import pandas as pd
+        result_path = os.path.join(results_dir, f"{VIDEO_NAME}.csv")
+        if os.path.exists(result_path):
+            df = pd.read_csv(result_path)
+            fps = 30.0
+            total = len(df)
+            g_frames = int(df["Grooming"].sum()) if "Grooming" in df.columns else 0
+            t_frames = int(df["Thigmotaxis"].sum()) if "Thigmotaxis" in df.columns else 0
+            print(f"\n  Results for {VIDEO_NAME}:")
+            print(f"    Grooming:    {g_frames} frames ({g_frames/total*100:.1f}%) = {g_frames/fps:.1f}s")
+            print(f"    Thigmotaxis: {t_frames} frames ({t_frames/total*100:.1f}%) = {t_frames/fps:.1f}s")
+        return True
+        
+    except ImportError:
+        print("  [WARN] SimBA not found in current environment. Respawning step with venv_310...")
+        venv_python = os.path.abspath(os.path.join(PROJECT_DIR, "venv_310", "Scripts", "python.exe"))
+        
+        cmd = [venv_python, os.path.abspath(__file__), "--video", INPUT_VIDEO, "--step", "6"]
+        if ZONES_JSON != "[]":
+            cmd.extend(["--zones", ZONES_JSON])
+            
+        print(f"  Running: {' '.join(cmd)}")
+        ret = subprocess.call(cmd)
+        if ret != 0:
+            print("  [ERROR] Inference failed in venv_310")
+            return False
+        return True
 
 
 def step7_generate_video():
@@ -355,130 +441,13 @@ def step7_generate_video():
     return True
 
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
-    
-    # Pre-compute totals
-    total_g_frames = int(df["Grooming"].sum())
-    total_t_frames = int(df["Thigmotaxis"].sum())
-    total_g_s = total_g_frames / fps
-    total_t_s = total_t_frames / fps
-    
-    # Colors
-    GREEN = (0, 200, 0)
-    BLUE = (200, 100, 0)
-    WHITE = (255, 255, 255)
-    DARK_BG = (30, 30, 30)
-    
-    g_cumul = 0
-    t_cumul = 0
-    
-    print(f"  Rendering {total_frames} frames ({w}x{h} @ {fps}fps)...")
-    
-    for i in range(total_frames):
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        g_prob = float(df.iloc[i].get("Probability_Grooming", 0))
-        t_prob = float(df.iloc[i].get("Probability_Thigmotaxis", 0))
-        g_on = int(df.iloc[i].get("Grooming", 0)) == 1
-        t_on = int(df.iloc[i].get("Thigmotaxis", 0)) == 1
-        
-        if g_on: g_cumul += 1
-        if t_on: t_cumul += 1
-        
-        g_time = g_cumul / fps
-        t_time = t_cumul / fps
-        cur_time = i / fps
-        total_time = total_frames / fps
-        
-        # Panel
-        panel_w, panel_h = 340, 170
-        px = w - panel_w - 10
-        py = 10
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (px, py), (px+panel_w, py+panel_h), DARK_BG, -1)
-        cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
-        
-        m = int(cur_time) // 60
-        s = cur_time - m * 60
-        cv2.putText(frame, f"SimBA Behavior Detection  [{m}:{s:05.2f}]",
-                    (px+10, py+22), cv2.FONT_HERSHEY_SIMPLEX, 0.48, WHITE, 1, cv2.LINE_AA)
-        
-        # Grooming
-        by = py + 40
-        color = GREEN if g_on else (80, 80, 80)
-        cv2.putText(frame, "Grooming", (px+10, by+12), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
-        bx = px + 110
-        cv2.rectangle(frame, (bx, by), (bx+120, by+16), (60,60,60), -1)
-        cv2.rectangle(frame, (bx, by), (bx+int(120*g_prob), by+16), GREEN, -1)
-        cv2.putText(frame, f"{g_prob:.0%}", (bx+125, by+13), cv2.FONT_HERSHEY_SIMPLEX, 0.38, WHITE, 1, cv2.LINE_AA)
-        if g_on:
-            cv2.putText(frame, "DETECTED", (px+10, by+30), cv2.FONT_HERSHEY_SIMPLEX, 0.32, GREEN, 1, cv2.LINE_AA)
-        cv2.putText(frame, f"{g_time:.1f}s", (px+panel_w-55, by+30), cv2.FONT_HERSHEY_SIMPLEX, 0.38, GREEN, 1, cv2.LINE_AA)
-        
-        # Thigmotaxis
-        by = py + 80
-        color = BLUE if t_on else (80, 80, 80)
-        cv2.putText(frame, "Thigmotaxis", (px+10, by+12), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
-        cv2.rectangle(frame, (bx, by), (bx+120, by+16), (60,60,60), -1)
-        cv2.rectangle(frame, (bx, by), (bx+int(120*t_prob), by+16), BLUE, -1)
-        cv2.putText(frame, f"{t_prob:.0%}", (bx+125, by+13), cv2.FONT_HERSHEY_SIMPLEX, 0.38, WHITE, 1, cv2.LINE_AA)
-        if t_on:
-            cv2.putText(frame, "DETECTED", (px+10, by+30), cv2.FONT_HERSHEY_SIMPLEX, 0.32, BLUE, 1, cv2.LINE_AA)
-        cv2.putText(frame, f"{t_time:.1f}s", (px+panel_w-55, by+30), cv2.FONT_HERSHEY_SIMPLEX, 0.38, BLUE, 1, cv2.LINE_AA)
-        
-        # Summary
-        g_pct = total_g_s / total_time * 100
-        t_pct = total_t_s / total_time * 100
-        cv2.putText(frame, f"Total: G={total_g_s:.1f}s ({g_pct:.1f}%)  T={total_t_s:.1f}s ({t_pct:.1f}%)",
-                    (px+10, py+135), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (180,180,180), 1, cv2.LINE_AA)
-        
-        # Timestamp
-        m2 = int(total_time) // 60
-        s2 = total_time - m2 * 60
-        cv2.putText(frame, f"Frame: {i}/{total_frames}  |  {m}:{s:05.2f} / {m2}:{s2:05.2f}",
-                    (10, h-15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, WHITE, 1, cv2.LINE_AA)
-        
-        # Borders
-        if g_on:
-            cv2.rectangle(frame, (0,0), (w-1,h-1), GREEN, 3)
-        if t_on:
-            cv2.rectangle(frame, (3,3), (w-4,h-4), BLUE, 3)
-        
-        out.write(frame)
-        if (i+1) % 600 == 0:
-            print(f"    {i+1}/{total_frames} frames...")
-    
-    cap.release()
-    out.release()
-    
-    # Re-encode to H.264 with ffmpeg
-    h264_path = output_path.replace("_annotated.mp4", "_h264.mp4")
-    ffmpeg_exe = r"C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
-    if os.path.exists(ffmpeg_exe):
-        print("  Re-encoding to H.264...")
-        os.system(f'"{ffmpeg_exe}" -y -i "{output_path}" -c:v libx264 -preset fast -crf 23 "{h264_path}"')
-        print(f"  H.264 video: {h264_path}")
-    else:
-        h264_path = output_path
-        print("  ffmpeg not found, using mp4v codec")
-    
-    print(f"\n  FINAL VIDEO: {h264_path}")
-    return True
-
-
 def main():
     global INPUT_VIDEO, VIDEO_NAME, ZONES_JSON, TRIMMED_VIDEO
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", help="Input video path")
     parser.add_argument("--zones", help="Zones JSON string", default="[]")
+    parser.add_argument("--step", help="Run specific step number (1-7)", default="")
     args = parser.parse_args()
     
     if args.video:
@@ -505,6 +474,22 @@ def main():
         ("Generate annotated video", step7_generate_video),
     ]
     
+    # Run specific step if requested
+    if args.step:
+        try:
+            step_idx = int(args.step) - 1
+            if 0 <= step_idx < len(steps):
+                name, func = steps[step_idx]
+                print(f"Running SINGLE step: {name}")
+                func()
+            else:
+                print(f"Invalid step number: {args.step}")
+        except ValueError:
+            print("Step must be a number 1-7")
+        return
+
+    # Run remaining steps from detection? Or all?
+    # Default behavior: Run all sequentially
     for name, func in steps:
         try:
             ok = func()

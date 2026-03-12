@@ -44,8 +44,11 @@ def render_labeled_video(video_path, csv_path, zones_json_str=None, min_confiden
 
     # Helper: Check if point is in any valid zone
     def is_in_valid_zone(x, y, zones, margin=0):
-        if not zones: return True # If no zones defined, everything is valid
-        for z in zones:
+        # Filtrar solo zonas rectangulares, los muros no dictan la exclusion
+        rect_zones = [z for z in zones if z.get('type', 'rect') != 'line' and "muro" not in z.get('Nombre Zona', '').lower()]
+        
+        if not rect_zones: return True # If no rect zones defined, everything is valid
+        for z in rect_zones:
             # Check for different possible key names depending on where JSON came from
             zx = z.get('Real X', z.get('x', z.get('left', 0)))
             zy = z.get('Real Y', z.get('y', z.get('top', 0)))
@@ -89,11 +92,18 @@ def render_labeled_video(video_path, csv_path, zones_json_str=None, min_confiden
             
         # Draw Zones (Visual Debugging)
         for z in valid_zones:
-            zx = z.get('Real X', z.get('x', z.get('left', 0)))
-            zy = z.get('Real Y', z.get('y', z.get('top', 0)))
-            zw = z.get('Real W', z.get('w', z.get('width', 0)))
-            zh = z.get('Real H', z.get('h', z.get('height', 0)))
-            cv2.rectangle(frame, (zx, zy), (zx+zw, zy+zh), (100, 255, 100), 1)
+            if z.get('type') == 'line' or "muro" in z.get('Nombre Zona', '').lower():
+                x1 = int(z.get('x1', 0))
+                y1 = int(z.get('y1', 0))
+                x2 = int(z.get('x2', 0))
+                y2 = int(z.get('y2', 0))
+                cv2.line(frame, (x1, y1), (x2, y2), (255, 255, 0), 2) # Cyan para los muros físicos
+            else:
+                zx = z.get('Real X', z.get('x', z.get('left', 0)))
+                zy = z.get('Real Y', z.get('y', z.get('top', 0)))
+                zw = z.get('Real W', z.get('w', z.get('width', 0)))
+                zh = z.get('Real H', z.get('h', z.get('height', 0)))
+                cv2.rectangle(frame, (zx, zy), (zx+zw, zy+zh), (100, 255, 100), 1)
 
         # Draw Skeleton
         for bp1, bp2 in skeleton:

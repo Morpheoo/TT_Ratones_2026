@@ -1,0 +1,87 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+
+% ------------------- PORTADA -------------------
+\title{\textbf{Evaluación de la Integración de Aceleración GPU en DeepLabCut y SimBA frente a Variabilidad Ambiental y Resolución de Video}}
+\author{\textbf{Autores:} [Tu Nombre / Equipo] \\ \textbf{Institución:} [Nombre de tu Institución/Universidad]}
+\date{\textbf{Fecha:} \today \\ \textbf{Asignatura/Proyecto:} Trabajo Terminal - TT\_Ratones\_2026}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% ------------------- RESUMEN -------------------
+\begin{abstract}
+\noindent Se abordó la integración de aceleración por unidad de procesamiento gráfico (GPU) para la extracción de poses espaciales mediante DeepLabCut y la posterior clasificación de comportamientos utilizando SimBA. El objetivo principal fue optimizar los tiempos de inferencia computacional y evaluar la capacidad de generalización de los modelos predictivos al enfrentar cambios en el entorno experimental y alteraciones en la resolución espacial del video. Se configuró un entorno virtual dedicado con compatibilidad nativa para Windows (TensorFlow 2.10, PyTorch 2.7.1), logrando una reducción del tiempo de procesamiento de 6.0\,s a 1.63\,s por iteración con una NVIDIA RTX 5070 Ti. Se entrenaron modelos de \textit{Random Forest} para los comportamientos de acicalamiento (\textit{Grooming}) y tigmotaxis. La evaluación en un escenario novedoso (laberinto azul) y la optimización mediante submuestreo espacial (resolución de $640\times360$) produjeron resultados adversos de sobredetección debido al \textit{jitter} de coordenadas. Se concluyó que el procesamiento a baja resolución no es viable para la precisión del modelo, y que es imperativo analizar el flujo de datos a resolución nativa asumiendo los tiempos de procesamiento extendidos, junto con un reentrenamiento híbrido para mitigar el sobreajuste ambiental.
+\end{abstract}
+
+% ------------------- INTRODUCCIÓN -------------------
+\section{Introducción}
+El estudio del comportamiento murino requiere un análisis exhaustivo y preciso de largas sesiones de video. Herramientas de aprendizaje profundo como DeepLabCut y SimBA han estandarizado la extracción de posturas corporales y la clasificación de comportamientos complejos. Sin embargo, la carga computacional asociada a la inferencia de grandes volúmenes de fotogramas prolonga sustancialmente el tiempo de análisis en sistemas basados en CPU. 
+
+El presente experimento planteó la hipótesis de que, si bien la delegación de las tareas matriciales a una infraestructura dedicada de GPU acelerará el proceso, la alteración o compresión de la resolución del video (como método extra para reducir tiempos) inducirá fallas en la predicción del modelo estadístico debido a la pérdida de detalle temporal (\textit{jitter}). Asimismo, plantea la posible reducción de la fiabilidad del clasificador frente a un entorno experimental distinto al de entrenamiento.
+
+Los objetivos específicos del experimento fueron: 1) Implementar y aislar un entorno con aceleración GPU para DeepLabCut, 2) Entrenar clasificadores en SimBA para acicalamiento y tigmotaxis basándose en un entorno de caja oscura, y 3) Evaluar la resiliencia de dichos clasificadores frente a reducciones de resolución y cambios a un entorno de laberinto azul. La pregunta de investigación subyacente fue: \textit{¿En qué medida el sacrificio de resolución y la variabilidad ambiental afectan la confiabilidad analítica del sistema acoplado DeepLabCut-SimBA optimizado por GPU?}
+
+% ------------------- MATERIALES Y MÉTODOS -------------------
+\section{Materiales y Métodos}
+El hardware principal utilizado consistió en un equipo provisto de una tarjeta gráfica NVIDIA GeForce RTX 5070 Ti Laptop. A nivel de software, el sistema se estructuró dividiendo el entorno de la Interfaz Gráfica (aplicación Streamlit bajo \texttt{venv\_311} en Python 3.11) y el motor de inferencia matricial. Se creó el entorno \texttt{venv\_310} (Python 3.10.11) dotado de TensorFlow 2.10.0 y PyTorch 2.7.1+cu118 a fin de proveer soporte de CUDA 11.x nativo para Windows.
+
+Para automatizar la canalización, el \textit{script} \texttt{run\_superanimal.py} se reacondicionó para recibir argumentos de video dinámicos e inyectar automáticamente las librerías NVIDIA del sistema.
+
+Se creó un proyecto en SimBA (\texttt{SimBA\_EPM\_Analysis}) donde se importó el rastreo originado de un clip de referencia (\texttt{prueba\_real\_2min.mp4}). Posteriormente, se calcularon características relativas a distancias y movimientos y se entrenaron dos modelos supervisados de \textit{Random Forest} con 2000 estimadores analizando un porcentaje del clip (Acicalamiento: 5\%, 179 frames; Tigmotaxis: 10.6\%, 383 frames). 
+
+Tras la obtención de los archivos modelo (\texttt{.sav}), el proceso de análisis completo se ejecutó sobre un clip experimental de 5 minutos, denominado \texttt{R5B20\_01mar24.mp4} ($\sim9341$ fotogramas), grabado dentro de un laberinto azul. El video de prueba se sometió a dos vías de procesamiento divergentes para su evaluación: una corrida optimizada (reescalado destructivo de resolución al 50\%, $640\times360$) y variantes en máxima calidad ($1280\times720$) con manipulación conservadora de umbrales en SimBA (de 0.5 a 0.35 para tigmotaxis). Finalmente, se generaron copias de video con anotación virtual por cada ejecución y la metodología fue validada en una prueba extra con el clip \texttt{R5DZ\_01mar24.mp4}.
+
+% ------------------- RESULTADOS -------------------
+\section{Resultados}
+
+La segregación de entornos resolvió la limitación de hardware, evidenciando actividad inmediata de la GPU RTX 5070 Ti. La velocidad de análisis reportó una mejora, disminuyendo de $\sim$6.0\,s por iteración en operación CPU a $\sim$1.63\,s en GPU. Al sumar métodos heurísticos sobre las instrucciones \texttt{ptxas.exe}, se logró una rapidez de extracción de rasgo de hasta 3.3 iteraciones por segundo.
+
+La Tabla 1 muestra la comparativa entre los perfiles de resolución sometidos al clasificador en el video \texttt{R5B20\_01mar24.mp4}. 
+
+\begin{table}[h]
+\centering
+\caption{Comparativa de Resultados Analíticos SimBA sobre Video R5B20 (\textit{Thresholds} variados)}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lccc}
+\toprule
+\textbf{Métrica} & \textbf{Ejecución Optimizada} & \textbf{Ejecución Nativa Original} & \textbf{Ejecución Nativa Ajustada} \\
+\midrule
+Resolución Aplicada & $640\times360$ (50\%) & $1280\times720$ (100\%) & $1280\times720$ (100\%) \\
+Duración de Inferencia & $\sim$48 minutos & $\sim$3 horas 56 minutos & $\sim$4 horas \\
+Umbral de Activación & 0.30 & 0.50 (Defecto) & 0.35 (Tigmo.) / 0.5 (Acical.) \\
+Detección: Acicalamiento & 9.1\% (848 frames) & 0.7\% (69 frames) & 0.8\% (71 frames) \\
+Detección: Tigmotaxis & 0.2\% (19 frames) & 0.0\% (0 frames) & 0.4\% (35 frames) \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+La incursión inicial del modelo sobre datos del laberinto azul reportó un fallo sistemático de detección (0 detecciones en primera instancia) antes de un reentrenamiento de corrección. La validación en un video posterior (\texttt{R5DZ\_01mar24.mp4}, 2 min, $1280\times720$) localizó la conducta de acicalamiento en un 1.7\% (63 frames, $\sim$2.1\,s) de la toma, registrando actividad exploratoria central constante.
+
+% ------------------- DISCUSIÓN -------------------
+\section{Discusión}
+La significativa reducción en la duración del cómputo para fotogramas demuestra que el uso de hardware gráfico nativo con entornos virtualizados en paralelo resolvió eficientemente la sobrecarga de DeepLabCut. No obstante, los datos registrados en la Tabla 1 constatan perturbaciones fundamentales en la interpretación de los comportamientos derivados del submuestreo de la imagen.
+
+Tal como sugiere la hipótesis, la alteración del entorno nativo desencadenó la falla del modelo estadístico de SimBA. Las marcadas tasas del 9.1\% (848 fotogramas) de acicalamiento obtenidas en la \textit{Ejecución Optimizada} constituyen resultados adulterados de \textit{falsos positivos}. Al disminuir en un 50\% los píxeles útiles, los puntos corporales extraídos por la red neuronal variaron micrométricamente por inestabilidad del seguimiento espacial (*coordinate jitter*). El algoritmo de \textit{Random Forest} interpretó de forma errónea esta vibración técnica de las coordenadas equivalentes como un micro-movimiento rítmico genuino, propio de cuando un espécimen se acicala.
+
+En contraparte, un umbral restrictivo original de 0.5 anuló los datos de la tigmotaxis por completo (0.0\%), lo que demostró que el contacto perimetral en el nuevo escenario es sutil y requirió un descenso analítico moderado a 0.35 para capturar incidentes válidos (0.4\%). A su vez, tal y como se experimentó primariamente, la dependencia visual de los fotogramas base (caja oscura) imposibilitó la inferencia exitosa sobre imágenes con el laberinto azul, corroborando limitaciones de generalización en modelos de aprendizaje por conjuntos insuficientemente expuestos a factores externos (sobreajuste ambiental).
+
+% ------------------- CONCLUSIONES -------------------
+\section{Conclusiones}
+Se cumplió el objetivo de estructurar un entorno acelerado que optimizara los procedimientos del rastreo iterativo matricial. Sin embargo, la resolución de video constituye un recurso innegociable frente a la robustez de las predicciones; la hipótesis del experimento fue aceptada, confirmando que submuestrear la calidad gráfica introduce un factor de *jitter* irrecuperable que desvirtúa totalmente los algoritmos que evalúan movimiento fino. 
+
+Adicionalmente, el rendimiento inter-contextos corroboró que los clasificadores conductuales ostentan limitantes serias frente a transformaciones del espacio experimental. Como implicación primaria, se debe aceptar el coste en horas (3 a 5 h por video de 5 min) que supone trabajar con los metadatos de máxima fidelidad (Resolución 100\%). Para futuras investigaciones o escalabilidad del proyecto, se sugiere construir empíricamente la biblioteca de predicción SimBA unificando y etiquetando manualmente muestras híbridas provenientes tanto de cajas oscuras como de distintos laberintos.
+
+\end{document}

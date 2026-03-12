@@ -4,10 +4,12 @@ import numpy as np
 import plotly.express as px
 import os
 import sys
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
+# sklearn se importa de forma LAZY en la sección de clustering (ver abajo)
+# para no bloquear la carga inicial de la página.
 
 # ================= 0. PERSISTENCIA =================
+st.set_page_config(page_title="Resultados (EPM)", page_icon="📊", layout="wide")
+
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 from src.session_utils import load_session, save_session
@@ -25,9 +27,6 @@ if st.session_state.get("role") == "admin":
     st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
     st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
     st.stop()
-
-# OJO: set_page_config ya se hace en Login/Home. No lo repetimos aquí para evitar error.
-# st.set_page_config(page_title="Dashboard Resultados", layout="wide")
 
 # =============== 2. SELECTOR DE TEMA =================
 if "theme_mode" not in st.session_state:
@@ -85,20 +84,11 @@ st.markdown(
     }}
 
     .tt-card {{
-        background-color: {colors["card_bg"]};
-        border-radius: 18px;
-        padding: 1.4rem 1.6rem;
-        box-shadow: 0 14px 30px {colors["shadow"]};
-        border: 1px solid rgba(15,23,42,0.18);
-        margin-bottom: 1.4rem;
-    }}
-
-    .tt-metric-card {{
-        background-color: {colors["card_bg"]};
-        border-radius: 16px;
-        padding: 0.9rem 1.1rem;
-        box-shadow: 0 10px 24px {colors["shadow"]};
-        border: 1px solid rgba(15,23,42,0.15);
+        background-color: transparent;
+        padding: 0;
+        box-shadow: none;
+        border: none;
+        margin-bottom: 0;
     }}
 
     /* Colores de st.metric */
@@ -145,84 +135,247 @@ st.markdown(
 )
 
 # =============== 4. ENCABEZADO =================
-st.markdown(
-    '<div class="tt-dash-title">📊 Resultados del Comportamiento (EPM)</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="tt-dash-subtitle">'
-    'Resumen de métricas de ansiedad, preferencia de zonas y trayectorias '
-    'del espécimen en el laberinto en cruz elevado.'
-    '</div>',
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="tt-dash-title">📊 Resultados del Comportamiento (EPM)</div>', unsafe_allow_html=True)
+st.markdown('<div class="tt-dash-subtitle">Análisis etológico automático del experimento en el laberinto en cruz elevado.</div>', unsafe_allow_html=True)
 
-# =============== 5. CARGA DE DATOS (HISTORIAL DB) =================
+st.markdown('<div class="tt-dash-title" style="margin-top: 2rem;">🔬 Bitácora de Experimentos EPM</div>', unsafe_allow_html=True)
+st.markdown('<div class="tt-dash-subtitle">Explora y carga experimentos almacenados para visualizar su dashboard analítico.</div>', unsafe_allow_html=True)
+
+# Lazy import del engine AQUÍ, no al tope del módulo
+# (el engine está cacheado con @st.cache_resource, así que sólo conecta la primera vez)
 from src.db.connection import get_db_engine
 from sqlalchemy import text
 
-st.sidebar.markdown("### 📂 Historial de Experimentos")
 engine = get_db_engine()
-df_db = None
 
 if engine:
     try:
         with engine.connect() as conn:
-            # Listar experimentos recientes
-            query_list = text("""
-                SELECT id, rat_id, treatment, experiment_date, created_at 
-                FROM experiments 
-                ORDER BY created_at DESC LIMIT 10
+            # Listar todos los experimentos para KPIs y Tabla
+            query_all = text("""
+                SELECT e.id, 
+                       e.rat_id as "Sujeto / Video", 
+                       e.treatment as "Tratamiento", 
+                       e.experiment_date as "Fecha", 
+                       e.responsible as "Investigador",
+                       COALESCE(a.time_open_arms, 0) as "Open_Arms",
+                       COALESCE(a.time_closed_arms, 0) as "Closed_Arms"
+                FROM experiments e
+                LEFT JOIN analysis_results a ON e.id = a.experiment_id
+                ORDER BY e.created_at DESC
             """)
-            exps = conn.execute(query_list).fetchall()
+            df_historial_raw = pd.read_sql(query_all, conn)
             
-            opciones_exp = {f"{e[1]} ({e[2]}) - {e[3]} [ID:{e[0]}]": e[0] for e in exps}
-            
-            sel_exp_label = st.sidebar.selectbox("Cargar experimento previo:", ["Seleccionar..."] + list(opciones_exp.keys()))
-            
-            if sel_exp_label != "Seleccionar...":
-                exp_id = opciones_exp[sel_exp_label]
+            if not df_historial_raw.empty:
+                # --- A. TARJETAS KPI GLOBALES ---
+                total_exps = len(df_historial_raw)
+                ultima_fecha = df_historial_raw["Fecha"].max()
                 
-                # Cargar métricas de ese experimento
-                q_res = text("""
-                    SELECT * FROM analysis_results WHERE experiment_id = :eid ORDER BY timestamp DESC LIMIT 1
-                """)
-                res_data = conn.execute(q_res, {"eid": exp_id}).fetchone()
+                # Filtrar solo los que tienen datos válidos (mayores a cero) para promedios
+                df_valid = df_historial_raw[(df_historial_raw["Open_Arms"] > 0) | (df_historial_raw["Closed_Arms"] > 0)]
+                prom_abiertos = df_valid["Open_Arms"].mean() if not df_valid.empty else 0
+                prom_cerrados = df_valid["Closed_Arms"].mean() if not df_valid.empty else 0
                 
-                if res_data:
-                    # Mapear columnas de BD a variables locales para visualización
-                    st.session_state["db_metrics"] = {
-                        "total_time": 300, # Placeholder si no guardamos duración
-                        "open": res_data.time_open_arms,
-                        "closed": res_data.time_closed_arms,
-                        "center": res_data.time_center,
-                        "grooming": res_data.grooming_duration,
-                        "thigmo": res_data.thigmotaxis_duration
+                k_1, k_2, k_3, k_4 = st.columns(4)
+                with k_1:
+                    with st.container(border=True):
+                        st.metric("👥 Experimentos Registrados", f"{total_exps}")
+                with k_2:
+                    with st.container(border=True):
+                        st.metric("📅 Último Análisis", str(ultima_fecha))
+                with k_3:
+                    with st.container(border=True):
+                        st.metric("⏳ Promedio T. Abiertos", f"{prom_abiertos:.1f} s")
+                with k_4:
+                    with st.container(border=True):
+                        st.metric("⏳ Promedio T. Cerrados", f"{prom_cerrados:.1f} s")
+                
+                # --- B. BARRA DE FILTROS ELEGANTE ---
+                st.markdown("### Filtros")
+                
+                # Estados de filtro en session_state para poder "limpiarlos"
+                if "filter_search" not in st.session_state: st.session_state.filter_search = ""
+                if "filter_treat" not in st.session_state: st.session_state.filter_treat = "Todos"
+                if "filter_inv" not in st.session_state: st.session_state.filter_inv = "Todos"
+                
+                def clear_filters():
+                    st.session_state.filter_search = ""
+                    st.session_state.filter_treat = "Todos"
+                    st.session_state.filter_inv = "Todos"
+                
+                with st.container(border=True):
+                    f1, f2, f3, f4, f5 = st.columns([3, 2, 2, 2, 1], gap="small", vertical_alignment="bottom")
+                    with f1:
+                        busqueda = st.text_input("Buscar por ID, sujeto...", key="filter_search", label_visibility="collapsed", placeholder="🔍 Buscar...")
+                    with f2:
+                        opts_treat = ["Todos"] + list(df_historial_raw["Tratamiento"].unique())
+                        tratamiento = st.selectbox("Tratamiento", opts_treat, key="filter_treat", label_visibility="collapsed")
+                    with f3:
+                        opts_inv = ["Todos"] + list(df_historial_raw["Investigador"].unique())
+                        investigador = st.selectbox("Investigador", opts_inv, key="filter_inv", label_visibility="collapsed")
+                    with f4:
+                        fechas_str = df_historial_raw["Fecha"].astype(str).unique()
+                        opts_fecha = ["Todas"] + sorted(list(fechas_str), reverse=True)
+                        fecha = st.selectbox("Fecha", opts_fecha, label_visibility="collapsed")
+                    with f5:
+                        st.button("Limpiar", on_click=clear_filters, use_container_width=True)
+
+                # --- APLICAR FILTROS A DATAFRAME ---
+                df_show = df_historial_raw.copy()
+                if busqueda:
+                    mask = df_show.astype(str).apply(lambda row: row.str.contains(busqueda, case=False, na=False).any(), axis=1)
+                    df_show = df_show[mask]
+                if tratamiento != "Todos":
+                    df_show = df_show[df_show["Tratamiento"] == tratamiento]
+                if investigador != "Todos":
+                    df_show = df_show[df_show["Investigador"] == investigador]
+                if fecha != "Todas":
+                    df_show = df_show[df_show["Fecha"].astype(str) == fecha]
+                
+                # Formatear columnas finales para la UI
+                df_ui = df_show.copy()
+                df_ui = df_ui.rename(columns={"id": "ID"})
+                df_ui["T. Abierto"] = df_ui["Open_Arms"].apply(lambda x: f"{x:.1f} s")
+                df_ui["T. Cerrado"] = df_ui["Closed_Arms"].apply(lambda x: f"{x:.1f} s")
+                df_ui["Estatus"] = "Completado ✅"
+                df_ui = df_ui[["ID", "Sujeto / Video", "Tratamiento", "Fecha", "Investigador", "T. Abierto", "T. Cerrado", "Estatus"]]
+                
+                # --- C. TABLA PRINCIPAL MODERNA ---
+                st.markdown("### Historial de experimentos")
+                
+                event = st.dataframe(
+                    df_ui, 
+                    use_container_width=True, 
+                    hide_index=True, 
+                    height=250,
+                    selection_mode="single-row",
+                    on_select="rerun",
+                    column_config={
+                        "ID": st.column_config.NumberColumn(format="#%d"),
                     }
-                    
-                    # Intentar cargar CSV detallado si existe
-                    if hasattr(res_data, 'trajectory_path') and res_data.trajectory_path and os.path.exists(res_data.trajectory_path):
-                        try:
-                            df_loaded = pd.read_csv(res_data.trajectory_path)
-                            st.session_state["resultados_analisis"] = df_loaded
-                            st.toast("✅ Datos detallados cargados exitosamente.")
-                        except Exception as e:
-                             st.error(f"Error cargando archivo de trayectoria: {e}")
+                )
+                
+                # --- D. SELECCIÓN DE EXPERIMENTO ---
+                st.markdown("### Experimento seleccionado")
+                
+                with st.container(border=True):
+                    if len(event.selection.rows) > 0:
+                        selected_ui_row = df_ui.iloc[event.selection.rows[0]]
+                        exp_select = int(selected_ui_row["ID"])
+                        
+                        sel_row = df_historial_raw[df_historial_raw["id"] == exp_select].iloc[0]
+                        total = sel_row["Open_Arms"] + sel_row["Closed_Arms"]
+                        idx_ansi = (sel_row["Open_Arms"] / total) * 100 if total > 0 else 0
+                        
+                        col_i1, col_i2 = st.columns([1, 1])
+                        with col_i1:
+                            st.markdown(f"**ID:** #{sel_row['id']}")
+                            st.markdown(f"**Sujeto:** {sel_row['Sujeto / Video']}")
+                            st.markdown(f"**Tratamiento:** {sel_row['Tratamiento']}")
+                            st.markdown(f"**Investigador:** {sel_row['Investigador']}")
+                        with col_i2:
+                            st.markdown(f"**Tiempo brazos abiertos:** {sel_row['Open_Arms']:.1f} s")
+                            st.markdown(f"**Tiempo brazos cerrados:** {sel_row['Closed_Arms']:.1f} s")
+                            st.markdown(f"**Índice de ansiedad:** {idx_ansi:.1f} %")
+                            st.write("")
+                            
+                        with st.expander("✏️ Editar Detalles del Experimento"):
+                            with st.form(f"edit_form_{exp_select}"):
+                                new_sujeto = st.text_input("Sujeto / Video", value=sel_row['Sujeto / Video'])
+                                new_trat = st.text_input("Tratamiento", value=sel_row['Tratamiento'])
+                                new_inv = st.text_input("Investigador", value=sel_row['Investigador'])
+                                
+                                try:
+                                    parsed_date = pd.to_datetime(sel_row['Fecha']).date()
+                                except:
+                                    from datetime import date
+                                    parsed_date = date.today()
+                                    
+                                new_date = st.date_input("Fecha", value=parsed_date)
+                                
+                                eq_col1, eq_col2 = st.columns([1,1])
+                                with eq_col1:
+                                    save_btn = st.form_submit_button("💾 Guardar Cambios", type="secondary", use_container_width=True)
+                                
+                                if save_btn:
+                                    try:
+                                        q_upd = text("""
+                                            UPDATE experiments 
+                                            SET rat_id = :s, treatment = :t, responsible = :r, experiment_date = :d
+                                            WHERE id = :eid
+                                        """)
+                                        conn.execute(q_upd, {
+                                            "s": new_sujeto, 
+                                            "t": new_trat, 
+                                            "r": new_inv, 
+                                            "d": new_date, 
+                                            "eid": exp_select
+                                        })
+                                        conn.commit()
+                                        st.success("¡Metadatos actualizados correctamente!")
+                                        import time
+                                        time.sleep(1)
+                                        st.rerun()
+                                    except Exception as e:
+                                        conn.rollback()
+                                        st.error(f"Error al actualizar: {e}")
+                                        
+                        st.write("")
+                        load_btn = st.button("🚀 Cargar y visualizar dashboard", type="primary", use_container_width=True)
+                        
+                        if load_btn:
+                            # Lógica de carga
+                            q_res = text("SELECT * FROM analysis_results WHERE experiment_id = :eid ORDER BY timestamp DESC LIMIT 1")
+                            res_data = conn.execute(q_res, {"eid": exp_select}).fetchone()
+                            
+                            if res_data:
+                                st.session_state["db_metrics"] = {
+                                    "total_time": 300, 
+                                    "open": res_data.time_open_arms,
+                                    "closed": res_data.time_closed_arms,
+                                    "center": res_data.time_center,
+                                    "grooming": res_data.grooming_duration,
+                                    "thigmo": res_data.thigmotaxis_duration
+                                }
+                                
+                                q_exp = text("SELECT rat_id FROM experiments WHERE id = :eid")
+                                v_data = conn.execute(q_exp, {"eid": exp_select}).fetchone()
+                                
+                                df_loaded = False
+                                if hasattr(res_data, 'trajectory_path') and res_data.trajectory_path and os.path.exists(res_data.trajectory_path):
+                                    try:
+                                        st.session_state["resultados_analisis"] = pd.read_csv(res_data.trajectory_path)
+                                        df_loaded = True
+                                    except Exception: pass
+                                
+                                if not df_loaded and v_data:
+                                    fallback_path = os.path.join(os.getcwd(), "videos", f"{v_data[0]}_STREAMLIT_MULTIMODAL_trajectory.csv")
+                                    if os.path.exists(fallback_path):
+                                        st.session_state["resultados_analisis"] = pd.read_csv(fallback_path)
+                                        df_loaded = True
+                                
+                                if not df_loaded and "resultados_analisis" in st.session_state:
+                                    del st.session_state["resultados_analisis"]
+                                    
+                                st.success("¡Dashboard Recargado en Memoria! Haz scroll hacia abajo para interactuar con los gráficos.")
+                                st.rerun() # Refresca forzosamente para que impacte la DB en el Layout de abajo
+                            else:
+                                st.error("Sin métricas para ese registro.")
                     else:
-                        # Si no hay CSV, limpiamos para no mostrar datos de otro exp
-                        if "resultados_analisis" in st.session_state:
-                            del st.session_state["resultados_analisis"]
-                    
-                    st.success(f"Datos cargados del Experimento ID: {exp_id}")
-                else:
-                    st.warning("Experiment sin resultados procesados.")
+                        st.info("👈 Haz clic en una fila de la tabla de arriba para inspeccionar sus datos y cargar su análisis.")
+                
+            else:
+                st.info("No hay experimentos en el historial aún.")
     except Exception as e:
-        st.sidebar.error(f"Error BD: {e}")
+        st.error(f"Error accediendo a la Base de Datos: {e}")
+
+# Añadir divisor para separar de la simulación
+st.markdown("<hr style='border: 1px solid rgba(15,23,42,0.1);'>", unsafe_allow_html=True)
 
 if "resultados_analisis" not in st.session_state and "db_metrics" not in st.session_state:
     st.markdown('<div class="tt-card">', unsafe_allow_html=True)
     st.warning("⚠️ No hay datos de un análisis reciente.")
-
+    
     st.info(
         "🛠️ **Modo Desarrollo:** Puedes generar datos aleatorios para probar "
         "el diseño del dashboard."
@@ -488,6 +641,10 @@ if df is not None:
     st.markdown('<div class="tt-card">', unsafe_allow_html=True)
 
     if len(df) > 10:
+        # Lazy import sklearn: solo se necesita en esta sección de ML
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+
         st.info("🤖 El algoritmo K-Means agrupa automáticamente los momentos del experimento en 'Estados de Comportamiento' basados en velocidad y posición.")
         
         # 1. Preparar datos para clustering

@@ -52,6 +52,19 @@ def analyze_video(video_path, model_name="superanimal_topviewmouse"):
             superanimal_name=model_name
         )
         print("\n" + "=" * 60)
+        print("Rendering labeled video with keypoints...")
+        
+        # Superanimal trick to render without config: pass empty string as config and provide superanimal_name
+        deeplabcut.create_labeled_video(
+            "",
+            [video_path],
+            videotype=os.path.splitext(video_path)[1],
+            filtered=False,
+            draw_skeleton=True,
+            superanimal_name=model_name
+        )
+
+        print("\n" + "=" * 60)
         print("SUCCESS: Analysis Complete!")
         print(f"Results saved in: {os.path.dirname(video_path)}")
         print("=" * 60)

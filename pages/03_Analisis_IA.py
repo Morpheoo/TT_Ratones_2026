@@ -7,9 +7,13 @@ import time
 import os
 import sys
 import threading
-from moviepy.editor import VideoFileClip
+# moviepy NO se importa aquí: este módulo delega el procesamiento de video
+# a subprocesos externos (venv_310), por lo que el import sería overhead puro.
 
 # ================= 0. PERSISTENCIA =================
+# REGLA #1: set_page_config SIEMPRE primero, antes de cualquier st.*
+st.set_page_config(page_title="Análisis IA (EPM)", page_icon="🧠", layout="wide")
+
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 from src.session_utils import load_session, save_session
@@ -270,19 +274,133 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ================== 5. VERIFICACIONES DE SEGURIDAD ==================
-if "ruta_video_actual" not in st.session_state:
-    st.error("⚠️ No hay video seleccionado. Ve a la página **01 · Ingesta de Video**.")
+# ================== 5. VERIFICACIONES DE SEGURIDAD Y CARGA RÁPIDA ==================
+import glob
+import math
+
+with st.expander("⏩ Carga Rápida de Experimentación (Atajo)", expanded=False):
+    st.markdown("Si ya procesaste videos y quieres testear directamente SimBA y YOLO Tracking sin pasar por las pestañas previas, usa estos atajos:")
+    col_var1, col_var2 = st.columns(2)
+    with col_var1:
+        import glob
+        # Escanear qué CSVs existen en la carpeta de SimBA para solo mostrar los que ya tienen features extraídas
+        features_dir = os.path.join("data", "simba_projects", "New folder", "thigmotaxis_optimizado", "project_folder", "csv", "features_extracted")
+        csv_files = glob.glob(os.path.join(features_dir, "*.csv"))
+        
+        videos_validos = []
+        # Buscar en dataset_tt los videos cuyo nombre coincida con los csvs que sí existen
+        for csv_path in csv_files:
+            csv_basename = os.path.splitext(os.path.basename(csv_path))[0]
+            # Puede ser MP4 o MOV, buscamos emparejar
+            video_matches = glob.glob(os.path.join("dataset_tt", f"{csv_basename}.*"))
+            for v in video_matches:
+                if v.lower().endswith(('.mp4', '.mov')):
+                    videos_validos.append(v)
+        
+        videos_disponibles = sorted(list(set(videos_validos)))
+        video_rapido = st.selectbox("1. Seleccionar Video Procesado", ["(Usar video del flujo actual)"] + videos_disponibles)
+    with col_var2:
+        from src.zone_templates import list_templates, load_template
+        templates = list_templates()
+        template_rapido = st.selectbox("2. Seleccionar Template de Zonas", ["(Usar zonas actuales)"] + templates)
+
+if video_rapido != "(Usar video del flujo actual)":
+    st.session_state["ruta_video_actual"] = video_rapido
+    st.session_state["inicio_recorte"] = 0
+    st.session_state["fin_recorte"] = math.inf # Analizar completo
+
+with col_var2:
+    if st.button("✏️ Abrir Ventana de Dibujo Manual (OpenCV)", use_container_width=True):
+        if "ruta_video_actual" in st.session_state and st.session_state["ruta_video_actual"]:
+            st.info("Revisa la barra de tareas. Se abrirá una ventana llamada 'Ajuste Fino de ROI' para que dibujes zona por zona y la ajustes.")
+            import sys
+            import os
+            if os.getcwd() not in sys.path:
+                sys.path.append(os.getcwd())
+            from src.scripts.generar_video_prediccion import select_maze_rois
+            
+            # Esto bloqueará Streamlit hasta que el usuario termine en la ventana local de OpenCV
+            roi_result = select_maze_rois(st.session_state.get("ruta_video_actual"))
+            
+            if roi_result:
+                maze_rois, config_cats = roi_result
+                zonas_cargadas = []
+                for name, coords in maze_rois.items():
+                    # OpenCV coords are (x,y,w,h)
+                    zonas_cargadas.append({
+                        "id": name,
+                        "x": coords[0],
+                        "y": coords[1],
+                        "w": coords[2],
+                        "h": coords[3]
+                    })
+                st.session_state["zonas_configuradas"] = zonas_cargadas
+                st.session_state["mostrar_exito_zonas"] = True
+                st.rerun()
+            else:
+                st.warning("Cancelaste el proceso. No se actualizaron las zonas.")
+        else:
+            st.error("Selecciona un video primero.")
+
+if st.session_state.pop("mostrar_exito_zonas", False):
+    st.success("✅ ¡Las 5 Zonas fueron dibujadas interactivamente y se guardaron en memoria con éxito!")
+
+# Indicador visual de que las zonas existen
+if "zonas_configuradas" in st.session_state and st.session_state["zonas_configuradas"]:
+    nombres_zonas = [z.get('id', z.get('Nombre Zona', 'Zona')) for z in st.session_state["zonas_configuradas"]]
+    st.caption(f"📍 Zonas actualmente cargadas en memoria: {', '.join(nombres_zonas)}")
+
+if template_rapido != "(Usar zonas actuales)":
+    temp_data = load_template(template_rapido)
+    if temp_data:
+        canvas_json = temp_data["canvas"]
+        names = temp_data.get("names", [])
+        zonas_cargadas = []
+        if isinstance(canvas_json, dict) and "objects" in canvas_json:
+            for i, obj in enumerate(canvas_json["objects"]):
+                nombre = names[i] if i < len(names) else f"Zona {i}"
+                tipo   = obj.get("type", "rect")
+
+                if tipo == "rect":
+                    # ── Formato CANÓNICO (mismo que _02_Configuracion_Zonas.py) ──
+                    # scaleX/scaleY pueden no existir en objetos dibujados a mano libre
+                    scale_x = obj.get("scaleX", 1) or 1
+                    scale_y = obj.get("scaleY", 1) or 1
+                    zonas_cargadas.append({
+                        "type":       "rect",
+                        "Nombre Zona": nombre,
+                        "left":   obj.get("left", 0),
+                        "top":    obj.get("top",  0),
+                        "width":  obj.get("width",  0) * scale_x,
+                        "height": obj.get("height", 0) * scale_y,
+                    })
+                elif tipo == "line":
+                    # Muros: reconstruir coordenadas absolutas igual que en _02_
+                    lx = obj.get("left", 0)
+                    ly = obj.get("top",  0)
+                    zonas_cargadas.append({
+                        "type":       "line",
+                        "Nombre Zona": nombre,
+                        "x1": lx + obj.get("x1", 0),
+                        "y1": ly + obj.get("y1", 0),
+                        "x2": lx + obj.get("x2", 0),
+                        "y2": ly + obj.get("y2", 0),
+                    })
+
+        st.session_state["zonas_configuradas"] = zonas_cargadas
+
+if "ruta_video_actual" not in st.session_state or not st.session_state["ruta_video_actual"]:
+    st.error("⚠️ No hay video seleccionado. Usa la *Carga Rápida* de arriba o ve a **01 · Ingesta de Video**.")
     st.stop()
 
-if "zonas_configuradas" not in st.session_state:
-    st.error("⚠️ No hay zonas configuradas. Ve a la página **02 · Configuración de Zonas**.")
+if "zonas_configuradas" not in st.session_state or not st.session_state["zonas_configuradas"]:
+    st.error("⚠️ No hay zonas configuradas. Carga un *Template* arriba o ve a **02 · Configuración de Zonas**.")
     st.stop()
 
 ruta_video = st.session_state["ruta_video_actual"]
 zonas = st.session_state["zonas_configuradas"]
 inicio = st.session_state.get("inicio_recorte", 0)
-fin = st.session_state.get("fin_recorte", 10)  # Default 10 segs si no hay fin
+fin = st.session_state.get("fin_recorte", math.inf)  # Default ∞ si no hay fin
 
 # ================== 6. LAYOUT PRINCIPAL ==================
 col_cfg, col_video = st.columns([1, 2])
@@ -296,58 +414,77 @@ with col_cfg:
     )
     
     motor = st.selectbox(
-        "Motor de Análisis",
-        ["YOLOv8 (Tiempo Real)", "DeepLabCut SuperAnimal"],
+        "Arquitectura de Análisis",
+        [
+            "DeepLabCut + YOLO Tracker + SimBA",
+            "YOLOv11-Pose + YOLO Tracker + SimBA (Próximamente)",
+            "YOLOv8 Tracker Clásico (Tiempo Real)"
+        ],
         index=0
     )
     
-    # Actualizar encabezado ahora que 'motor' existe
-    header_title = "🧠 Análisis con DeepLabCut" if motor == "DeepLabCut SuperAnimal" else "🧠 Análisis con YOLOv8"
+    # Actualizar encabezado
+    header_title = "🧠 Análisis Multimodal" if "SimBA" in motor else "🧠 Análisis Clásico"
     header_placeholder.markdown(
         f'<div class="tt-ia-title">{header_title}</div>',
         unsafe_allow_html=True,
     )
     
-    if motor == "YOLOv8 (Tiempo Real)":
+    iniciar_completo = False
+    iniciar_acelerado = False
+    iniciar = False
+    has_features = False
+    features_csv_path = ""
+    
+    if motor == "YOLOv8 Tracker Clásico (Tiempo Real)":
+        st.info("💡 Rastreo de centro de masa en tiempo real. No clasifica comportamientos complejos.")
         usar_modelo_real = st.toggle("Usar modelo YOLO real (.pt)", value=False)
         modelo_path = st.text_input("Ruta del modelo (.pt):", "yolov8n.pt")
         confianza = st.slider("Umbral de confianza", 0.0, 1.0, 0.5)
-    else:
-        # Usamos el estado global
-        if st.session_state.get("dlc_device_opt") == "CPU (Forzar)":
-            st.info("🛡️ **MODO SEGURO**: Se usará la CPU para el análisis. Más lento, pero evita errores de CUDA.")
-        else:
-            st.warning("🚀 **MODO GPU ACELERADA**: Si experimental errores, cámbiate a CPU en el menú lateral.")
+        iniciar = st.button("▶️ INICIAR ANÁLISIS")
         
-        st.info("🧬 DeepLabCut SuperAnimal utiliza modelos pre-entrenados de alta precisión.")
-        supermodel = st.selectbox(
-            "SuperModel",
-            ["superanimal_topviewmouse"],
-            index=0
-        )
-        video_adapt = st.toggle("Adaptación de video (Auto-entrenamiento rápido)", value=True)
-        device_opt = st.radio(
-            "Dispositivo de cómputo", 
-            ["Auto (Recomendado)", "CPU (Forzar)"], 
-            index=1 if st.session_state.get("dlc_device_opt") == "CPU (Forzar)" else 0,
-            key="dlc_device_opt",
-            horizontal=True,
-            help="Obligatorio para la serie RTX 50 (Blackwell) por ahora."
-        )
-        confianza = 0.1 # DLC pcutoff default
-        if deeplabcut is None:
-            st.error("❌ DeepLabCut no está instalado o no se pudo cargar.")
-            if dlc_import_error:
-                with st.expander("Ver detalles del error"):
-                    st.code(dlc_import_error)
+    elif motor == "YOLOv11-Pose + YOLO Tracker + SimBA (Próximamente)":
+        st.info("🔜 Este modelo de inferencia ultrarrápida está en fase de entrenamiento. Pronto reducirá el tiempo total a 5 minutos por video.")
+        st.stop()
+        
+    else: # DLC + YOLO Tracker + SimBA
+        import glob
+        st.info("🧬 Pipeline científico validado: Extrae keypoints, analiza comportamiento y renderiza HUD Multimodal.")
+        
+        # Buscar features previamente procesadas
+        features_dir = os.path.join("data", "simba_projects", "New folder", "thigmotaxis_optimizado", "project_folder", "csv", "features_extracted")
+        base_name = os.path.splitext(os.path.basename(ruta_video))[0]
+        
+        if os.path.exists(features_dir):
+            posibles = glob.glob(os.path.join(features_dir, f"{base_name}*.csv"))
+            if posibles:
+                has_features = True
+                features_csv_path = max(posibles, key=os.path.getctime)
+        
+        st.markdown("---")
+        if has_features:
+            st.success("✅ **¡Datos Previos Encontrados!**")
+            st.write(f"Se detectó extracción de keypoints de DeepLabCut y atributos de SimBA para `{base_name}`.")
             
-    iniciar = st.button("▶️ INICIAR ANÁLISIS")
-    
-    st.markdown("---")
-    st.markdown('<div class="tt-section-title">🧬 Análisis Completo (SimBA)</div>', unsafe_allow_html=True)
-    st.info("Ejecuta el pipeline completo: DLC -> SimBA -> Video Final (5 mins)")
-    iniciar_completo = st.button("▶️ EJECUTAR FULL PIPELINE")
-    
+            iniciar_acelerado = st.button("⚡ RE-ANÁLISIS ACELERADO (~5 min)", type="primary", use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            with st.expander("Opciones Avanzadas"):
+                st.write("¿Deseas reconstruir todo desde cero? (Tardará ~4 horas con DLC)")
+                iniciar_completo = st.button("🐌 EJECUTAR DESDE CERO (DLC + SIMBA)", use_container_width=True)
+        else:
+            st.warning("⏳ **No hay datos previos.**")
+            st.write(f"Se requiere extraer características con DeepLabCut para `{base_name}`. Esto tomará varias horas.")
+            iniciar_acelerado = False
+            iniciar_completo = st.button("▶️ EXTRAER Y ANALIZAR DESDE CERO", type="primary", use_container_width=True)
+            
+        supermodel = "superanimal_topviewmouse"
+        video_adapt = True
+        confianza = 0.1
+        
+        if st.session_state.get("dlc_device_opt") == "CPU (Forzar)":
+            st.caption("🛡️ MODO SEGURO ACTIVO (CPU)")
+
     st.markdown("</div>", unsafe_allow_html=True)
 
     # Placeholder para la métrica de zona actual
@@ -357,10 +494,71 @@ with col_cfg:
 with col_video:
     st.markdown('<div class="tt-card">', unsafe_allow_html=True)
     st.markdown(
-        '<div class="tt-section-title">🎞️ Video con detecciones</div>',
+        '<div class="tt-section-title">🎞️ Vista Previa de Zonas / Detecciones</div>',
         unsafe_allow_html=True,
     )
     image_placeholder = st.empty()
+    
+    # Mostrar preview visual si ya hay zonas cargadas y de momento no ha iniciado un análisis
+    if "zonas_configuradas" in st.session_state and st.session_state["zonas_configuradas"] and "ruta_video_actual" in st.session_state:
+        import cv2
+        try:
+            cap = cv2.VideoCapture(st.session_state["ruta_video_actual"])
+            ret, frame = cap.read()
+            cap.release()
+            if ret:
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                overlay = frame_rgb.copy()
+                
+                # Pintar overlays de relleno (las lineas no tienen relleno)
+                for z in st.session_state["zonas_configuradas"]:
+                    if z.get("type") == "line" or "muro" in z.get("id", z.get('Nombre Zona', '')).lower(): continue
+                    
+                    color = (200, 200, 200)
+                    name = z.get('id', z.get('Nombre Zona', 'Zona'))
+                    n_l = name.lower()
+                    if 'abierto' in n_l: color = (240, 120, 120) # Coral
+                    elif 'cerrado' in n_l: color = (0, 250, 255) # Cyan
+                    elif 'centro' in n_l: color = (255, 165, 0) # Naranja
+                        
+                    x = int(z.get('x', z.get('left', 0)))
+                    y = int(z.get('y', z.get('top', 0)))
+                    w = int(z.get('w', z.get('width', 0)))
+                    h = int(z.get('h', z.get('height', 0)))
+                    cv2.rectangle(overlay, (x, y), (x+w, y+h), color, -1)
+                    
+                # Combinar transparencia
+                alpha = 0.35
+                cv2.addWeighted(overlay, alpha, frame_rgb, 1 - alpha, 0, frame_rgb)
+                
+                # Pintar bordes gruesos, lineas y nombre
+                for z in st.session_state["zonas_configuradas"]:
+                    color = (200, 200, 200)
+                    name = z.get('id', z.get('Nombre Zona', 'Zona'))
+                    n_l = name.lower()
+                    if 'abierto' in n_l: color = (240, 120, 120) # Coral
+                    elif 'cerrado' in n_l: color = (0, 250, 255) # Cyan
+                    elif 'centro' in n_l: color = (255, 165, 0) # Naranja
+                        
+                    if z.get("type") == "line" or "muro" in n_l:
+                        x1 = int(z.get('x1', 0))
+                        y1 = int(z.get('y1', 0))
+                        x2 = int(z.get('x2', 0))
+                        y2 = int(z.get('y2', 0))
+                        cv2.line(frame_rgb, (x1, y1), (x2, y2), (0, 255, 255), 3) # Amarillo Cyan fuerte para Muros
+                        cv2.putText(frame_rgb, name, (x1, max(0, y1-8)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    else:
+                        x = int(z.get('x', z.get('left', 0)))
+                        y = int(z.get('y', z.get('top', 0)))
+                        w = int(z.get('w', z.get('width', 0)))
+                        h = int(z.get('h', z.get('height', 0)))
+                        cv2.rectangle(frame_rgb, (x, y), (x+w, y+h), color, 2)
+                        cv2.putText(frame_rgb, name, (x, max(0, y-8)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+                image_placeholder.image(frame_rgb, use_container_width=True, caption=f"Vista previa: {len(st.session_state['zonas_configuradas'])} Zonas Cargadas")
+        except Exception as e:
+            pass # Ignorar fallos de la vista previa statica
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ================== 7. FUNCIÓN GEOMÉTRICA ==================
@@ -429,6 +627,183 @@ if iniciar_completo:
     except Exception as e:
         status_container.update(label="❌ Error de ejecución", state="error")
         st.error(f"Error lanzando subprocess: {e}")
+
+if iniciar_acelerado:
+    st.toast("Iniciando Re-Análisis Acelerado...")
+    status_container = st.status("Reconstruyendo video multimodo (esto tomará ~5 minutos)...", expanded=True)
+    
+    with status_container:
+        st.markdown('<div class="tt-section-title">⏱️ Progreso Inteligente</div>', unsafe_allow_html=True)
+        smart_status = st.info("Inicializando Motor Python...")
+        progress_bar = st.progress(0, text="Calculando...")
+        estado_actual = "Inicializando scripts..."
+        
+        with st.expander("Terminal Interna (Logs Ténicos)", expanded=True):
+            log_area = st.empty()
+            
+    try:
+        import json
+        script_path = os.path.abspath(os.path.join("src", "scripts", "generar_video_prediccion.py"))
+        venv_python = sys.executable 
+        base_name = os.path.splitext(os.path.basename(ruta_video))[0]
+        
+        # Obtener zonas configuradas JSON
+        zonas = st.session_state.get("zonas_configuradas", [])
+        zonas_json_str = json.dumps(zonas)
+        
+        # Rutas a modelos validados
+        model_thigmo = os.path.join("data", "simba_projects", "New folder", "thigmotaxis_optimizado", "models", "validations", "Thigmotaxis_0.sav")
+        model_grooming = os.path.join("data", "simba_projects", "New folder", "thigmotaxis_optimizado", "models", "validations", "Grooming_2.sav")
+        output_name = f"{base_name}_STREAMLIT_MULTIMODAL.mp4"
+        output_path = os.path.abspath(os.path.join("videos", output_name)) # Guardar en folder genérico videos de la Tesis
+        
+        if not os.path.exists("videos"):
+            os.makedirs("videos")
+            
+        cmd = [
+            venv_python, script_path,
+            "--video", ruta_video,
+            "--features", features_csv_path,
+            "--model_thigmo", model_thigmo,
+            "--model_grooming", model_grooming,
+            "--output", output_path,
+            "--zonas_json", zonas_json_str
+        ]
+        
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        logs = []
+        for line in iter(process.stdout.readline, ''):
+            clean_line = line.strip()
+            logs.append(clean_line)
+            log_text = "\n".join(logs[-10:])  # Mostrar solo las últimas 10 líneas crudas
+            log_area.code(log_text, language="bash")
+            print(f"[Acelerado] {clean_line}")
+            
+            # --- INTÉRPRETE INTELIGENTE DE LOGS PARA EL USUARIO ---
+            if "Parallel" in clean_line or "Using backend" in clean_line:
+                if estado_actual != "📊 Ejecutando Inferencia de Comportamientos (Modelos SimBA)...":
+                    estado_actual = "📊 Ejecutando Inferencia de Comportamientos (Modelos SimBA)..."
+                    smart_status.info(estado_actual)
+            elif "YOLO" in clean_line or "Fusing" in clean_line or "model" in clean_line.lower():
+                if estado_actual != "👁️ Inicializando Motores de Visión e IA...":
+                    estado_actual = "👁️ Inicializando Motores de Visión e IA..."
+                    smart_status.info(estado_actual)
+                    progress_bar.progress(0.10, text="Cargando Modelos Pesados en Memoria...")
+            elif "Renderizados" in clean_line:
+                if estado_actual != "🎞️ Renderizando Video Multimodal...":
+                    estado_actual = "🎞️ Renderizando Video Multimodal..."
+                    smart_status.info(estado_actual)
+                
+                # Extraer progreso matemático
+                import re
+                match = re.search(r'Renderizados (\d+)/(\d+)', clean_line)
+                if match:
+                    current = int(match.group(1))
+                    total = int(match.group(2))
+                    if total > 0:
+                        pct = min(1.0, current / total)
+                        progress_bar.progress(pct, text=f"Dibujando HUD y exportando: {current} de {total} fotogramas ({int(pct*100)}%)")
+            
+        process.stdout.close()
+        return_code = process.wait()
+        
+        if return_code == 0:
+            status_container.update(label="✅ Video Multimodal Generado con éxito!", state="complete")
+            st.success("¡Análisis Terminado Rápidamente!")
+            
+            # Cargar la tabla de trayectoria a la sesión para la Pestaña 04
+            traj_path = output_path.replace(".mp4", "_trajectory.csv")
+            if os.path.exists(traj_path):
+                import pandas as pd
+                df_trayectoria = pd.read_csv(traj_path)
+                st.session_state["resultados_analisis"] = df_trayectoria
+                st.info("📊 DataFrame de resultados enviado exitosamente a la pestaña de Estadísticas.")
+                
+                # --- GUARDAR HISTORIAL EN LA BASE DE DATOS ---
+                try:
+                    from src.db.connection import get_db_engine
+                    from sqlalchemy import text
+                    engine = get_db_engine()
+                    if engine:
+                        with engine.connect() as conn:
+                            # 1. Crear Experimento en DB
+                            q_exp = text("""
+                                INSERT INTO experiments (rat_id, treatment, experiment_date, responsible, video_path)
+                                VALUES (:rat_id, :treatment, CURRENT_DATE, :resp, :vpath)
+                                RETURNING id
+                            """)
+                            ex_res = conn.execute(q_exp, {
+                                "rat_id": base_name, 
+                                "treatment": "Carga Rápida (Re-análisis IA)", 
+                                "resp": st.session_state.get("user_name", "Investigador"),
+                                "vpath": output_path
+                            }).fetchone()
+                            
+                            if ex_res:
+                                new_exp_id = ex_res[0]
+                                # ⚡ COMMIT INMEDIATO: Salvamos el experimento ANTES de cualquier
+                                # operación que pueda hacer rollback (como ALTER TABLE).
+                                # Esto garantiza que el FK experiment_id exista en la DB.
+                                conn.commit()
+                                
+                                # 2. Extraer resúmenes estadísticos rápidos
+                                res_z = df_trayectoria.groupby("Zona")["Tiempo (s)"].count() * 0.1
+                                open_t = float(res_z.filter(like="Abierto").sum())
+                                closed_t = float(res_z.filter(like="Cerrado").sum())
+                                center_t = float(res_z.filter(like="Centro").sum())
+                                groom_t = float(df_trayectoria["Grooming"].sum() * 0.1 if "Grooming" in df_trayectoria.columns else 0)
+                                thigmo_t = float(df_trayectoria["Thigmotaxis"].sum() * 0.1 if "Thigmotaxis" in df_trayectoria.columns else 0)
+
+                                # 3. Actualizar esquema si falta trajectory_path (columna ya existe = ignorar)
+                                try:
+                                    conn.execute(text("ALTER TABLE analysis_results ADD COLUMN trajectory_path TEXT;"))
+                                    conn.commit()
+                                except Exception: 
+                                    conn.rollback()  # Solo limpia el error del ALTER, el experimento ya fue guardado
+                                    
+                                # 4. Insertar métricas en DB
+                                q_an = text("""
+                                    INSERT INTO analysis_results 
+                                    (experiment_id, time_open_arms, time_closed_arms, time_center, grooming_duration, thigmotaxis_duration, status, trajectory_path)
+                                    VALUES (:eid, :topen, :tclosed, :tcen, :tgroom, :tthigmo, 'completed', :tpath)
+                                """)
+                                conn.execute(q_an, {
+                                    "eid": new_exp_id, "topen": open_t, "tclosed": closed_t,
+                                    "tcen": center_t, "tgroom": groom_t, "tthigmo": thigmo_t,
+                                    "tpath": traj_path
+                                })
+                                conn.commit()
+                                st.toast(f"✅ Historial guardado correctamente (ID: {new_exp_id})")
+                except Exception as db_err:
+                    st.warning(f"No se pudo guardar e historial en BD: {db_err}")
+                # ---------------------------------------------
+            else:
+                st.warning("Video creado, pero no se encontró la tabla de trayectoria para las estadísticas.")
+
+            # Cargar en UI
+            st.video(output_path)
+            
+            with open(output_path, "rb") as file:
+                btn = st.download_button(
+                    label="⬇️ Descargar Video Predictivo",
+                    data=file,
+                    file_name=output_name,
+                    mime="video/mp4",
+                    type="primary"
+                )
+        else:
+            status_container.update(label="❌ Error en el re-análisis", state="error")
+            st.error("El proceso acelerado falló. Valida las zonas o el .h5")
+    except Exception as e:
+        status_container.update(label="❌ Error Crítico", state="error")
+        st.error(f"Excepción: {e}")
 
 if iniciar:
     if motor == "DeepLabCut SuperAnimal":

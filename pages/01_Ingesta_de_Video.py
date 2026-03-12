@@ -1,10 +1,14 @@
 import streamlit as st
 import os
 import sys
-from moviepy.editor import VideoFileClip
 import re
+# moviepy se importa de forma LAZY dentro del bloque de edición (ver abajo)
+# para evitar ~3s de overhead en cada carga de página.
 
 # ================= 0. PERSISTENCIA =================
+# REGLA #1: set_page_config SIEMPRE primero, antes de cualquier st.*
+st.set_page_config(page_title="Ingesta de Video (EPM)", page_icon="📥", layout="wide")
+
 # Asegurar que podemos importar desde src
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
@@ -213,44 +217,49 @@ st.markdown('<div class="tt-ingesta-card">', unsafe_allow_html=True)
 
 with st.form("registro_experimento"):
     c1, c2 = st.columns(2)
-    # Intentar leer tratamientos previos desde la BD para ofrecer sugerencias
+    # Leer tratamientos previos desde la BD (lazy import — solo si la BD está disponible)
     prev_treatments = []
-    try:
-        from src.db.connection import get_db_engine
-        from sqlalchemy import text
-        engine = get_db_engine()
-        if engine:
-            with engine.connect() as conn:
-                rows = conn.execute(text("SELECT DISTINCT treatment FROM experiments ORDER BY treatment"))
-                prev_treatments = [r[0] for r in rows.fetchall() if r[0]]
-    except Exception:
-        prev_treatments = []
+    if "_prev_treatments_cache" not in st.session_state:
+        try:
+            from src.db.connection import get_db_engine
+            from sqlalchemy import text
+            engine = get_db_engine()
+            if engine:
+                with engine.connect() as conn:
+                    rows = conn.execute(text("SELECT DISTINCT treatment FROM experiments ORDER BY treatment"))
+                    st.session_state["_prev_treatments_cache"] = [
+                        r[0] for r in rows.fetchall() if r[0]
+                    ]
+            else:
+                st.session_state["_prev_treatments_cache"] = []
+        except Exception:
+            st.session_state["_prev_treatments_cache"] = []
+    prev_treatments = st.session_state.get("_prev_treatments_cache", [])
 
     with c1:
         id_raton = st.text_input("ID del Espécimen", placeholder="Ej. MOUSE-001")
-        # Campo de texto libre para tratamiento con sugerencias (autocompletado básico)
-        if "tratamiento_text" not in st.session_state:
-            st.session_state["tratamiento_text"] = ""
-
-        tratamiento_input = st.text_input(
-            "ID del Tratamiento",
-            value=st.session_state.get("tratamiento_text", ""),
-            key="tratamiento_text",
-            placeholder="Escribe o elige un tratamiento"
-        )
-
-        # Mostrar todos los tratamientos guardados como opciones clicables (además del input libre)
+        # Opciones de tratamiento con autocompletado nativo
         if prev_treatments:
-            st.markdown("**Tratamientos guardados:**")
-            # Mostrar en filas de hasta 6 botones
-            per_row = 6
-            for i in range(0, len(prev_treatments), per_row):
-                row = prev_treatments[i:i+per_row]
-                cols_buttons = st.columns(len(row))
-                for j, label in enumerate(row):
-                    if cols_buttons[j].button(label, key=f"trat_btn_{i+j}"):
-                        st.session_state["tratamiento_text"] = label
-                        st.experimental_rerun()
+            opciones_trat = ["", "Añadir Nuevo..."] + sorted(prev_treatments)
+            tratamiento_sel = st.selectbox("ID del Tratamiento", opciones_trat)
+            
+            if tratamiento_sel == "Añadir Nuevo..." or tratamiento_sel == "":
+                tratamiento_input = st.text_input(
+                    "Escribe nuevo tratamiento",
+                    placeholder="Ej. Diazepam 5mg",
+                    key="tratamiento_text"
+                )
+            else:
+                tratamiento_input = tratamiento_sel
+                # Guardamos en session_state silenciosamente el selection
+                st.session_state["tratamiento_text"] = tratamiento_sel
+        else:
+            tratamiento_input = st.text_input(
+                "ID del Tratamiento",
+                value=st.session_state.get("tratamiento_text", ""),
+                key="tratamiento_text",
+                placeholder="Escribe el tratamiento"
+            )
     with c2:
         fecha = st.date_input("Fecha del Experimento")
         responsable = st.text_input("Responsable", value="Equipo TT")
@@ -289,6 +298,9 @@ if "video_en_edicion" in st.session_state:
     st.subheader(f"✂️ Edición del video: {st.session_state['id_raton_actual']}")
 
     try:
+        # Lazy import: moviepy carga FFmpeg internamente; solo se importa aquí
+        # donde realmente se necesita (post-upload), no al tope de la página.
+        from moviepy.editor import VideoFileClip
         clip = VideoFileClip(ruta_actual)
         duracion = clip.duration
 

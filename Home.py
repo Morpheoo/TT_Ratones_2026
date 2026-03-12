@@ -240,6 +240,40 @@ st.markdown(
         font-size: 0.85rem;
         border-top: 1px solid {colors["border"]};
     }}
+    /* STATUS BADGES */
+    .status-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }}
+    .status-item {{
+        background: {colors["card_bg"]};
+        padding: 1rem;
+        border-radius: 12px;
+        border: 1px solid {colors["border"]};
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }}
+    .status-dot {{
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }}
+    .status-ok {{ background-color: #10b981; box-shadow: 0 0 10px #10b981; }}
+    .status-error {{ background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }}
+    .status-warn {{ background-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; }}
+    
+    .status-label {{
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: {colors["text_main"]};
+    }}
+    .status-val {{
+        font-size: 0.75rem;
+        color: {colors["text_sub"]};
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -279,6 +313,68 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# ================= 5. DIAGNÓSTICO DE SISTEMA =================
+def check_system_status():
+    status = {}
+    try:
+        import subprocess
+        # creationflags=0x08000000 evita ventanas de consola en Windows
+        subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT, creationflags=0x08000000)
+        status["docker"] = ("OK", "status-ok", "Docker Desktop activo")
+    except:
+        status["docker"] = ("Error", "status-error", "Docker no detectado")
+    try:
+        from src.db.connection import get_db_engine
+        from sqlalchemy import text
+        engine = get_db_engine()
+        if engine:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            status["db"] = ("OK", "status-ok", "PostgreSQL conectado")
+        else:
+            status["db"] = ("Error", "status-error", "Motor SQL no creado")
+    except:
+        status["db"] = ("Error", "status-error", "Error de conexión SQL")
+    try:
+        import torch
+        if torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            status["gpu"] = ("CUDA", "status-ok", name)
+        else:
+            status["gpu"] = ("CPU", "status-warn", "Sin aceleración GPU")
+    except:
+        status["gpu"] = ("N/A", "status-error", "Torch no cargado")
+    return status
+
+sys_status = check_system_status()
+
+st.markdown(f"""
+<div class="status-grid">
+    <div class="status-item">
+        <div class="status-dot {sys_status['docker'][1]}"></div>
+        <div>
+            <div class="status-label">Docker Container</div>
+            <div class="status-val">{sys_status['docker'][2]}</div>
+        </div>
+    </div>
+    <div class="status-item">
+        <div class="status-dot {sys_status['db'][1]}"></div>
+        <div>
+            <div class="status-label">Base de Datos</div>
+            <div class="status-val">{sys_status['db'][2]}</div>
+        </div>
+    </div>
+    <div class="status-item">
+        <div class="status-dot {sys_status['gpu'][1]}"></div>
+        <div>
+            <div class="status-label">Motor de IA</div>
+            <div class="status-val">{sys_status['gpu'][2]}</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 
 if not st.session_state.get("logged_in"):
     st.markdown(

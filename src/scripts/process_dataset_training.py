@@ -27,7 +27,7 @@ import subprocess
 # List of videos to process
 VIDEOS = [
     # ALREADY DONE: r"dataset_tt\C1-R1.mov",
-    r"dataset_tt\C2-R1.mov",
+    # ALREADY DONE: r"dataset_tt\C2-R1.mov",
     r"dataset_tt\C7-R1.mov"
 ]
 
@@ -68,6 +68,23 @@ if __name__ == "__main__":
             continue
             
         print(f"\nStarting video {idx+1}/{len(VIDEOS)}...")
+        
+        # Force cleanup for C7 (known bad state)
+        if "C7-R1" in video:
+            base = os.path.splitext(os.path.basename(video))[0]
+            targets = [
+                f"videos_data/{base}_down-50.mp4",
+                f"videos_data/{base}_full_dlc.csv",
+                f"data/simba_projects/SimBA_EPM_Analysis/project_folder/csv/input_csv/{base}_full.csv"
+            ]
+            for t in targets:
+                if os.path.exists(t):
+                    print(f"Removing old file: {t}")
+                    try:
+                        os.remove(t)
+                    except Exception as e:
+                        print(f"Error removing {t}: {e}")
+
         process_video(abs_path)
     
     print("\nALL VIDEOS PROCESSED.")

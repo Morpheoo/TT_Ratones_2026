@@ -1,21 +1,28 @@
 import streamlit as st
-from sqlalchemy import text
-import pandas as pd
 import os
 import sys
+import pandas as pd
+from sqlalchemy import text
+
+# REGLA #1: set_page_config SIEMPRE primero
+st.set_page_config(page_title="Panel Admin - TT 2026", layout="wide", page_icon="🛡️")
 
 # Add project root to path
-sys.path.append(os.path.join(os.getcwd(), "src"))
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+
+from src.session_utils import load_session, save_session
 from src.auth import check_admin_access
-from db.connection import get_db_engine
+from src.db.connection import get_db_engine
+
+# Cargar sesión para tener el rol actualizado
+load_session()
 
 # ================= SEGURIDAD: SOLO ADMINS =================
 role = st.session_state.get("role", "")
 if not check_admin_access(role):
     st.warning("⛔ Acceso Denegado. Esta página es exclusiva para Administradores.")
     st.stop()
-
-st.set_page_config(page_title="Panel Admin - TT 2026", layout="wide", page_icon="🛡️")
 
 st.markdown("# 🛡️ Panel de Administración")
 st.markdown("### Gestión de Usuarios y Auditoría")

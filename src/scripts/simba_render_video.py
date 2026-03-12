@@ -234,9 +234,10 @@ def generate_video():
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    # Use mp4v first, then re-encode to H.264
-    temp_path = OUTPUT_PATH.replace(".mp4", "_temp.mp4")
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    # Use MJPG (.avi) first, then re-encode to H.264 (.mp4)
+    # This avoids "libopenh264 error -22" when trying to write .mp4 directly with broken OpenCV
+    temp_path = OUTPUT_PATH.replace(".mp4", "_temp.avi")
+    fourcc = cv2.VideoWriter_fourcc(*"MJPG")
     out = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
     
     print(f"Generating annotated video ({width}x{height} @ {fps}fps)...")
@@ -325,16 +326,25 @@ def generate_video():
         out2.release()
         
         # Use FFmpeg command line to convert
-        ffmpeg_cmd = f'ffmpeg -y -i "{temp_path}" -c:v libx264 -crf 23 -preset fast "{OUTPUT_PATH}"'
+        ffmpeg_exe = r"C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
+        if not os.path.exists(ffmpeg_exe):
+            print("Warning: explicit ffmpeg path not found, trying global 'ffmpeg'") 
+            ffmpeg_exe = "ffmpeg"
+            
+        ffmpeg_cmd = f'"{ffmpeg_exe}" -y -i "{temp_path}" -c:v libx264 -crf 23 -preset fast "{OUTPUT_PATH}"'
         print(f"Running: {ffmpeg_cmd}")
         os.system(ffmpeg_cmd)
         
         if os.path.exists(OUTPUT_PATH):
-             os.remove(temp_path)
+             try:
+                os.remove(temp_path)
+             except:
+                pass
              print(f"Converted to H.264 using FFmpeg: {OUTPUT_PATH}")
         else:
              print("FFmpeg conversion failed. Keeping original mp4v.")
-             os.rename(temp_path, OUTPUT_PATH)
+             if os.path.exists(temp_path):
+                os.rename(temp_path, OUTPUT_PATH)
 
     else:
         while True:

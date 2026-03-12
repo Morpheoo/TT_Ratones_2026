@@ -1,0 +1,1172 @@
+Simple behavioral analysis (SimBA) as a platform for explainable 
+machine learning in behavioral neuroscience
+Nastacia L. Goodwin1,2,3, Jia J. Choong1,4, Sophia Hwang1, Kayla Pitts1, Liana Bloom1, 
+Aasiya Islam1, Yizhe Y. Zhang1,2,3, Eric R. Szelenyi1,3, Xiaoyu Tong5, Emily L. Newman6, 
+Klaus Miczek7, Hayden R. Wright8,9, Ryan J. McLaughlin8,9, Zane C. Norville10, Neir 
+Eshel11, Mitra Heshmati1,2,3,12, Simon R.O. Nilsson†,1, Sam A. Golden†,1,2,3
+1University of Washington, Department of Biological Structure, Seattle, Washington, USA
+2University of Washington, Graduate Program in Neuroscience, Seattle, Washington, USA
+3University of Washington, Center of Excellence in Neurobiology of Addiction, Pain, and Emotion 
+(NAPE), Seattle, Washington, USA
+4University of Washington, Department of Electrical and Computer Engineering, Seattle, 
+Washington, USA
+5New Y ork University, Neuroscience Institute, New Y ork, NY , USA
+6Department of Psychiatry, Harvard Medical School, McLean Hospital, Belmont, MA 02478, USA
+7Tufts University, Department of Psychology, Medford. Massachusetts, USA
+8Washington State University, Department of Integrative Physiology and Neuroscience, Pullman, 
+WA, USA
+9Washington State University, Graduate Program in Neuroscience, Pullman, WA, USA
+10Stanford University School of Medicine, Stanford, CA, USA
+11Stanford University, Department of Psychiatry and Behavioral Sciences, Stanford, CA, USA
+12University of Washington, Department of Anesthesiology and Pain Medicine, Seattle, 
+Washington, USA
+Corresponding Author: Sam A. Golden (sagolden@uw.edu) and Simon R.O. Nilsson (sronilsson@gmail.com).†Denotes equivalent contribution
+Author Contributions Statement
+Conceptualization: SAG, SRON, NLG
+Data curation: KP, LB, AI, YYZ, ES, XT, ELN, KM, HRW, RJM, ZCN, NE, MH, SRON, NLG, SAG
+Methodology: SRON, NLG
+Formal analysis: SRON, NLG, SAG
+Visualization: NLG, SRON
+Writing original draft: SAG, SRON, NLG
+Funding acquisition: SAG, SRON, NLG, MH, ELN, NE, ERS
+Reviewing and editing: SAG, SRON, NLG, KP, LB, AI, YYZ, ES, XT, ELN, KM, HRW, RJM, ZCN, NE, MH,
+Software: SRON, JJC, SH
+Supervision: SAG
+Project administration: SRON, NLG
+Competing Interests Statement:
+The authors have no competing interests.
+HHS Public Access
+Author manuscript
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Published in final edited form as:
+Nat Neurosci. 2024 July ; 27(7): 1411–1424. doi:10.1038/s41593-024-01649-9.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Abstract
+The study of complex behaviors is often challenging when using manual annotation due to the 
+absence of quantifiable behavioral definitions and the subjective nature of behavioral annotation. 
+Integration of supervised machine learning approaches mitigates some of these issues through 
+the inclusion of accessible and explainable model interpretation. To decrease barriers to access, 
+and with an emphasis on accessible model explainability, we developed the open-source Simple 
+Behavioral Analysis (SimBA) platform for behavioral neuroscientists. SimBA introduces several 
+machine learning interpretability tools, including Shapley Additive exPlanations (SHAP) scores, 
+that aid in creating explainable and transparent behavioral classifiers. We show how the addition 
+of explainability metrics allows for quantifiable comparisons of aggressive social behavior across 
+research groups and species, reconceptualizing behavior as a sharable reagent and providing an 
+open-source framework. We provide an open-source, GUI-driven, well documented package to 
+facilitate the movement towards improved automation and sharing of behavioral classification 
+tools across laboratories.
+INTRODUCTION
+Behavioral neuroscience requires detailed behavior1, but the notoriously painstaking process 
+of hand-annotating live or recorded assays poses a significant bottleneck preventing 
+comprehensive behavioral analysis. The manual approach can be arduous, non-standardized, 
+and susceptible to confounds produced by observer drift, long analysis times, and poor 
+inter-rater-reliability 2–4. These caveats prevent the detailed study of complex social 
+repertoires in larger datasets, and notably provide lower temporal resolution than most 
+modern methodologies such as in vivo electrophysiological, fiber photometry, and single-
+cell calcium endomicroscopy recordings 5–8. Computational neuroethology4 – the marriage 
+of traditional neuroscience techniques, ethological observation, and machine learning – is 
+heralded as one potential solution toward deeper behavioral analysis in more ethologically 
+relevant settings. Furthermore, these data are collected at sampling frequencies that match 
+modern neural recording and manipulation techniques.
+The recent rapid development of open-source pipelines for markerless animal pose 
+estimation, which allow for accurate tracking of experimenter-defined body-parts in noisy 
+and variable environments 9–12, provide a framework for automated machine-learning based 
+behavioral analyses (Table 1). Using patterns in animal pose over sliding temporal windows, 
+supervised algorithms are trained to find predefined behaviours of interest. These automated 
+behavioral assessments often exceed human performance13, increase throughput and 
+consistency14 and reduce human bias and anthropomorphism within scoring15. Therefore, 
+open-source pipelines for pose estimation and behavioral analysis are increasingly focused 
+on improving computational accessibility to non-specialists via graphical user interfaces 
+(GUIs), easier installation processes, and extensive documentation and tutorials. But as more 
+labs (and manuscript and grant reviewers) adopt these techniques as the de-facto expected 
+standard, it is increasingly important to focus on model explainability and behavioral 
+nuance.
+Goodwin et al. Page 2
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Explainability methods in behavioral neuroscience16 aim to determine why and how 
+machine learning models are coming to conclusions, allowing researchers to (i) standardize 
+behavioral definitions if desired, (ii) precisely describe and report specialized, non-standard, 
+behavioral variations, and (iii) more objectively quantify differences in unsupervised 
+behavioral clusters and scrutinize their biological relevance17. More precisely, computing 
+and sharing explainability metrics is an essential step in reconceptualizing behavioral 
+classifiers as objective and shareable reagents akin to the commonly used Research Reagent 
+Identifiers (RRIDs) system for wet lab reagents. As researchers, we are already expected 
+to report behavioral features such as sex, time of day of testing, light cycles, and other 
+experimental details, yet the operational definitions of behaviors themselves are often 
+relegated to one to two sentences in the methods. Incorporation of explainability metrics 
+allows for objective and complete reporting of behavioral classifiers, leading to enhanced 
+reproducibility. This is not an argument for field-wide standardization of behavioral 
+algorithms, but rather an opportunity to precisely and objectively capture and report metrics 
+of computer-aided behavioral analyses between experiments and research groups.
+Here, we present Simple Behavioral Analysis (SimBA) and introduce accessible tools for 
+validation and explainability of supervised behavioral classifications. SimBA is an open-
+source, primarily GUI-based program built in a modular fashion to increase non-specialized 
+user access to automated behavioral analysis via supervised machine learning techniques. 
+Two parallel and integrated branches of SimBA allow (i) the generation of non-machine 
+learning based descriptive statistics of movement and region of interest (ROI) analyses 
+and (ii) supervised machine learning based behavioral classification. SimBA is agnostic 
+to the choice of animal species or number of experimental subjects and has been used 
+to classify fish18, wasp 19, moth20, mouse21–38, rat39,40, and bird41 behavior. Further, 
+this approach promotes the wider dissemination of classifiers and associated explainability 
+metrics between research groups, and is compatible with new or historical videos annotated 
+by open-source packages such as BORIS42 and commercial packages like Noldus Observer 
+or EthovisionXT43.
+Importantly, SimBA introduces several machine learning interpretability tools and 
+seamlessly incorporates the application of Shapley Additive exPlanations44 (SHAP) scores, 
+which are one possible solution to providing explainability and transparency of behavioral 
+classifiers. SHAP is a widely cited open-source and post-hoc explainability method which 
+can be applied and compared across any of the current machine learning platforms 
+regardless of pose estimation scheme. Furthermore, Shapley values are widely accepted, 
+understood, and under continual development and scrutiny in the greater computer science 
+and artificial intelligence fields. It is proposed that explainable AI is critical for the future of 
+neuroscience16, and for a deeper discussion into the usefulness of explainability approaches 
+in computational neuroethology see Goodwin, Nilsson et al., 202217.
+Here, we highlight the functionality and importance of this approach in multiple datasets 
+to demonstrate the utility of explainability metrics in capturing and describing subtle 
+behavioral variations across sex and environment in freely moving social behavior. 
+Specifically, we examine five behaviors (attack, anogenital sniffing, pursuit, escape, and 
+defensive behavior) across males and females in chronic social defeat stress (CSDS) 
+Goodwin et al. Page 3
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+assays, and across male rodents in varied contextual environments across resident intruder 
+or CSDS assays. To understand the relationship between such behavioral differences 
+between laboratories, we perform SHAP analysis on aggressive social behaviors from 
+different research groups and compare the specific timescales and feature bins characterizing 
+behaviors. We show that this approach provides quantitative descriptions of behavior, 
+allowing for the use of behavior as an objective shareable reagent.
+We present a platform for the rapid frame-by-frame supervised analysis of animal behavior, 
+in conjunction with explainability tools which rapidly and accessibly capture behavioral 
+subtleties often left out of standard behavioral metrics. We propose that behavioral 
+classifiers, in combinations explainability metrics, can be publicly shared and used in 
+the fashion of RRIDs to increase reportability and reproducibility within behavioral 
+neuroscience.
+Results:
+Accessible machine learning for behavioral neuroscientists
+SimBA provides accessible machine learning tools to non-specialized users using standard 
+computational hardware via a simple, single-line installation, a graphical user interface 
+(GUI), and extensive documentation. Following raw video acquisition (Fig. 1), users can 
+pre-process their videos (ex. cropping, trimming, changing resolution and contrast) in 
+SimBA prior to performing pose estimation in their open-source program of choice such 
+as DeepLabCut10,45, SLEAP46 DeepPoseKit9, and MARS47. Following GUI-guided import 
+of animal tracking data (Fig. 1A), SimBA calculates relationships between body parts 
+across static and dynamic time windows (features) that are used to train supervised random 
+forest machine learning classifiers for behavioral predictions (Fig. 1B). SimBA – by default 
+– computes explainable feature representations of movements, angles, paths, velocities, 
+distances, and sizes within individual frames and as rolling time-window aggregates. To 
+provide flexibility for advanced users, the SimBA library includes a larger battery of 
+runtime-optimized feature calculators covering frequentist and circular statistics, anomaly 
+scores, temporal and spectral analyses, relationships between pose-estimation and user-
+defined regions-of-interests, bounding-box methods and other ML distribution comparison 
+techniques18,30,39. All of these can be deployed within user-defined time-windows in use-
+cases where default feature calculators are insufficient. Finally, SimBA is highly flexible and 
+can function as a programmatic platform allowing fully customized user-composed feature 
+extraction classes. These hundreds of features per individual video frame can then be used to 
+either train supervised machine learning classifiers or fed to trained classifiers which create 
+frame-by-frame predictions of the probability of a behavior of interest occurring.
+Training supervised machine learning algorithms requires human annotations of a subset of 
+video frames as either positive or negative for the behavior of interest, which algorithms 
+learn to differentiate using the associated feature values. We have streamlined the training 
+set construction process by building in-line behavioral annotation tools including raw video 
+annotation, machine-assisted annotation where the user verifies annotations produced by 
+a prior behavioral model, and methods for importing existing behavioral labels (Fig. 1B). 
+This process is supported by video batch post-processing tools that can be used to create 
+Goodwin et al. Page 4
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+targeted video clips containing the behaviors of interest that maximize biological replicates 
+and contain comparable amounts of positive and negative frames (Fig. 2C), precluding the 
+need to annotate every frame of individual videos. Due to their ease of adoption for new 
+users, interpretability, and robustness to overfitting48–50, our pipeline uses random forest 
+supervised machine learning algorithms; this further allows for the calculation of classical 
+machine learning performance metrics and supports the creation of multiple visualizations 
+and other hands-on validation tools for individual classifiers (Fig. 1B).
+Classifier construction and performance
+In addition to accommodating shared classifiers and pooled annotation sets, pre-existing 
+classifiers can be adapted to new experimental cohorts and conditions via GUI-assisted 
+thresholding, with limited additional classifier training34. Random forest classifiers output 
+a probability per frame of a behavior of interest occurring. As new cohorts of animals 
+are screened and recording contexts are altered, the classifier certainty may decrease for 
+positive frames, but the probability of non-event frames typically stays extremely low. As 
+such, achieving appropriate performance on new samples is supported by dynamic control of 
+discrimination thresholds using an interactive thresholding tool for positive versus negative 
+behavior events (Fig. 1B, 2C). Precise thresholds can also be calculated via precision-recall 
+curves (Fig. 2A). Most labs will eventually perform manipulations that alter behavior setups 
+to the point of classifier failure. This is solved by the expansion and incorporation of new 
+training sets. Using the video batch pre-processing interface, new experimental videos may 
+be annotated, manually or with the assisted scoring platform, and easily added to prior 
+models. Thus, new behavioral frames can be rapidly added to the training sets to improve 
+performance, allowing groups to iteratively create updated behavioral classifiers (Fig. 2C).
+Standard machine learning performance metrics for all classifiers are provided (Fig. 2A-B, 
+Supplementary Fig. S3-4; but see Discussion for comments on data leakage). For most 
+classifiers, performance improvement occurs within the first ~20k positively annotated 
+frames, equivalent to ~11 minutes using standard 30fps video acquisition. Classifier 
+performance increases with additional annotations, higher clarity of operational definitions, 
+and further iterations for targeted misclassification correction. Rat, CRIM, and mouse 
+classifiers achieved F1 performance on behavior present frames of > 0.91, 0.73, and 0.77 
+respectively (Fig. 2A-B, Fig. S3-4). Within SimBA, classifier training includes multiple 
+checks of performance on novel videos to assess generalizability. Using the built-in 
+visualization and validation tools, new unannotated behavioral videos can be analyzed to 
+assess and subsequently adjust performance as necessary. Importantly, hand versus machine 
+scoring results – comparing frame by frame classifications on independent videos – indicate 
+high classifier performance both within labs (Attack Pearson’s R 2 = 0.91 on 16 independent 
+videos, Supplementary Fig. S6) and across labs for multiple classifiers (Pearson’s 0.936 
+to 0.998 R2 across 8 classifiers26; Pearson’s = 0.77, 0.94, 0.98 R 2, 31; confusion matrix 
+accuracy = 98.6%, 99.3%, 85.0%30).
+For each classifier, the maximal F1 score is impacted by pose estimation performance, 
+behavior distinctiveness, and training set construction. For example, in the case of pose-
+estimation performance, a ~4mm median error in ‘tail end’ tracking results in failed 
+Goodwin et al. Page 5
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+classification of tail rattles, while ~1–2.5mm median error in ‘body hull’ points do not 
+affect classifications of other behaviors at F1 > 0.74 (Extended Data Fig. 1). SimBA has 
+several pose estimation outlier correction options available for users upon data import 
+(Extended Data Fig. 2). For behaviors associated with distinct pose estimation signatures, 
+such as drinking, small training sets are sufficient for high performance (<2 minutes of 
+positive frames, F1 = 0.965, F). Conversely, to accurately classify multiple behaviors that 
+share similar pose estimation signatures, such as attack and mounting, larger and more 
+diverse training sets are required (attack: >30 minutes of positive frames, F1 = 0.921, Fig. 2, 
+Extended Data Fig. 3). Comparing the ‘chase’ classifier from the CRIM datasets (~2 min of 
+positive frames, F1 = 0.717) and the ‘pursuit’ classifier from the University of Washington 
+(~1 minute of positive frames, F1 = 0.853) reveals the influence of training set construction 
+on F1 score. Ultimately, users will reach an asymptotic point at which further training does 
+not improve classification performance, which depends largely on tracking performance, the 
+set of used features, and the distinctiveness of the behavior of interest (Fig. 2A).
+SHAP reveals differences between annotators, species, and behaviors
+Explanations for how machine learning models reach their decisions can help researchers 
+communicate and compare the results of disparate classifiers and support researchers 
+in making informed decisions for machine model implementation and use51–54. One 
+recent influential and accessible approach for generating explainable metrics of tree-based 
+classifiers is SHAP (Shapley Additive exPlanations)55. We chose to use SHAP because it 
+is one of the most widely adopted open source explainability methods available, in addition 
+to being well-documented and under active development and support44. Shapley values are 
+just one paradigm amongst a continuously growing number of approaches for explainable 
+artificial intelligence (XAI); alternate options include LIME52 and counterfactuals56, all 
+with different pros and cons. While it is preferable for new pipelines to be built with 
+inherently explainable algorithms57, we propose that post-hoc explainability metrics are 
+highly compatible with the current state of the field due to the diversity of ML packages 
+being developed.
+In essence, the Shapley value presents a game theory-based method for equitably 
+distributing a game’s earnings among its players. To illustrate, consider a scenario where 
+individual feature contributions need to be assessed for a binary behavioral classifier. 
+There are two key pieces of information available beforehand. Firstly, there’s the average 
+probability (expected value) indicating the likelihood of the behavior occurring in a video 
+frame, such as 10% based on the number of positive annotations from the training data. 
+Secondly, the model predicts the presence of the behavior in a new frame with 75% 
+probability. By employing Shapley values, the disparity between these values (in this case, 
+65%) is attributed to the combination of feature values. This difference is then allocated to 
+the features based on their contributions within the ensemble. The resulting Shapley value 
+output is a vector of the same length as the number of features, with a total sum of 65 (for 
+a detailed mathematical explanation of SHAP and its application in behavioral neuroscience, 
+refer to Supplementary Methods).
+Goodwin et al. Page 6
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+SimBA calculates many hundreds of features (Supplementary Table 1) that individually may 
+not be very informative. While SHAP values can be calculated for each of these features if 
+desired, the additivity axiom allows users to bin features into ethologically relevant feature 
+categories (Supplementary Table 2) that are related to the biology of their model system 
+and/or behaviors of interest. Another key advantage is that classifiers generated for the same 
+behavior, but using different pose estimation schemas (e.g., one model with 5 body parts 
+versus a model with 8 body parts), may still be directly compared by such bins, which would 
+not be possible using individual feature importance’s (Extended Data Fig. 4). SHAP is built 
+into SimBA classifier construction to encourage its use and accessibility, but more-so we 
+propose that the adoption of any type of explainability paradigm is more important than the 
+specific algorithm selected.
+To specifically demonstrate SHAP’s potential to enhance behavioral reportability within 
+preclinical behavioral neuroscience, we collected and compared independently created 
+rodent attack classifiers from expert annotators at institutions across the United States. These 
+classifiers and annotators used data from different recording environments, with different 
+experimental protocols, strains, sex, video formats and pose-estimation models (Fig. 3A, 
+Statistical Supplementary Note 1 — detailed statistics). The classifiers all showed high 
+accuracy in their respective environments.
+SHAP analysis of attack classifiers revealed the relative importance of feature category 
+bins17 for discerning both attack and non-attack frames. Across labs, animal distances and 
+movement were important for identifying attack, while animal shapes were least important. 
+In addition to identifying these common patterns, a stark difference in the influence of 
+resident shape was seen between the Stanford attack classifier and classifiers from other sites 
+(Fig. 3C). To ensure that this was not due to incongruent operational definitions of attack 
+behavior, we manually annotated the Standford dataset based on our operational definition 
+of attack. Manual annotations were highly consistent between sites (Extended Data Fig. 
+5, R2 = 0.998; gantt plot). SHAP analysis showed that UW annotations relied on resident 
+body shape over longer durations than Stanford. This demonstrates that while the annotators 
+have high inter-rater reliability, SHAP determined they rely on different features for attack 
+scoring. This observation is likely based on the biological differences between the two 
+sites datasets, where Stanford used C57 resident mice rather than outbred strains like other 
+research locations.
+Since SHAP values do not convey directional relationships, we plotted the 32k observations 
+within each category (8k from each site) with the normalized feature values on the y-axis 
+and SHAP value on the x-axis (Fig. 3D, Statistical Supplementary Note 1 — detailed 
+statistics). Here the left-most panel shows that as the distance between animals decreases, 
+the attack classification probability increases across the sites, with shorter animal distances 
+having a stronger positive impact on attack classification probabilities at CRIM/Caltech than 
+the classifiers annotated at other sites.
+Rat versus mouse attack behavior
+Next, we analyzed SHAP values for the rat resident intruder classifier and compared the 
+values with the five classifiers generated by the mouse consortium of attack classifiers (Fig. 
+Goodwin et al. Page 7
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+4A, Extended Data Fig. 6). Rat attack events were recognized primarily by the shape of the 
+resident and the intruder, and distances between the resident and the intruder. Rat attacks 
+differed significantly by feature category bin, but not feature sliding window size. All feature 
+bin correlations were significant, with intruder shape being most negatively correlated with 
+attack probability in rats and intruder movement most positively correlated in mice (Fig. 
+4B).
+Automated behavioral analysis of reactive aggression by sex
+Female assays for the study of aggression in mice have historically focused on maternal 
+aggression due to the stated low propensity for these mice to display aggression during 
+reactive aggression tasks (resident intruder or chronic social defeat stress tests) typically 
+used for males58. Recently, studies have revisited reactive aggression in females and have 
+found that a subset of female Swiss Webster (CFW) mice attack same-sex intruders when 
+either virgin and singly housed59, or cohoused with a castrated male60. While CFW females 
+do not appear to show aggression reward by standard measures including aggression 
+conditioned place preference and aggression self-administration61, this still presents an 
+opportunity to directly compare male and female reactive aggression behavior.
+Following screening females for resident-intruder aggression, we conducted female60,61 
+and male62 chronic social defeat stress (CSDS) assays (see Supplemental Methods). We 
+calculated the total duration, number of bouts, mean bout duration and interval for attack, 
+pursuit, anogenital sniffing, escape, and defensive behaviors (SHAP values, Extended Data 
+Fig. 7), both per day of testing and averaged across all five testing days. We analyzed attack, 
+pursuit, and anogenital sniffing for the residents, and defensive and escape behavior for the 
+intruders. Males and females showed significant differences in all five assayed behaviors 
+(Fig. 5D), with females showing higher average total durations and number of bouts in 
+attack, pursuit, and escape behaviors (p < 0.001 for all), while males had higher levels 
+of anogenital sniffing and defensive behaviors (duration: p = 0.0461, 0.0374; bouts: p = 
+0.0298, 0.0146). There were no differences for any of the behaviors in mean bout interval 
+or in attack or anogenital mean bout duration. Females showed longer behavioral bouts 
+for pursuit, defensive, and escape behaviors (p < 0.001 for all). Only three metrics were 
+significantly affected by day: escape duration and bouts (duration: interaction p = 0.0122, 
+day p = 0.3700, sex p < 0.001; bouts: interaction p = 0.0415, day p = 0.3947, sex p < 0.001) 
+and number of pursuit bouts (interaction p = 0.0404, day p = 0.1724, sex p < 0.001).
+To understand how males and females performed behaviors predicted by the same 
+supervised behavioral classes, we calculated SHAP values for 10k positive behavioral 
+frames per behavior and sex (Fig. 5D, right). There were significant differences in SHAP 
+values across sexes for all behaviors (Supplementary Note 1 — detailed statistics), with 
+attack and pursuit behaviors differing most significantly in intruder shape, anogenital 
+sniffing in intruder movement, defensive behavior in combined animal movement, and 
+escape behavior in resident shape (Supplementary Note 1 — detailed statistics).
+Goodwin et al. Page 8
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Automated analysis of male aggression by environment
+Resident-intruder assays are typically conducted in an animal’s home cage to measure the 
+reactive or territorial aggression of the resident animal. Frequently, these assays examine 
+resident males across their first exposures to established subordinate intruders. Alternately, 
+CSDS testing is typically performed in thinner subdivided hamster cages, where the 
+“resident” animal is an established aggressor62 and the intruder is a smaller mouse that 
+experiences up to 10 consecutive days of defeat. Directly comparing RI and CSDS datasets 
+allows us to gain a preliminary understanding of the intersection of aggression experience 
+and testing environment for driving social behaviors.
+RI and CSDS male behavior differed significantly by day, total duration across all five 
+behaviors, number of bouts in attack, anogenital, defensive, and escape behaviors, and 
+in the mean bout interval between anogenital and escape events (Fig. 6C, Supplementary 
+Note 1 — detailed statistics). RI males showed a marked decrease in anogenital sniffing 
+duration across days (interaction p = 0.0123, day p = 0.0478, environment p < 0.0071), 
+with concomitant increases in attack (interaction p < 0.001, day p = 0.0204, environment 
+p = 0.9408) and pursuit behaviors (interaction p < 0.0258, day p = 0.0295, environment 
+p < 0.001), indicating a shift from exploratory to aggressive behaviors as males gained 
+aggression experience. SHAP comparisons of classifiers revealed differing behavioral motifs 
+between environments. Attack differed most significantly in intruder movement, while 
+anogenital and pursuit behaviors differed in resident shape, defensive behavior by animal 
+distances, and escape by intruder shape (Fig. 6C, Supplementary Note 1 — detailed 
+statistics, Extended Data Fig.8).
+Discussion
+There is a vibrant and growing ecosystem of computational behavioral tools designed 
+specifically for the behavioral neuroscience community, that have directly impacted 
+scientific directions and methods63 (see Table 1 for examples). SimBA has been heavily 
+influenced by many of these packages9,10,46,64, and now influences others39,65,66. Since its 
+release, numerous independent labs have used SimBA to address varied scientific questions 
+across diverse model systems, providing critical feedback on SimBA and its ongoing 
+development. The key feedback has consistently focused on introducing easily accessible 
+explainability metrics that are useful to non-specialized users and allow for generalizable use 
+of classifiers and compatibility of disparate datasets.
+Here, we used SimBA to analyze data including male and female chronic social defeat stress 
+(CSDS) behavior, and male CSDS and resident intruder (RI) behaviors and describe the 
+use of explainability metrics. Between sexes we found that male and female intruders differ 
+significantly in their coping strategies, with females defending themselves less than males. 
+These differences may partially explain differences in resilience to social stress between 
+males and females. Between CSDS and RI assays, which are performed in differently sized 
+arenas, we found differences in resident aggressive and intruder coping behaviors between 
+males. This demonstrates clear cross-protocol behavioral differences and emphasizes a 
+need for standardization and quantification of experimental variation within social behavior 
+research in general and aggression research specifically, and we provide a tool to do this.
+Goodwin et al. Page 9
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+We demonstrate the utility of SHAP values for uncovering differences within supervised 
+machine learning scenarios. We quantify significant differences in features and time bins 
+defining female and male aggression as well as aggressive behaviors across distinct 
+testing environments. For example, SHAP values revealed and quantified potential cross-lab 
+classifier confounds, and aided comparisons between male and female attack events.
+Although strong arguments remain for using inherently explainable models in machine 
+learning57, many maturing behavioral neuroscience tools still rely on black-box methods. 
+The post-hoc nature of SHAP allows independent labs an algorithmic freedom while 
+maintaining options for cross-model explainability comparisons through game theory and 
+the additivity axiom. A significant drawback of SHAP, however, is the computational and 
+runtime cost associated with analyzing larger datasets. SimBA depends on the TreeSHAP67 
+algorithm to calculate SHAP values. A challenge when calculating SHAP values through 
+TreeSHAP is the computational complexity and run-times that scale polynomially with the 
+number of estimators and features, and can interfere with the analyses of larger datasets68. 
+To negate this, SimBA includes multiprocessing options that allows users to linearly reduce 
+their run-times with the count of their available CPU-cores. SHAP also represents a post-
+hoc approach when inherently explainable models (e.g., using a few carefully selected 
+relevant features joined with low algorithm complexity) may suffice for low-complexity 
+behaviors17. Furthermore, as a correlative approach, users should avoid interpreting causal 
+relationships between SHAP-inferred feature importance’s and classification probabilities. 
+Ongoing efforts in SimBA involve parallelization and just-in-time compilation making the 
+full catalogue of methods available on standard behavioral neuroscience hardware at the 
+maximum speeds allowed by the machine. Notably, the SimBA platform has additional 
+in-built access to other prevalent model interpretability methods (e.g., partial dependencies, 
+permutation importance’s and gini/entropy-based measures) when needed.
+Manual behavioral analyses typically depend on nondescript qualitative operational 
+definitions, posing challenges for standardization across individuals and laboratories, 
+and potentially contributing to issues with reproducibility downstream. In contrast, as 
+demonstrated here, the incorporation of ML-based behavioral analysis coupled with 
+explainability metrics produce comprehensive quantitative operational definitions of 
+behavior. This allows us to re-conceptualize behavioral analysis though precise and 
+verbalizable statistical component rules that are applied when scoring behaviors of interest. 
+These quantified definitions can be shared as resources, akin to RRID-like reagents, 
+enhancing transparency and reportability and facilitating cross-study comparisons and 
+reproducibility.
+As a supervised learning tool, a weakness of our approach is the cost of collecting 
+the human behavioral annotations required for fitting reliable downstream models. Other 
+prominent platforms may circumvent such costs through active learning, task-programming, 
+or semi-supervised statistical techniques69–72. Despite our publicly available classifiers 
+and annotations, users will typically have to add a few short, varied, and representative 
+annotations to their classifier training sets due to the inherent variation in individual 
+laboratory experimental setups. However, the behavioral neuroscience community has an 
+exceptionally rich historical bounty of carefully documented animal behaviors in video 
+Goodwin et al. Page 10
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+recordings. To lessen user burden, SimBA includes several tools to accommodate use 
+of such historical annotations for supervised machine learning purposes. Further parallel 
+initiatives, including MABe73,74, the OpenBehavior project75, and Jackson Laboratory 
+Mouse Phenome Database76, may also address these limitations through the distribution 
+of larger repositories encompassing diverse video recordings with associated human 
+annotations.
+A further challenge for the field is appreciating how to accurately judge the performance 
+of machine learning models, which can be biased towards subsets of animals and recording 
+environment and that depend on time-series data that is vulnerable to leakage77. Maintaining 
+true independence across training and hold-out sets is a standing challenge within machine 
+learning which can be particularly difficult in behavioral neuroscience use-cases where 
+insufficient amounts of fully independent annotations are available. Fundamentally, although 
+low performance metrics are indicative of an inadequate classifier, high metrics may not 
+be sufficiently indicative of reliable and generalizable out-of-sample performance. We 
+recommend that users include smaller held-out and hand-scored representative validation 
+sets for validation purposes.
+In conclusion, SimBA provides a user-centric, modular, and accessible platform for machine 
+learning analysis of behavior with the primary aim of promoting an understanding of the 
+behavioral nuances that we value as neuroethologists. Here, we demonstrate the utility of 
+SimBA as a behavioral analysis tool by consolidating cross-site behavioral datasets with 
+machine learning methods to quantify and describe complex behaviors across experimental 
+contexts.
+Goodwin et al. Page 11
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Extended Data
+Extended Data Table 1.
+A list of open-source programs for machine-learning based automated behavioral detection.
+Extended Data Figure 1. 
+These data were calculated from 12,686 images from n=101 mice. (a) The 16 body-parts 
+labeled. (b) Schematic depiction of the location of each of the 16 body part labels. (c) 
+Evaluations of three models (rgb, clahe, greyscale) using the DeepLabCut evaluation tool. 
+Goodwin et al. Page 12
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Pixel distances were converted to millimeter by using the lowest resolution images in the 
+dataset (1000×1544px; 4.6px/millimeter). (d) Median millimeter error per body part. (e) 
+Image representing the relative standard error (RSE) of the median millimeter error across 
+all test images. The labelled images and DeepLabCut generated weights are available to 
+download on the Open Science Framework, osf.io/mutws. (f) SimBA supports a range of 
+alternative body-part settings for single animals and dyadic protocols through the File-> 
+Create Project menu. Note: tail end tracking performance was insufficient for a tail rattle 
+classifier, and the tail end body parts were dropped for all analysis in the main figures. Data 
+are presented as mean +/− SEM.
+Goodwin et al. Page 13
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Extended Data Figure 2. 
+(a) SimBA calculates the mean or median distance between two user-defined body-parts 
+across the frames of each video. We set the user-defined body-parts to be the nose and the 
+tail-base of each animal. The user also defines a movement criterion value, and a location 
+criterion value. We set the movement criterion to 0.7, and location criterion to 1.5. Two 
+different outlier criteria are then calculated by SimBA. These criteria are the mean length 
+between the two user-defined body parts in all frames of the video, multiplied by the 
+either user-defined movement criterion value or location criterion value. SimBA corrects 
+Goodwin et al. Page 14
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+movement outliers prior to correcting location outliers. (b) Schematic representations of 
+a pose-estimation body-part ‘movement outlier’ (top) and a ‘location outlier’ (bottom). A 
+body-part violates the movement criterion when the movement of the body-part across 
+sequential frames is greater than the movement outlier criterion. A body-part violates the 
+location criteria when its distance to more than one other body-part in the animals’ hull 
+(except the tail-end) is greater than the location outlier criterion. Any body part that violates 
+either the movement or location criterion is corrected by placing the body-part at its last 
+reliable coordinate. (c) The ratio of body-part movements (top) and body-part locations 
+(bottom) detected as outliers and corrected by SimBA in the RGB-format mouse resident-
+intruder data-set. For the outlier corrected in rat and the CRIM13 datasets, see the SimBA 
+GitHub repository. We also offer (d) interpolation options for frames with missing body 
+parts and (3) smoothing options to reduce frame-to-frame jitter.
+Extended Data Figure 3. 
+Training set information for mouse, rat, and CRIM13 mouse resident intruder behavioral 
+classifiers.
+Goodwin et al. Page 15
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Extended Data Figure 4. 
+Classifiers for the same behavior using different pose estimation schemes will have different 
+feature lists, but can be directly compared via feature binning through the SHAP additivity 
+axiom.
+Goodwin et al. Page 16
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Extended Data Figure 5. 
+UW and Stanford manual scoring of the same dataset for attack behavior. (a) Manual 
+annotations (n=9 videos) were highly correlated (R2 = 0.998). (b) Gantt plot of UW versus 
+Stanford scores for a high-attack video. (c) SHAP scores for UW positive or Stanford 
+positive attack frames. UW scores rely more on longer rolling windows of behavior than 
+Stanford does.
+Extended Data Figure 6. 
+SHAP values across feature bins and rolling windows for rat attack classifier.
+Goodwin et al. Page 17
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Extended Data Figure 7. 
+SHAP values for attack, pursuit, anogenital sniffing, defensive, and escape behavioral 
+classifiers used in figures 5–6.
+Goodwin et al. Page 18
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Extended Data Figure 8. 
+We calculated SHAP values for 1250 attack frames and 1250 non-attack frames within each 
+experimental protocol. (a) We used these values to calculate delta shap values, where we 
+evaluated the female CSDS and male RI SHAP values against male CSDS SHAP value 
+baseline. The SHAP analyses revealed large similarities in how feature values affected attack 
+classification probabilities in the three experiments (all feature sub-category delta shap < 
+0.044). The most notable experiment difference was the importance of animal distance 
+features within the current frame, which was associated with higher attack classification 
+probabilities in the RI experiment than in the male CSDS experiment. Attack classification 
+probabilities in the RI experiments were also less affected by features of the resident shape 
+than in the males CSDS experiment. These differences may relate to the different attack 
+strategies and experimental setup used in the experimental protocols. (b) Next, we analyzed 
+SHAP vales for classifying attack and non-attack events in the male and female CSDS 
+experiments within 1min bins and showed that SHAP values are not affected by time of 
+session.
+Supplementary Material
+Refer to Web version on PubMed Central for supplementary material.
+Acknowledgements:
+The research was supported by NIDA R00DA045662 (SAG), NIDA R01DA059374 (SAG), NIDA P30DA048736 
+(MH & SAG), NARSAD Young Investigator Award 27082 (SAG), NIMH 1F31MH125587 (NLG), F31AA025827 
+(ELN), F32MH125634 (ELN), NIGMS R35GM146751 (MH), National Institutes of Health grant K08MH123791 
+(NE), Burroughs Wellcome Fund Career Award for Medical Scientists (NE), Simons Foundation Bridge to 
+Independence Award (NE), and the Washington Research Foundation Postdoctoral Fellowship (ERS). We thank 
+Valerie Tsai, Roël Vrooman, and Cindy Xu for their skillful technical contributions. We thank Brandon Bentzley, 
+and Dayu Lin for contributing to aggression consortium data. SRON has continued development and maintenance 
+of SimBA independent of other funding sources. Figures were created with Biorender.com.
+Goodwin et al. Page 19
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Data availability statement
+The data used in this manuscript is available as a branch of the SimBA github repository. 
+https://github.com/sgoldenlab/simba/tree/simba-data/data
+The CRIM13 database is publicly available at https://paperswithcode.com/dataset/crim13.
+Code availability statement
+Code and documentation are available at https://github.com/sgoldenlab/simba. SimBA was 
+built with Python version 3.6.
+References47,64,72,78–94
+1. Krakauer JW, Ghazanfar AA, Gomez-Marin A, MacIver MA, and Poeppel D. (2017). 
+Neuroscience Needs Behavior: Correcting a Reductionist Bias. Neuron 93, 480–490. 10.1016/
+j.neuron.2016.12.041. [PubMed: 28182904] 
+2. Anderson DJ, and Perona P. (2014). Toward a Science of Computational Ethology. Neuron 84, 
+18–31. 10.1016/j.neuron.2014.09.005. [PubMed: 25277452] 
+3. Egnor SER, and Branson K. (2016). Computational Analysis of Behavior. Annu. Rev. Neurosci. 39, 
+217–236. 10.1146/annurev-neuro-070815-013845. [PubMed: 27090952] 
+4. Datta SR, Anderson DJ, Branson K, Perona P, and Leifer A. (2019). Computational Neuroethology: 
+A Call to Action. Neuron 104, 11–24. 10.1016/j.neuron.2019.09.038. [PubMed: 31600508] 
+5. Falkner AL, Grosenick L, Davidson TJ, Deisseroth K, and Lin D. (2016). Hypothalamic control 
+of male aggression-seeking behavior. Nat Neurosci 19, 596–604. 10.1038/nn.4264. [PubMed: 
+26950005] 
+6. Ferenczi EA, Zalocusky KA, Liston C, Grosenick L, Warden MR, Amatya D, Katovich K, Mehta 
+H, Patenaude B, Ramakrishnan C, et al. (2016). Prefrontal cortical regulation of brainwide circuit 
+dynamics and reward-related behavior. Science 351, aac9698–aac9698. 10.1126/science.aac9698.
+7. Kim Y , Venkataraju KU, Pradhan K, Mende C, Taranda J, Turaga SC, Arganda-Carreras I, Ng L, 
+Hawrylycz MJ, Rockland KS, et al. (2015). Mapping Social Behavior-Induced Brain Activation 
+at Cellular Resolution in the Mouse. Cell Reports 10, 292–305. 10.1016/j.celrep.2014.12.014. 
+[PubMed: 25558063] 
+8. Gunaydin LA, Grosenick L, Finkelstein JC, Kauvar IV , Fenno LE, Adhikari A, Lammel 
+S, Mirzabekov JJ, Airan RD, Zalocusky KA, et al. (2014). Natural Neural Projection 
+Dynamics Underlying Social Behavior. Cell 157, 1535–1551. 10.1016/j.cell.2014.05.017. [PubMed: 
+24949967] 
+9. Graving JM, Chae D, Naik H, Li L, Costelloe BR, and Couzin ID. (2019). DeepPoseKit, a software 
+toolkit for fast and robust animal pose estimation using deep learning. eLife, 8:e47994.
+10. Mathis A, Mamidanna P, Cury KM, Abe T, Murthy VN, Mathis MW, and Bethge M. (2018). 
+DeepLabCut: markerless pose estimation of user-defined body parts with deep learning. Nat 
+Neurosci 21, 1281–1289. 10.1038/s41593-018-0209-y. [PubMed: 30127430] 
+11. Pereira TD, Aldarondo DE, Willmore L, Kislin M, Wang SS-H, Murthy M, and Shaevitz JW. 
+(2019). Fast animal pose estimation using deep neural networks. Nat Methods 16, 117–125. 
+10.1038/s41592-018-0234-5. [PubMed: 30573820] 
+12. Geuther BQ, Deats SP, Fox KJ, Murray SA, Braun RE, White JK, Chesler EJ, Lutz CM, 
+and Kumar V . (2019). Robust mouse tracking in complex environments using neural networks. 
+Communications Biology 2, 1–11. 10.1038/s42003-019-0362-1. [PubMed: 30740537] 
+13. Gris KV , Coutu J-P, and Gris D. (2017). Supervised and Unsupervised Learning Technology in the 
+Study of Rodent Behavior. Front Behav Neurosci 11. 10.3389/fnbeh.2017.00141.
+14. Schaefer AT, and Claridge-Chang A. (2012). The surveillance state of behavioral automation. 
+Current Opinion in Neurobiology 22, 170–176. 10.1016/j.conb.2011.11.004. [PubMed: 22119142] 
+Goodwin et al. Page 20
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+15. Robie AA, Seagraves KM, Egnor SER, and Branson K. (2017). Machine vision methods for 
+analyzing social interactions. J Exp Biol 220, 25–34. 10.1242/jeb.142281. [PubMed: 28057825] 
+16. Vu M-AT, Adalı T, Ba D, Buzsáki G, Carlson D, Heller K, Liston C, Rudin C, Sohal VS, Widge 
+AS, et al. (2018). A Shared Vision for Machine Learning in Neuroscience. J. Neurosci. 38, 1601–
+1607. 10.1523/JNEUROSCI.0508-17.2018. [PubMed: 29374138] 
+17. Goodwin NL, Nilsson SRO, Choong JJ, and Golden SA. (2022). Toward the explainability, 
+transparency, and universality of machine learning for behavioral classification in neuroscience. 
+Current Opinion in Neurobiology 73, 102544. 10.1016/j.conb.2022.102544.
+18. Newton KC, Kacev D, Nilsson SRO, Golden SA, and Sheets L. (2021). Lateral Line 
+Ablation by Toxins Results in Distinct Rheotaxis Profiles in Fish. bioRxiv, 2021.11.15.468723. 
+10.1101/2021.11.15.468723.
+19. Jernigan CM, Stafstrom JA, Zaba NC, V ogt CC, and Sheehan MJ. (2022). Color is necessary 
+for face discrimination in the Northern paper wasp, Polistes fuscatus. Anim Cogn. 10.1007/
+s10071-022-01691-9.
+20. Dahake A, Jain P, V ogt C, Kandalaft W, Stroock A, and Raguso RA. (2022). Floral humidity 
+as a signal – not a cue – in a nocturnal pollination system. bioRxiv, 2022.04.27.489805. 
+10.1101/2022.04.27.489805.
+21. Dawson M, Terstege DJ, Jamani N, Pavlov D, Tsutsui M, Bugescu R, Epp JR, Leinninger GM, 
+and Sargin D. (2022). Sex-dependent role of hypocretin/orexin neurons in social behavior. bioRxiv, 
+2022.08.19.504565. 10.1101/2022.08.19.504565.
+22. Baleisyte A, Schneggenburger R, and Kochubey O. (2022). Stimulation of medial amygdala 
+GABA neurons with kinetically different channelrhodopsins yields opposite behavioral outcomes. 
+Cell Reports 39, 110850. 10.1016/j.celrep.2022.110850.
+23. Cruz-Pereira JS, Moloney GM, Bastiaanssen TFS, Boscaini S, Tofani G, Borras-Bisa J, van de 
+Wouw M, Fitzgerald P, Dinan TG, Clarke G, et al. (2022). Prebiotic supplementation modulates 
+selective effects of stress on behavior and brain metabolome in aged mice. Neurobiology of Stress 
+21, 100501. 10.1016/j.ynstr.2022.100501.
+24. Linders LE, Patrikiou L, Soiza-Reilly M, Schut EHS, van Schaffelaar BF, Böger L, Wolterink-
+Donselaar IG, Luijendijk MCM, Adan RAH, and Meye FJ. (2022). Stress-driven potentiation of 
+lateral hypothalamic synapses onto ventral tegmental area dopamine neurons causes increased 
+consumption of palatable food. Nat Commun 13, 6898. 10.1038/s41467-022-34625-7. [PubMed: 
+36371405] 
+25. Slivicki RA, Earnest T, Chang Y-H, Pareta R, Casey E, Li J-N, Tooley J, Abiraman K, Vachez YM, 
+Wolf DK, et al. (2023). Oral oxycodone self-administration leads to features of opioid misuse in 
+male and female mice. Addiction Biology 28, e13253. 10.1111/adb.13253.
+26. Miczek KA, Akdilek N, Ferreira VMM, Kenneally E, Leonard MZ, and Covington HE. 
+(2022). Excessive alcohol consumption after exposure to two types of chronic social stress: 
+intermittent episodes vs. continuous exposure in C57BL/6J mice with a history of drinking. 
+Psychopharmacology. 10.1007/s00213-022-06211-8.
+27. Cui Q, Du X, Chang IYM, Pamukcu A, Lilascharoen V , Berceau BL, García D, Hong D, Chon U, 
+Narayanan A, et al. (2021). Striatal Direct Pathway Targets Npas1+ Pallidal Neurons. J. Neurosci. 
+41, 3966–3987. 10.1523/JNEUROSCI.2306-20.2021. [PubMed: 33731445] 
+28. Chen J, Lambo ME, Ge X, Dearborn JT, Liu Y , McCullough KB, Swift RG, Tabachnick DR, Tian 
+L, Noguchi K, et al. (2021). A MYT1L syndrome mouse model recapitulates patient phenotypes 
+and reveals altered brain development due to disrupted neuronal maturation. Neuron 109, 3775–
+3792.e14. 10.1016/j.neuron.2021.09.009. [PubMed: 34614421] 
+29. Rigney N, Zbib A, de Vries GJ, and Petrulis A. (2021). Knockdown of sexually differentiated 
+vasopressin expression in the bed nucleus of the stria terminalis reduces social and sexual 
+behaviour in male, but not female, mice. Journal of Neuroendocrinology n/a, e13083. 10.1111/
+jne.13083.
+30. Winters C, Gorssen W, Ossorio-Salazar V A, Nilsson S, Golden S, and D’Hooge R. (2022). 
+Automated procedure to assess pup retrieval in laboratory mice. Sci Rep 12, 1663. 10.1038/
+s41598-022-05641-w. [PubMed: 35102217] 
+Goodwin et al. Page 21
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+31. Neira S, Hassanein LA, Stanhope CM, Buccini MC, D’Ambrosio SL, Flanigan ME, Haun 
+HL, Boyt KM, Bains JS, and Kash TL. (2022). Chronic Alcohol Consumption Alters Home-
+Cage Behaviors and Responses to Ethologically Relevant Predator Tasks in Mice. bioRxiv. 
+10.1101/2022.02.04.479122.
+32. Kwiatkowski CC, Akaeze H, Ndlebe I, Goodwin N, Eagle AL, Moon K, Bender AR, Golden SA, 
+and Robison AJ. (2021). Quantitative standardization of resident mouse behavior for studies of 
+aggression and social defeat. Neuropsychopharmacology, 1–10. 10.1038/s41386-021-01018-1.
+33. Yamaguchi T, Wei D, Song SC, Lim B, Tritsch NX, and Lin D. (2020). Posterior amygdala 
+regulates sexual and aggressive behaviors in male mice. Nat Neurosci. 10.1038/s41593-020-0675-
+x.
+34. Nygaard KR, Maloney SE, Swift RG, McCullough KB, Wagner RE, Fass SB, Garbett K, 
+Mirnics K, Veenstra-VanderWeele J, and Dougherty JD. (2023). Extensive characterization of 
+a Williams Syndrome murine model shows Gtf2ird1 -mediated rescue of select sensorimotor 
+tasks, but no effect on enhanced social behavior. Preprint at Animal Behavior and Cognition, 
+10.1101/2023.01.18.523029 10.1101/2023.01.18.523029.
+35. Ojanen S, Kuznetsova T, Kharybina Z, V oikar V , Lauri SE, and Taira T. (2023). Interneuronal 
+GluK1 kainate receptors control maturation of GABAergic transmission and network synchrony in 
+the hippocampus. Molecular Brain 16, 43. 10.1186/s13041-023-01035-9. [PubMed: 37210550] 
+36. Hon OJ, DiBerto JF, Mazzone CM, Sugam J, Bloodgood DW, Hardaway JA, Husain M, Kendra 
+A, McCall NM, Lopez AJ, et al. (2022). Serotonin modulates an inhibitory input to the central 
+amygdala from the ventral periaqueductal gray. Neuropsychopharmacol. 47, 2194–2204. 10.1038/
+s41386-022-01392-4.
+37. Murphy CA, Chang Y-H, Pareta R, Li J-N, Slivicki RA, Earnest T, Tooley J, Abiraman K, 
+Vachez YM, Gereau RW, et al. (2021). Modeling features of addiction with an oral oxycodone 
+self-administration paradigm (Neuroscience) 10.1101/2021.02.08.430180.
+38. Neira S, Lee S, Hassanein LA, Sides T, D’Ambrosio SL, Boyt KM, Bains JS, and Kash 
+TL. (2023). Impact and role of hypothalamic corticotropin releasing hormone neurons in 
+withdrawal from chronic alcohol consumption in female and male mice. Preprint at bioRxiv, 
+10.1101/2023.05.30.542746 10.1101/2023.05.30.542746.
+39. Lapp HE, Salazar MG, and Champagne FA. (2023). Automated Maternal Behavior during 
+Early life in Rodents (AMBER) pipeline. Preprint at bioRxiv, 10.1101/2023.09.15.557946 
+10.1101/2023.09.15.557946.
+40. Barnard IL, Onofrychuk TJ, Toderash AD, Patel VN, Glass AE, Adrian JC, Laprairie RB, 
+and Howland JG. (2023). High-THC Cannabis smoke impairs working memory capacity in 
+spontaneous tests of novelty preference for objects and odors in rats. Preprint at bioRxiv, 
+10.1101/2023.04.06.535880 10.1101/2023.04.06.535880.
+41. Ausra J, Munger SJ, Azami A, Burton A, Peralta R, Miller JE, and Gutruf P. (2021). Wireless 
+battery free fully implantable multimodal recording and neuromodulation tools for songbirds. Nat 
+Commun 12, 1968. 10.1038/s41467-021-22138-8. [PubMed: 33785751] 
+42. Friard O, and Gamba M. (2016). BORIS: a free, versatile open-source event-logging software 
+for video/audio coding and live observations. Methods in Ecology and Evolution 7, 1325–1330. 
+10.1111/2041-210X.12584.
+43. Spink AJ, Tegelenbosch RAJ, Buma MOS, and Noldus LPJJ. (2001). The EthoVision video 
+tracking system—A tool for behavioral phenotyping of transgenic mice. Physiology & Behavior 
+73, 731–744. 10.1016/S0031-9384(01)00530-3. [PubMed: 11566207] 
+44. Lundberg S. (2022). slundberg/shap.
+45. Lauer J, Zhou M, Ye S, Menegas W, Nath T, Rahman MM, Di Santo V , Soberanes D, Feng G, 
+Murthy VN, et al. (2021). Multi-animal pose estimation and tracking with DeepLabCut (Animal 
+Behavior and Cognition) 10.1101/2021.04.30.442096.
+46. Pereira TD, Tabris N, Matsliah A, Turner DM, Li J, Ravindranath S, Papadoyannis ES, Normand 
+E, Deutsch DS, Wang ZY , et al. (2022). SLEAP: A deep learning system for multi-animal pose 
+tracking. Nat Methods, 1–10. 10.1038/s41592-022-01426-1. [PubMed: 35017739] 
+Goodwin et al. Page 22
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+47. Segalin C, Williams J, Karigo T, Hui M, Zelikowsky M, Sun JJ, Perona P, Anderson DJ, and 
+Kennedy A. (2021). The Mouse Action Recognition System (MARS) software pipeline for 
+automated analysis of social behaviors in mice. eLife 10, e63720. 10.7554/eLife.63720.
+48. Breiman L. (2001). Random Forests. Machine Learning 45, 5–32. 10.1023/A:1010933404324.
+49. Liaw A, and Wiener M. (2002). Classification and Regression by randomForest. R news 2, 6.
+50. Goodwin NL, Nilsson SRO, and Golden SA. (2020). Rage Against the Machine: Advancing 
+the study of aggression ethology via machine learning. Psychopharmacology 237, 2569–2588. 
+10.1007/s00213-020-05577-x. [PubMed: 32647898] 
+51. Lundberg SM, Erion G, Chen H, DeGrave A, Prutkin JM, Nair B, Katz R, Himmelfarb J, Bansal 
+N, and Lee S-I. (2020). From Local Explanations to Global Understanding with Explainable AI for 
+Trees. Nat Mach Intell 2, 56–67. 10.1038/s42256-019-0138-9. [PubMed: 32607472] 
+52. Ribeiro MT, Singh S, and Guestrin C. (2016). “Why Should I Trust You?”: Explaining 
+the Predictions of Any Classifier. Preprint at arXiv, 10.48550/arXiv.1602.04938 10.48550/
+arXiv.1602.04938.
+53. Sundararajan M, Taly A, and Yan Q. (2017). Axiomatic Attribution for Deep Networks. In 
+Proceedings of the 34th International Conference on Machine Learning (PMLR), pp. 3319–3328.
+54. Hatwell J, Gaber MM, and Azad RMA. (2020). CHIRPS: Explaining random forest classification. 
+Artif Intell Rev 53, 5747–5788. 10.1007/s10462-020-09833-6.
+55. Lundberg S, and Lee S-I. (2017). A Unified Approach to Interpreting Model Predictions. 
+arXiv:1705.07874 [cs, stat].
+56. Verma S, Dickerson J, and Hines K. (2020). Counterfactual Explanations for Machine Learning: A 
+Review. arXiv:2010.10596 [cs, stat].
+57. Rudin C. (2019). Stop explaining black box machine learning models for high stakes decisions 
+and use interpretable models instead. Nat Mach Intell 1, 206–215. 10.1038/s42256-019-0048-x. 
+[PubMed: 35603010] 
+58. Takahashi A, Chung J-R, Zhang S, Zhang H, Grossman Y , Aleyasin H, Flanigan ME, Pfau ML, 
+Menard C, Dumitriu D, et al. (2017). Establishment of a repeated social defeat stress model in 
+female mice. Sci Rep 7, 12838. 10.1038/s41598-017-12811-8. [PubMed: 28993631] 
+59. Hashikawa K, Hashikawa Y , Tremblay R, Zhang J, Feng JE, Sabol A, Piper WT, Lee H, Rudy B, 
+and Lin D. (2017). Esr1+ cells in the ventromedial hypothalamus control female aggression. Nat. 
+Neurosci. 20, 1580–1590. 10.1038/nn.4644. [PubMed: 28920934] 
+60. Newman EL, Covington HE, Suh J, Bicakci MB, Ressler KJ, DeBold JF, and Miczek KA. (2019). 
+Fighting Females: Neural and Behavioral Consequences of Social Defeat Stress in Female Mice. 
+Biological Psychiatry 86, 657–668. 10.1016/j.biopsych.2019.05.005. [PubMed: 31255250] 
+61. Aubry A V , Joseph Burnett C, Goodwin NL, Li L, Navarrete J, Zhang Y , Tsai V , Durand-de 
+Cuttoli R, Golden SA, and Russo SJ. (2022). Sex differences in appetitive and reactive aggression. 
+Neuropsychopharmacol. 10.1038/s41386-022-01375-5.
+62. Golden SA, Covington HE, Berton O, and Russo SJ. (2011). A standardized protocol for 
+repeated social defeat stress in mice. Nat Protoc 6, 1183–1191. 10.1038/nprot.2011.361. [PubMed: 
+21799487] 
+63. Shemesh Y , and Chen A. (2023). A paradigm shift in translational psychiatry through rodent 
+neuroethology. Mol Psychiatry 28, 993–1003. 10.1038/s41380-022-01913-z. [PubMed: 36635579] 
+64. Kabra M, Robie AA, Rivera-Alba M, Branson S, and Branson K. (2013). JAABA: interactive 
+machine learning for automatic annotation of animal behavior. Nat Methods 10, 64–67. 10.1038/
+nmeth.2281. [PubMed: 23202433] 
+65. Bordes J, Miranda L, Reinhardt M, Brix LM, Doeselaar L van Engelhardt C, Pütz B, Agakov F, 
+Müller-Myhsok B, and Schmidt MV . (2022). Automatically annotated motion tracking identifies 
+a distinct social behavioral profile following chronic social defeat stress. Preprint at bioRxiv, 
+10.1101/2022.06.23.497350 10.1101/2022.06.23.497350.
+66. Winters C, Gorssen W, Wöhr M, and D’Hooge R. (2023). BAMBI: A new method for automated 
+assessment of bidirectional early-life interaction between maternal behavior and pup vocalization 
+in mouse dam-pup dyads. Frontiers in Behavioral Neuroscience 17.
+67. Lundberg SM, Erion GG, and Lee S-I. (2019). Consistent Individualized Feature Attribution for 
+Tree Ensembles. arXiv:1802.03888 [cs, stat].
+Goodwin et al. Page 23
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+68. Covert IC, Lundberg S, and Lee S-I. (2021). Explaining by Removing: A Unified Framework for 
+Model Explanation. Journal of Machine Learning Research, 90.
+69. Lorbach M, Poppe R, and Veltkamp RC. (2019). Interactive rodent behavior annotation in video 
+using active learning. Multimed Tools Appl 78, 19787–19806. 10.1007/s11042-019-7169-4.
+70. Schweihoff JF, Hsu AI, Schwarz MK, and Yttri EA. (2022). A-SOiD, an active learning 
+platform for expert-guided, data efficient discovery of behavior. Preprint at bioRxiv, 
+10.1101/2022.11.04.515138 10.1101/2022.11.04.515138.
+71. Whiteway MR, Biderman D, Friedman Y , Dipoppa M, Buchanan EK, Wu A, Zhou J, Bonacchi 
+N, Miska NJ, Noel J-P, et al. (2021). Partitioning variability in animal behavioral videos using 
+semi-supervised variational autoencoders. PLOS Computational Biology 17, e1009439. 10.1371/
+journal.pcbi.1009439.
+72. Sun JJ, Kennedy A, Zhan E, Anderson DJ, Yue Y , and Perona P. (2021). Task Programming: 
+Learning Data Efficient Behavior Representations. 10.
+73. MABe 2022 https://sites.google.com/view/mabe22/home.
+74. Sun JJ, Karigo T, Chakraborty D, Mohanty SP, Wild B, Sun Q, Chen C, Anderson DJ, Perona 
+P, Yue Y , et al. (2021). The Multi-Agent Behavior Dataset: Mouse Dyadic Social Interactions. 
+Preprint at arXiv.
+75. About OpenBehavior (2016). OpenBehavior. https://edspace.american.edu/openbehavior/.
+76. MPD: About the Mouse Phenome Database https://phenome.jax.org/about.
+77. Kapoor S, and Narayanan A. (2022). Leakage and the Reproducibility Crisis in ML-based Science. 
+Preprint at arXiv, 10.48550/arXiv.2207.07048 10.48550/arXiv.2207.07048.
+Methods only references:
+78. Dankert H, Wang L, Hoopfer ED, Anderson DJ, and Perona P. (2009). Automated monitoring 
+and analysis of social behavior in Drosophila. Nat Methods 6, 297–303. 10.1038/nmeth.1310. 
+[PubMed: 19270697] 
+79. de Chaumont F, Ey E, Torquet N, Lagache T, Dallongeville S, Imbert A, Legou T, Le Sourd A-M, 
+Faure P, Bourgeron T, et al. (2019). Real-time analysis of the behaviour of groups of mice via a 
+depth-sensing camera and machine learning. Nat Biomed Eng. 10.1038/s41551-019-0396-1.
+80. Giancardo L, Sona D, Huang H, Sannino S, Managò F, Scheggia D, Papaleo F, and Murino V . 
+(2013). Automatic Visual Tracking and Social Behaviour Analysis with Multiple Mice. PLOS 
+ONE 8, e74557. 10.1371/journal.pone.0074557.
+81. Hong W, Kennedy A, Burgos-Artizzu XP, Zelikowsky M, Navonne SG, Perona P, and 
+Anderson DJ. (2015). Automated measurement of mouse social behaviors using depth sensing, 
+video tracking, and machine learning. Proc Natl Acad Sci USA 112, E5351–E5360. 10.1073/
+pnas.1515982112. [PubMed: 26354123] 
+82. Bohnslav JP, Wimalasena NK, Clausing KJ, Dai YY , Yarmolinsky DA, Cruz T, Kashlan AD, 
+Chiappe ME, Orefice LL, Woolf CJ, et al. (2021). DeepEthogram, a machine learning pipeline for 
+supervised behavior classification from raw pixels. eLife 10, e63377. 10.7554/eLife.63377.
+83. Gerós A, Magalhães A, and Aguiar P. (2020). Improved 3D tracking and automated 
+classification of rodents’ behavioral activity using depth-sensing cameras. Behav Res. 10.3758/
+s13428-020-01381-9.
+84. Harris C, Finn KR, Kieseler M-L, Maechler MR, and Tse PU. (2023). DeepAction: a MATLAB 
+toolbox for automated classification of animal behavior in video. Sci Rep 13, 2688. 10.1038/
+s41598-023-29574-0. [PubMed: 36792716] 
+85. Hu Y , Ferrario CR, Maitland AD, Ionides RB, Ghimire A, Watson B, Iwasaki K, White H, 
+Xi Y , Zhou J, et al. (2023). LabGym: Quantification of user-defined animal behaviors using 
+learning-based holistic assessment. Cell Reports Methods 3. 10.1016/j.crmeth.2023.100415.
+86. Marks M, Qiuhan J, Sturman O, Ziegler L von Kollmorgen S, Behrens W von der Mante V , 
+Bohacek J, and Yanik MF. (2022). Deep-learning based identification, tracking, pose estimation, 
+and behavior classification of interacting primates and mice in complex environments. Preprint at 
+bioRxiv, 10.1101/2020.10.26.355115 10.1101/2020.10.26.355115.
+Goodwin et al. Page 24
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+87. Branson K, Robie AA, Bender J, Perona P, and Dickinson MH. (2009). High-throughput 
+ethomics in large groups of Drosophila. Nat Methods 6, 451–457. 10.1038/nmeth.1328. [PubMed: 
+19412169] 
+88. Berman GJ, Choi DM, Bialek W, and Shaevitz JW. (2014). Mapping the stereotyped behaviour of 
+freely moving fruit flies. J. R. Soc. Interface 11, 20140672. 10.1098/rsif.2014.0672.
+89. Arakawa T, Tanave A, Takahashi A, Kakihara S, Koide T, and Tsuchiya T. (2017). Automated 
+Estimation of Mouse Social Behaviors Based on a Hidden Markov Model. In Hidden Markov 
+Models: Methods and Protocols Methods in Biology Molecular., Westhead DR and Vijayabaskar 
+MS, eds. (Springer New York), pp. 185–197. 10.1007/978-1-4939-6753-7_14.
+90. Chen Z, Zhang R, Eva Zhang Y , Zhou H, Fang H-S, Rock RR, Bal A, Padilla-Coreano N, Keyes 
+L, Tye KM, et al. (2020). AlphaTracker: A Multi-Animal Tracking and Behavioral Analysis Tool 
+(Animal Behavior and Cognition) 10.1101/2020.12.04.405159.
+91. Huang K, Han Y , Chen K, Pan H, Zhao G, Yi W, Li X, Liu S, Wei P, and Wang L. (2021). 
+A hierarchical 3D-motion learning framework for animal spontaneous behavior mapping. Nat 
+Commun 12, 2784. 10.1038/s41467-021-22970-y. [PubMed: 33986265] 
+92. Luxem K, Mocellin P, Fuhrmann F, Kürsch J, Remy S, and Bauer P. (2020). Identifying 
+Behavioral Structure from Deep Variational Embeddings of Animal Motion (Neuroscience) 
+10.1101/2020.05.14.095430.
+93. Nandi A, Virmani G, Barve A, and Marathe S. (2021). DBscorer: An Open-Source Software for 
+Automated Accurate Analysis of Rodent Behavior in Forced Swim Test and Tail Suspension Test. 
+eNeuro 8. 10.1523/ENEURO.0305-21.2021.
+94. Gabriel CJ, Zeidler Z, Jin B, Guo C, Goodpaster CM, Kashay AQ, Wu A, Delaney M, Cheung 
+J, DiFazio LE, et al. (2022). BehaviorDEPOT is a simple, flexible tool for automated behavioral 
+detection based on markerless pose tracking. eLife 11, e74314. 10.7554/eLife.74314
+95. Golden SA, Christoffel DJ, Heshmati M, Hodes GE, Magida J, Davis K, Cahill ME, Dias C, 
+Ribeiro E, Ables JL, et al. (2013). Epigenetic regulation of RAC1 induces synaptic remodeling in 
+stress disorders and depression. Nat Med 19, 337–344. 10.1038/nm.3090. [PubMed: 23416703] 
+96. Karashchuk P, Tuthill JC, and Brunton BW. (2021). The DANNCE of the rats: a new toolkit for 3D 
+tracking of animal behavior. Nat Methods 18, 460–462. 10.1038/s41592-021-01110-w. [PubMed: 
+33875886] 
+97. Branson K. APT. GitHub. https://github.com/kristinbranson/APT.
+98. Nilsson SRO, Goodwin NL, Choong JJ, Hwang S, Wright HR, Norville Z, Tong X, Lin D, 
+Bentzley BS, Eshel N, et al. (2020). Simple Behavioral Analysis (SimBA): an open source toolkit 
+for computer classification of complex social behaviors in experimental animals. Preprint at Cold 
+Spring Harbor Laboratory, 10.1101/2020.04.19.049452 10.1101/2020.04.19.049452.
+99. Xavier P Burgos-Artizzu, o Piotr, Lin Dayu, Anderson David J., and Perona Pietro (2021). 
+CRIM13 (Caltech Resident-Intruder Mouse 13). Version 1.0 (CaltechDATA). 10.22002/D1.1892 
+10.22002/D1.1892.
+100. Lee W, Fu J, Bouwman N, Farago P, and Curley JP. (2019). Temporal microstructure of 
+dyadic social behavior during relationship formation in mice. PLoS ONE 14, e0220596. 10.1371/
+journal.pone.0220596.
+Goodwin et al. Page 25
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Figure 1: SimBA workflow and outside integrations.
+SimBA is an open-source, graphical user interface-based program built in a modular fashion 
+to address many of the specific analysis needs of behavioral neuroscientists. SimBA contains 
+a suite of video editing options to prepare raw experimental videos for markerless pose 
+tracking, behavior classifications and visualizations. Once users have analyzed their videos 
+for animal pose data via common open-source pipelines (a), the data is imported to SimBA 
+for subsequent analysis (b). Within SimBA, users have the option to perform pose estimation 
+outlier corrections, interpolation and smoothing methods, or use uncorrected pose data in 
+Goodwin et al. Page 26
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+any SimBA module. To perform supervised behavioral classification, users can download 
+premade classifiers from our OSF repository, request classifiers from collaborators, or create 
+classifiers by annotating new videos in the scoring interface. Users can also use historical 
+lab annotations created in programs such as Noldus ObserverXT, Ethovision, or BORIS. 
+A variety of tools are provided for evaluating classifier performance, including calculating 
+standard machine learning metrics and visualization tools for easy hands-on qualitative 
+validation. Following behavioral classification, users can perform a batch analyses’ and 
+extract behavioral measures. To understand the decision processes of classifiers, we 
+encourage users to calculate and report explainability metrics, including SHAP values. We 
+provide extensive documentation, tutorials and step-by-step walkthroughs for all SimBA 
+functionality.
+Goodwin et al. Page 27
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Figure 2: Classifier construction workflow and classifier performance metrics.
+(a) Machine learning performance metrics for the classifiers used in Figures 5–6 (See 
+Extended Data Fig. 3 and Supplementary Figs.1-6 for in-depth classifier performance 
+data). Left: F1 5-fold cross validation learning curves plotted against minutes of positive 
+frames annotated (30 frames per second). Right: Precision-recall curves plotted against 
+discrimination threshold for five classifiers, which can be used in combination with 
+the SimBA interactive thresholding visualization tool to determine the most appropriate 
+detection threshold for classifiers and specific datasets. (b) Extended information for the 
+training sets for each of the five classifiers. (c) Workflow for creating high fidelity and 
+Goodwin et al. Page 28
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+generalizable supervised behavioral classifiers. The dotted lines indicate optional loops 
+for iteratively improving classifier performance. Behavioral operational definitions, and 
+classifier SHAP values, are shown in Figures S1-4.
+Goodwin et al. Page 29
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Figure 3: SHAP attack classifier consortium data.
+(a) Description of the consortium dataset used for the cross-site attack classifier 
+comparisons. (b) Schematic description of SHAP values, where the final video frame 
+classification probability is divided among the individual features according to their 
+contribution. (c) ANOV A comparison of summed feature SHAP values, collapsed into seven 
+behavioral feature categories for four different mouse attack classifiers. We divided each 
+category into six further sub-categories that represented features within the categories with 
+different frame sampling frequencies (1 frame – 500ms) and are denoted by shaded colors. 
+Goodwin et al. Page 30
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Asterisks denote significant main effect of consortium site, p < 0.0001. See Supplementary 
+Note 1 — detailed statistics for full statistical analysis. (d) Scatter plots showing the 
+directional relationships between normalized feature values and SHAP scores in four mouse 
+resident-intruder attack classifiers and seven feature sub-categories. The dots represent 32k 
+individual video frames (8k from each sites dataset), and color represents the consortium site 
+where the annotated dataset was generated. All tests were two-sided. Bonferroni’s test was 
+used for multiple comparisons where applicable
+Goodwin et al. Page 31
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Figure 4: SHAP cross-species attack classifier data.
+Explainable classification probabilities in the rat resident-intruder attack classifier using 
+SHAP. (a) Summed SHAP values, collapsed into seven behavioral feature categories for the 
+rat random forest attack classifier. Colors denote sliding window duration as in Figure 3. (b) 
+Scatter plots showing the directional relationships between normalized feature values and 
+SHAP scores in seven feature sub-categories of the rat resident intruder attack classifier. The 
+rat attack classifier is shown in red. For comparison, the SHAP values for the mouse attack 
+classifiers (from Figure 4), are shown in grey. Dots represent individual video frames. See 
+Supplementary Note 1 — detailed statistics for full statistical analysis.
+Goodwin et al. Page 32
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Figure 5: Social stress experience influences aggression and coping behaviors differently in males 
+and females.
+(a) Schematic representation of the mouse chronic social defeat (CSDS) behavioral protocol 
+and the analysis pipeline for supervised machine learning behavioral classification. (b) 
+Representative Gantt charts of classified male (top) and female (bottom) resident and 
+intruder behaviors. (c) Key for the SHAP analysis and feature bin comparisons. (d) 
+Supervised behavioral data and SHAP comparisons for five behavioral classifiers. We 
+analyzed attack, pursuit, and anogenital sniffing for the residents, and defensive and escape 
+behavior for the intruders. Male data are represented in blue, and female in pink. For each 
+classifier, SimBA provided the total duration (s), number of classified bouts, mean bout 
+duration (s), and mean bout interval (s) across individual testing days (n = 21 males for 
+Goodwin et al. Page 33
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+all classifiers, 11 female residents for attack, anogenital sniffing, pursuit and classifiers, 
+and 10 female intruders for defensive and escape classifiers). Males and females showed 
+significant differences in all five assayed behaviors, with females showing higher average 
+total durations and number of bouts in attack, pursuit, and escape behaviors (p < 0.001 for 
+all), while males had higher levels of anogenital sniffing and defensive behaviors (duration: 
+p = 0.0461, 0.0374; bouts: p = 0.0298, 0.0146). Only three metrics were significantly 
+affected by day: escape duration and bouts (duration: interaction p = 0.0122, day p = 0.3700, 
+sex p < 0.001; bouts: interaction p = 0.0415, day p = 0.3947, sex p < 0.001) and number of 
+pursuit bouts (interaction p = 0.0404, day p = 0.1724, sex p < 0.001). Average SHAP values 
+are reported in Figure S2. The color intensity for all three SHAP datasets per classifier are 
+on the same scale, as indicated by the scales on the right. For each behavior, comparisons 
+with the lowest p-value per category are highlighted via a comparison bracket and the 
+feature bin mouse icon. Asterisks denote significance levels * < 0.05, ** < 0.01, *** < 
+0.001. See Supplementary Note 1 — detailed statistics for full statistical analysis.
+Goodwin et al. Page 34
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Figure 6: Environment and experience influence male aggression and coping behaviors.
+(a) Schematic representation of the mouse chronic social defeat (CSDS) and resident 
+intruder (RI) behavioral design. (b) Representative Gantt charts of classified CSDS (top) 
+and RI (bottom) resident and intruder behaviors. (c) Supervised behavioral data and SHAP 
+comparisons for five behavioral classifiers. CSDS data are represented in blue, while RI data 
+are shown in green. For each classifier, SimBA provided the total duration (s), number of 
+bouts, mean bout duration (s), and mean bout interval (s) across individual testing days (n = 
+21 CSDS, 24 RI). RI males showed a marked decrease in anogenital sniffing duration across 
+days (interaction p = 0.0123, day p = 0.0478, environment p < 0.0071), with concomitant 
+increases in attack (interaction p < 0.001, day p = 0.0204, environment p = 0.9408) and 
+pursuit behaviors (interaction p < 0.0258, day p = 0.0295, environment p < 0.001). The color 
+intensity for all three SHAP datasets per classifier are on the same scale, as indicated by 
+the scales on the right. For each behavior, comparisons with the lowest p-value per category 
+are highlighted via a comparison bracket and the feature bin mouse icon. Asterisks denote 
+significance levels * < 0.05, ** < 0.01, *** < 0.001. See Supplementary Note 1 — detailed 
+statistics for full statistical analysis.
+Goodwin et al. Page 35
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Goodwin et al. Page 36
+Table 1:
+Select open-source packages for behavioral detection.
+Year Name Citation Validated 
+species
+Behavioral Classifiers 
+validated in the original 
+publication
+Software website
+Supervised
+2009 CADABRA74 Dankert et al. 
+2009
+Fly Lunging, tussling, wing threat/
+extension, circle, chase, 
+copulation
+http://www.vision.caltech.edu/
+cadabra/
+2012 MiceProfiler75 de Chaumont et 
+al. 2012
+Mouse Head-head contact, anogenital 
+contact, side-by-side, approach, 
+leave, follow, chase
+http://icy.bioimageanalysis.org/
+plugin/mice-profiler-tracker/
+2013 JAABA76 Kabra et al. 2013 Fly and 
+mouse
+Fly: walk, stop, crabwalk, 
+backup, touch, chase, jump, 
+copulation, wing flick/groom/
+extension, right, center pivot, 
+tail pivot. Mouse: follow, walk.
+https://sourceforge.net/projects/
+jaaba/files/
+2013 Unamed77 Giancardo et al., 
+2013
+Mouse Nose to body, nose to nose, nose 
+to genitals, above, follow, stand 
+together
+2015 Unamed78 Hong et al. 2015 Mouse Attack, close investigation, 
+mount
+2020 SimBA49 Nilsson et al. 
+2020
+Mouse and 
+rat
+Attack, pursuit, lateral threat, 
+anogenital sniff, mount, upright 
+submissive, allogroom, flee, 
+scramble, box, approach, 
+avoidance, drink, clean, eat, rear, 
+walk away, circle
+https://github.com/sgoldenlab/
+simba
+2021 MARS46 Segalin et al. 2021 Mouse Attack, mount, close 
+investigation, face-directed, 
+genital-directed,
+https://github.com/neuroethology/
+MARS
+2022 DeepEthogram79 Bohnslav et al. 
+2022
+Fly and 
+mouse
+Nose-to-nose, nose-to-body, 
+body-to-body, chase, anogenital
+https://github.com/jbohnslav/
+deepethogram
+2022 DeepCaT-z80 Gerós et al. 2022 Rodent Standstill, rear, walk, groom https://github.com/AnaGeros/
+Deep-CaT-z-Software
+2022 DeepAction81 Harris et al. 2022 Mouse Walk, rest, rear, mover, hang, 
+groom, eat, drink, attack, 
+approach, sniff, and copulation
+https://github.com/carlwharris/
+DeepAction
+2023 LabGym82 Hu et al. 2023 Fly, larva, 
+mouse and rat
+Nest build, curl, uncoil, 
+abdomen bend, wing extension, 
+walk, rear, facial groom, sniff, 
+ear groom, sit
+https://github.com/umyelab/
+LabGym
+Semi-supervised
+2022 SIPEC83 Marks et al. 2022 Mouse and 
+primate
+Social groom, search, object 
+interaction
+https://github.com/SIPEC-
+Animal-Data-Analysis/SIPEC
+Self-supervised
+2009 Ctrax84 Branson et al. 
+2009
+Fly Walk, stop, sharp turn, 
+crabwalk, backup, touch, chase
+http://ctrax.sourceforge.net/
+2021 TREBA71 Sun et al. 2021 Fly and 
+mouse
+Sniff, mount, attack, lunge, 
+tussle, wing extension
+https://github.com/neuroethology/
+TREBA
+2022 Selfee85 Jia et al. 2022 Fly and 
+mouse
+Chase, wing extension, 
+copulation attempt, copulation, 
+social interest, mount, 
+intromission, ejaculation
+https://github.com/EBGU/Selfee
+Unsupervised
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
+Author Manuscript Author Manuscript Author Manuscript Author Manuscript
+Goodwin et al. Page 37
+Year Name Citation Validated 
+species
+Behavioral Classifiers 
+validated in the original 
+publication
+Software website
+2014 MotionMapper86 Berman et al. 
+2014
+Fly Groom: wing, leg, abdomen, 
+head. Wing waggle, run
+https://github.com/gordonberman/
+MotionMapper
+2017 DuoMouse87 Arakawa et al. 
+2017
+Mouse Sniff, follow, indifferent http://www.mgrl-lab.jp/
+DuoMouse.html
+2019 LiveMouseTracker88 de Chaumont et 
+al. 2019
+Mouse Rear, look up, look down, 
+contact
+https://livemousetracker.org
+2020 AlphaTracker89 Chen et al. 2020 Mouse Unnamed individual and social 
+behavior clusters
+https://github.com/ZexinChen/
+AlphaTracker
+2021 Behavior Atlas90 Huang et al, 2021 Mouse Clusters identified: Walk, run, 
+rear, trot, step, sniff, up stretch, 
+left turn, right turn, rise, fall, 
+dive
+https://behavioratlas.tech/
+2022 V AME91 Luxem et al. 2022 Mouse Motifs identified: exploration, 
+turn, stationary, walk to rear, 
+walk, rear, unsupported rear, 
+groom, backward
+https://github.com/
+LINCellularNeuroscience/V AME
+2022 DBscorer92 Nandi et al. 2022 Mouse and 
+rat
+Immobility https://github.com/swanandlab/
+DBscorer
+Heuristics
+2022 BehaviorDEPOT93 Gabriel et al. 2022 Mouse Freeze, jump, rear, escape, 
+locomotion, novel object 
+exploration
+https://github.com/DeNardoLab/
+BehaviorDEPOT
+Nat Neurosci. Author manuscript; available in PMC 2025 July 01.
