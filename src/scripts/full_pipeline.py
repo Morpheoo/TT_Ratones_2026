@@ -141,11 +141,26 @@ def step1_prepare_video():
 step1_downscale_video = step1_prepare_video
 
 
+def resolve_prepared_video_path():
+    base = os.path.splitext(os.path.basename(INPUT_VIDEO))[0]
+    trim_suffix = f"_trim{int(TRIM_START)}-{int(TRIM_END)}" if (TRIM_END > 0 and TRIM_END > TRIM_START) else ""
+    if trim_suffix:
+        candidate = os.path.join(WORK_DIR, f"{base}{trim_suffix}.mp4")
+        if os.path.exists(candidate):
+            return candidate
+    if TRIMMED_VIDEO and os.path.exists(TRIMMED_VIDEO):
+        return TRIMMED_VIDEO
+    return INPUT_VIDEO
+
+
 def step2_dlc_analysis():
     """Run DeepLabCut SuperAnimal inference."""
     print("\n" + "="*60)
     print("STEP 2: Running DeepLabCut analysis (GPU)")
     print("="*60)
+
+    global TRIMMED_VIDEO
+    TRIMMED_VIDEO = resolve_prepared_video_path()
     
     # Check if result already exists for THIS video
     base_name_no_ext = os.path.splitext(os.path.basename(TRIMMED_VIDEO))[0]
@@ -174,7 +189,17 @@ def step2_dlc_analysis():
                  print(f"  [ERROR] venv_310 python not found at: {venv_python}")
                  return False
             
-             cmd = [venv_python, os.path.abspath(__file__), "--video", INPUT_VIDEO, "--step", "2"]
+             cmd = [
+                 venv_python,
+                 os.path.abspath(__file__),
+                 "--video", INPUT_VIDEO,
+                 "--step", "2",
+                 "--batchsize", str(DLC_BATCHSIZE),
+                 "--trim_start", str(TRIM_START),
+                 "--trim_end", str(TRIM_END),
+             ]
+             if DLC_VIDEO_ADAPT:
+                 cmd.append("--video_adapt")
              print(f"  Running: {' '.join(cmd)}")
              import subprocess
              ret = subprocess.call(cmd)
@@ -211,6 +236,9 @@ def step3_convert_h5():
     print("="*60)
     
     import pandas as pd
+
+    global TRIMMED_VIDEO
+    TRIMMED_VIDEO = resolve_prepared_video_path()
     
     # Matches DLC output for THIS video specifically
     base_name_no_ext = os.path.splitext(os.path.basename(TRIMMED_VIDEO))[0]
@@ -222,10 +250,47 @@ def step3_convert_h5():
     
     h5_path = h5_files[0]
     csv_out = os.path.join(WORK_DIR, f"{VIDEO_NAME}_dlc.csv")
-    
-    if os.path.exists(csv_out):
-        print(f"  CSV already exists: {csv_out}")
-        return True
+
+    bbox_h5 = os.path.join(WORK_DIR, f"{VIDEO_NAME}_bbox_constrained.h5")
+    bbox_csv = os.path.join(WORK_DIR, f"{VIDEO_NAME}_bbox_constrained.csv")
+    bbox_overlay = os.path.join(WORK_DIR, f"{VIDEO_NAME}_bbox_constraint.mp4")
+    bbox_script = os.path.abspath(os.path.join("src", "scripts", "apply_dlc_bbox_constraint.py"))
+    venv_311_python = os.path.abspath(os.path.join(PROJECT_DIR, "venv_311", "Scripts", "python.exe"))
+
+    yolo_model_path = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
+    bbox_inputs = [path for path in (h5_path, TRIMMED_VIDEO, bbox_script, yolo_model_path) if os.path.exists(path)]
+    bbox_needs_refresh = (not os.path.exists(bbox_h5))
+    if not bbox_needs_refresh and bbox_inputs:
+        bbox_needs_refresh = os.path.getmtime(bbox_h5) < max(os.path.getmtime(path) for path in bbox_inputs)
+
+    if os.path.exists(csv_out) and os.path.exists(bbox_h5) and not bbox_needs_refresh:
+        if os.path.getmtime(csv_out) >= os.path.getmtime(bbox_h5):
+            print(f"  CSV already exists: {csv_out}")
+            return True
+
+    if not os.path.exists(venv_311_python):
+        print(f"  ERROR: venv_311 python not found at {venv_311_python}")
+        return False
+
+    if bbox_needs_refresh:
+        bbox_cmd = [
+            venv_311_python,
+            bbox_script,
+            "--video", TRIMMED_VIDEO,
+            "--pose", h5_path,
+            "--output_pose", bbox_h5,
+            "--output_video", bbox_overlay,
+            "--output_csv", bbox_csv,
+        ]
+        print(f"  Running bbox constraint: {' '.join(bbox_cmd)}")
+        ret = subprocess.call(bbox_cmd)
+        if ret != 0 or not os.path.exists(bbox_h5):
+            print("  ERROR: YOLO bbox constraint failed")
+            return False
+    else:
+        print(f"  Reusing bbox-constrained pose: {bbox_h5}")
+
+    h5_path = bbox_h5
     
     print(f"  Reading: {h5_path}")
     df = pd.read_hdf(h5_path)
