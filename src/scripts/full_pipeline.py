@@ -29,14 +29,29 @@ VIDEO_NAME = "R5B20_01mar24_full"
 ZONES_JSON = "[]"
 
 PROJECT_DIR = os.path.abspath(".")
-SIMBA_PROJECT = os.path.join(PROJECT_DIR, "data", "simba_projects", "SimBA_EPM_Analysis", "project_folder")
+SIMBA_PROJECT = os.path.join(
+    PROJECT_DIR,
+    "data",
+    "simba_projects",
+    "New folder",
+    "thigmotaxis_optimizado",
+    "project_folder",
+)
 CONFIG_PATH = os.path.join(SIMBA_PROJECT, "project_config.ini")
 VIDEOS_DIR = os.path.join(SIMBA_PROJECT, "videos")
 WORK_DIR = os.path.join(PROJECT_DIR, "videos_data")
 
-TRIMMED_VIDEO = INPUT_VIDEO # Will be updated if downscaled
+TRIMMED_VIDEO    = INPUT_VIDEO  # Will be updated if a trimmed working copy is created
 SUPERANIMAL_NAME = "superanimal_topviewmouse"
-DOWNSCALE_FACTOR = 0.5 # 50% scale for speed (approx 4x faster)
+DOWNSCALE_FACTOR = 1.0          # Keep original resolution for DLC accuracy
+
+# ── Hyperparámetros de inferencia (sobreescribibles con --batchsize / --video_adapt) ──
+DLC_BATCHSIZE    = 32           # Default optimizado para 12GB VRAM (RTX 5070 Ti)
+DLC_VIDEO_ADAPT  = False        # False = más rápido; True = mayor precisión en iluminación irregular
+
+# ── Parámetros de Recorte Temporizado (Streamlit Pestaña 01) ─────────
+TRIM_START = 0.0
+TRIM_END   = 0.0
 
 # ── Fix NVIDIA DLLs ───────────────────────────────────────────
 try:
@@ -48,7 +63,7 @@ try:
                 bin_path = os.path.join(root, "bin")
                 os.environ["PATH"] += os.pathsep + bin_path
                 try:
-                    os.add_dll_directory(bin_path)
+                    getattr(os, "add_dll_directory")(bin_path)
                 except:
                     pass
         print("[OK] Added NVIDIA DLLs to PATH")
@@ -70,44 +85,60 @@ else:
     print(f"[WARN] ptxas not found at {ptxas_dir}")
 
 
-def step1_downscale_video():
-    """Downscale video for faster inference."""
+def step1_prepare_video():
+    """Create a trimmed working copy when requested, without changing resolution."""
     print("\n" + "="*60)
-    print(f"STEP 1: Downscaling video by {DOWNSCALE_FACTOR*100}%")
+    print("STEP 1: Preparing source video for DLC")
     print("="*60)
     
     global TRIMMED_VIDEO
     base = os.path.splitext(os.path.basename(INPUT_VIDEO))[0]
-    output_video = os.path.join(WORK_DIR, f"{base}_down-50.mp4")
+    trim_suffix = f"_trim{int(TRIM_START)}-{int(TRIM_END)}" if (TRIM_END > 0 and TRIM_END > TRIM_START) else ""
+    if not trim_suffix:
+        TRIMMED_VIDEO = INPUT_VIDEO
+        print("  No temporal trim requested. DLC will use the original-resolution source video.")
+        return True
+
+    output_video = os.path.join(WORK_DIR, f"{base}{trim_suffix}.mp4")
     TRIMMED_VIDEO = output_video
     
     if os.path.exists(output_video):
-        print(f"  Downscaled video already exists: {output_video}")
+        print(f"  Trimmed video already exists: {output_video}")
         return True
     
     ffmpeg_exe = r"C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
     if not os.path.exists(ffmpeg_exe):
-        print("  ERROR: ffmpeg not found for downscaling")
+        print("  ERROR: ffmpeg not found for trimming")
         return False
         
-    # Scale filter -1:-1 to keep aspect ratio if needed, or w*0.5
-    cmd = [
-        ffmpeg_exe, "-y", "-i", INPUT_VIDEO,
-        "-vf", f"scale=iw*{DOWNSCALE_FACTOR}:ih*{DOWNSCALE_FACTOR}",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+    cmd = [ffmpeg_exe, "-y"]
+    
+    # Inyectar recorte de video temporizado rápido preventivo (Rendimiento O(1))
+    print(f"  [TIMELINE CUT] Recortando de {TRIM_START} a {TRIM_END} segundos")
+    cmd.extend(["-ss", str(TRIM_START), "-to", str(TRIM_END)])
+
+    cmd.extend([
+        "-i", INPUT_VIDEO,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-pix_fmt", "yuv420p",
+        "-an",
         output_video
-    ]
+    ])
     
     print(f"  Running: {' '.join(cmd)}")
     import subprocess
     ret = subprocess.call(cmd)
     
     if ret != 0:
-        print("  ERROR: Downscaling failed")
+        print("  ERROR: Video preparation failed")
         return False
-        
-    print(f"  Saved downscaled video: {output_video}")
+
+    print(f"  Saved trimmed full-resolution video: {output_video}")
     return True
+
+
+# Backward compatibility for older helpers that still import the previous name.
+step1_downscale_video = step1_prepare_video
 
 
 def step2_dlc_analysis():
@@ -144,18 +175,6 @@ def step2_dlc_analysis():
                  return False
             
              cmd = [venv_python, os.path.abspath(__file__), "--video", INPUT_VIDEO, "--step", "2"]
-             # If using downscaled video, pass that? No, Step 2 recalculates TRIMMED_VIDEO
-             # Actually, main() sets TRIMMED_VIDEO = INPUT_VIDEO initially.
-             # Step 1 sets TRIMMED_VIDEO = downscaled.
-             # When spawning step 2 directly, we need to know if we should use downscaled.
-             # Standard pipeline ALWAYS downscales if step 1 runs.
-             # If running standalone step 2, we should check if downscaled exists and use it.
-             
-             # The spawned process will run step2_dlc_analysis.
-             # We need to ensure TRIMMED_VIDEO is correct in the subprocess.
-             # Let's pass a flag or handle it in main?
-             # Easier: Just check for downscaled video here in the subprocess too.
-             
              print(f"  Running: {' '.join(cmd)}")
              import subprocess
              ret = subprocess.call(cmd)
@@ -167,17 +186,8 @@ def step2_dlc_analysis():
     except ImportError:
         pass
     
-    # If we are here, we are either in venv_310 OR we decided to run anyway.
-    # Check for downscaled video preference
-    # In this script, Step 1 updates global TRIMMED_VIDEO. 
-    # If we are in a subprocess, TRIMMED_VIDEO is just INPUT_VIDEO.
-    # We should check if the downscaled version exists and prefer it.
-    base = os.path.splitext(os.path.basename(INPUT_VIDEO))[0]
-    downscaled = os.path.join(WORK_DIR, f"{base}_down-50.mp4")
     target_video = TRIMMED_VIDEO
-    if os.path.exists(downscaled):
-        print(f"  Found downscaled video: {downscaled}")
-        target_video = downscaled
+    print("  DLC will analyze the original-resolution working copy.")
     
     from deeplabcut.modelzoo.api.superanimal_inference import video_inference
     
@@ -188,9 +198,9 @@ def step2_dlc_analysis():
         videos=[target_video],
         superanimal_name=SUPERANIMAL_NAME,
         videotype="mp4",
-        batchsize=8,
+        batchsize=DLC_BATCHSIZE,    # Controlado por --batchsize (default 32)
     )
-    print("  DLC analysis complete!")
+    print(f"  DLC analysis complete! [batchsize={DLC_BATCHSIZE}]")
     return True
 
 
@@ -220,7 +230,7 @@ def step3_convert_h5():
     print(f"  Reading: {h5_path}")
     df = pd.read_hdf(h5_path)
     
-    # UPSCALE COORDINATES (Only if downscaled)
+    # Kept for compatibility if a scaled intermediary is ever reintroduced.
     if DOWNSCALE_FACTOR != 1.0:
         scale = 1.0 / DOWNSCALE_FACTOR
         print(f"  Upscaling coordinates by {scale}x to match original video...")
@@ -242,82 +252,22 @@ def step4_import_to_simba():
     print("\n" + "="*60)
     print("STEP 4: Importing into SimBA project")
     print("="*60)
-    
-    import pandas as pd
-    
-    # Paths
+
     csv_pattern = os.path.join(WORK_DIR, f"{VIDEO_NAME}_dlc.csv")
     if not os.path.exists(csv_pattern):
-        # Try the DLC raw CSV
-        csv_pattern = os.path.join(WORK_DIR, f"{VIDEO_NAME}*DLC*.csv")
-        csvs = glob.glob(csv_pattern)
+        glob_pattern = os.path.join(WORK_DIR, f"{VIDEO_NAME}*DLC*.csv")
+        csvs = glob.glob(glob_pattern)
         if not csvs:
-            print("  ERROR: No CSV file found")
+            print(f"  ERROR: No CSV file found (buscando '{glob_pattern}')")
             return False
         csv_pattern = csvs[0]
-    
-    input_csv_dir = os.path.join(SIMBA_PROJECT, "csv", "input_csv")
-    target_csv = os.path.join(input_csv_dir, f"{VIDEO_NAME}.csv")
-    target_video = os.path.join(VIDEOS_DIR, f"{VIDEO_NAME}.mp4")
-    
-    # Check if already imported
-    if os.path.exists(target_csv) and os.path.exists(target_video):
-        print("  Already imported!")
-        return True
-    
-    # Clean CSV (flatten multi-level headers to SimBA format)
-    print(f"  Reading DLC CSV: {csv_pattern}")
-    raw = pd.read_csv(csv_pattern, header=[0, 1, 2], index_col=0)
-    
-    # Flatten columns: bodypart_coord (e.g., nose_x, nose_y, nose_likelihood)
-    new_cols = []
-    for scorer, bp, coord in raw.columns:
-        new_cols.append(f"{bp}_{coord}")
-    raw.columns = new_cols
-    
-    raw.to_csv(target_csv, index=True)
-    print(f"  Saved cleaned CSV: {target_csv} ({len(raw)} rows, {len(raw.columns)} cols)")
-    
-    # Copy video (ORIGINAL, not trimmed/downscaled)
-    # We want SimBA to work on the High Quality video
-    if not os.path.exists(target_video):
-        shutil.copy2(INPUT_VIDEO, target_video)
-        print(f"  Copied ORIGINAL video to: {target_video}")
-    
-    # Also copy to outlier_corrected_movement_location (skip outlier correction)
-    outlier_dir = os.path.join(SIMBA_PROJECT, "csv", "outlier_corrected_movement_location")
-    shutil.copy2(target_csv, os.path.join(outlier_dir, f"{VIDEO_NAME}.csv"))
-    print("  Copied to outlier_corrected_movement_location (bypass outlier step)")
-    
-    # Update video_info.csv
-    import cv2
-    cap = cv2.VideoCapture(target_video)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    cap.release()
-    
-    video_info_path = os.path.join(SIMBA_PROJECT, "logs", "video_info.csv")
-    if os.path.exists(video_info_path):
-        vi = pd.read_csv(video_info_path)
-    else:
-        vi = pd.DataFrame(columns=["Video", "fps", "Resolution_width", "Resolution_height",
-                                     "Distance_in_mm", "pixels/mm"])
-    
-    # Remove old entry if exists
-    vi = vi[vi["Video"] != VIDEO_NAME]
-    new_entry = pd.DataFrame([{
-        "Video": VIDEO_NAME,
-        "fps": fps,
-        "Resolution_width": w,
-        "Resolution_height": h,
-        "Distance_in_mm": 0,
-        "pixels/mm": 1.0
-    }])
-    vi = pd.concat([vi, new_entry], ignore_index=True)
-    vi.to_csv(video_info_path, index=False)
-    print(f"  Updated video_info.csv with {VIDEO_NAME}")
-    
+
+    if not csv_pattern or not os.path.isfile(csv_pattern):
+        print(f"  ERROR: csv_pattern resolvió a una ruta inválida: '{csv_pattern}'")
+        return False
+
+    print(f"  Fuente DLC confirmada para SimBA: {csv_pattern}")
+    print("  La sincronización real de pose/video/ROI se hará en el paso 5.")
     return True
 
 
@@ -326,35 +276,49 @@ def step5_extract_features():
     print("\n" + "="*60)
     print("STEP 5: Extracting SimBA features")
     print("="*60)
-    
+
     features_dir = os.path.join(SIMBA_PROJECT, "csv", "features_extracted")
-    if os.path.exists(os.path.join(features_dir, f"{VIDEO_NAME}.csv")):
+    target_feature_path = os.path.join(features_dir, f"{VIDEO_NAME}.csv")
+    if os.path.exists(target_feature_path):
         print("  Features already extracted!")
         return True
-    
-    try:
-        from simba.feature_extractors.feature_extractor_user_defined import UserDefinedFeatureExtractor
-        extractor = UserDefinedFeatureExtractor(config_path=CONFIG_PATH)
-        extractor.run()
-        print("  Feature extraction complete!")
-        return True
-    except ImportError:
-        print("  [WARN] SimBA not found in current environment. Respawning step with venv_310...")
-        venv_python = os.path.abspath(os.path.join(PROJECT_DIR, "venv_310", "Scripts", "python.exe"))
-        if not os.path.exists(venv_python):
-             print(f"  [ERROR] venv_310 python not found at: {venv_python}")
-             return False
-        
-        cmd = [venv_python, os.path.abspath(__file__), "--video", INPUT_VIDEO, "--step", "5"]
-        if ZONES_JSON != "[]":
-            cmd.extend(["--zones", ZONES_JSON])
-            
-        print(f"  Running: {' '.join(cmd)}")
-        ret = subprocess.call(cmd)
-        if ret != 0:
-            print("  [ERROR] Feature extraction failed in venv_310")
+
+    csv_pattern = os.path.join(WORK_DIR, f"{VIDEO_NAME}_dlc.csv")
+    if not os.path.exists(csv_pattern):
+        glob_pattern = os.path.join(WORK_DIR, f"{VIDEO_NAME}*DLC*.csv")
+        csvs = glob.glob(glob_pattern)
+        if not csvs:
+            print(f"  ERROR: No CSV pose source found (buscando '{glob_pattern}')")
             return False
-        return True
+        csv_pattern = csvs[0]
+
+    zones_path = ""
+    if ZONES_JSON and ZONES_JSON != "[]":
+        zones_path = os.path.join(WORK_DIR, f"{VIDEO_NAME}_zonas_temp.json")
+        with open(zones_path, "w", encoding="utf-8") as file_handle:
+            file_handle.write(ZONES_JSON)
+
+    bridge_script = os.path.abspath(os.path.join("src", "scripts", "compute_simba_features.py"))
+    cmd = [
+        sys.executable,
+        bridge_script,
+        "--input", csv_pattern,
+        "--output", target_feature_path,
+        "--project", os.path.dirname(SIMBA_PROJECT),
+        "--video", INPUT_VIDEO,
+        "--video_name", VIDEO_NAME,
+    ]
+    if zones_path:
+        cmd.extend(["--zonas", zones_path])
+
+    print(f"  Running bridge script: {' '.join(cmd)}")
+    ret = subprocess.call(cmd)
+    if ret != 0 or not os.path.exists(target_feature_path):
+        print("  [ERROR] Feature extraction bridge failed")
+        return False
+
+    print("  Feature extraction complete!")
+    return True
 
 
 def step6_run_inference():
@@ -443,29 +407,57 @@ def step7_generate_video():
 
 def main():
     global INPUT_VIDEO, VIDEO_NAME, ZONES_JSON, TRIMMED_VIDEO
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--video", help="Input video path")
-    parser.add_argument("--zones", help="Zones JSON string", default="[]")
-    parser.add_argument("--step", help="Run specific step number (1-7)", default="")
+    global DLC_BATCHSIZE, DLC_VIDEO_ADAPT
+
+    parser = argparse.ArgumentParser(description="EPM Full Analysis Pipeline")
+    parser.add_argument("--video",       help="Input video path")
+    parser.add_argument("--zones",       help="Zones JSON string", default="[]")
+    parser.add_argument("--step",        help="Run specific step number (1-7)", default="")
+    parser.add_argument("--batchsize",   help="DLC inference batch size (default 32)",
+                        type=int, default=32)
+    parser.add_argument("--video_adapt", help="Enable DLC video adaptation (slower, more accurate)",
+                        action="store_true", default=False)
+    parser.add_argument("--trim_start",  help="Video trimming start boundary in seconds", type=float, default=0.0)
+    parser.add_argument("--trim_end",    help="Video trimming end boundary in seconds", type=float, default=0.0)
     args = parser.parse_args()
+
+    # Sobreescribir globales con valores de CLI
+    DLC_BATCHSIZE   = args.batchsize
+    DLC_VIDEO_ADAPT = args.video_adapt
     
+    global TRIM_START, TRIM_END
+    TRIM_START = args.trim_start
+    TRIM_END   = args.trim_end
+
     if args.video:
-        INPUT_VIDEO = args.video
+        INPUT_VIDEO = args.video.strip()
+        if not INPUT_VIDEO:
+            print("[FATAL] --video recibió una ruta vacía. Abortando.")
+            sys.exit(1)
+        if not os.path.exists(INPUT_VIDEO):
+            print(f"[FATAL] El video no existe en disco: '{INPUT_VIDEO}'. Abortando.")
+            sys.exit(1)
         base_name = os.path.splitext(os.path.basename(INPUT_VIDEO))[0]
-        VIDEO_NAME = f"{base_name}_full" # Adding suffix to avoid collision
-        TRIMMED_VIDEO = INPUT_VIDEO # Update global dep
-        
+        VIDEO_NAME = f"{base_name}_full"  # Adding suffix to avoid collision
+        TRIMMED_VIDEO = INPUT_VIDEO       # Update global dep
+    else:
+        # No --video provided; validate the hardcoded default
+        if not INPUT_VIDEO or not os.path.exists(INPUT_VIDEO):
+            print(f"[FATAL] INPUT_VIDEO hardcoded no existe o está vacío: '{INPUT_VIDEO}'. Abortando.")
+            sys.exit(1)
+
     if args.zones:
         ZONES_JSON = args.zones
 
     print("="*60)
     print(f"  FULL PIPELINE: {VIDEO_NAME}")
     print(f"  Source: {INPUT_VIDEO}")
+    print(f"  DLC Config: batchsize={DLC_BATCHSIZE}, video_adapt={DLC_VIDEO_ADAPT}")
+    print(f"  VRAM Estimada: {'~10GB' if DLC_BATCHSIZE >= 32 else '~6GB'}")
     print("="*60)
     
     steps = [
-        ("Downscale video", step1_downscale_video),
+        ("Prepare source video", step1_prepare_video),
         ("DLC analysis", step2_dlc_analysis),
         ("Convert H5 to CSV", step3_convert_h5),
         ("Import to SimBA", step4_import_to_simba),
@@ -490,20 +482,31 @@ def main():
 
     # Run remaining steps from detection? Or all?
     # Default behavior: Run all sequentially
+    done_path = os.path.join(PROJECT_DIR, "logs", "pipeline_dlc.done")
+    os.makedirs(os.path.join(PROJECT_DIR, "logs"), exist_ok=True)
+
+    exit_code = 1  # Default: error
     for name, func in steps:
         try:
             ok = func()
             if not ok:
                 print(f"\n  FAILED at step: {name}")
+                with open(done_path, "w") as f: f.write("1")
                 return
         except Exception as e:
             print(f"\n  ERROR at step '{name}': {e}")
             traceback.print_exc()
+            with open(done_path, "w") as f: f.write("1")
             return
-    
+
+    exit_code = 0
     print("\n" + "="*60)
     print("  PIPELINE COMPLETE!")
     print("="*60)
+
+    # Señalizar a Streamlit que el proceso terminó exitosamente
+    with open(done_path, "w") as f:
+        f.write(str(exit_code))
 
 
 if __name__ == "__main__":

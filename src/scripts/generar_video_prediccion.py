@@ -1,4 +1,8 @@
 import pandas as pd
+import os, sys, shutil
+print("\n" + "="*40)
+print("GENERADOR DE VIDEO MULTIMODAL v2.1 [FORCE_NEW]")
+print("="*40)
 import pickle
 import cv2
 import os
@@ -6,7 +10,45 @@ import argparse
 import math
 import numpy as np
 import json
-from ultralytics import YOLO
+
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
+
+
+def safe_print(*args, sep=" ", end="\n", file=None, flush=False):
+    """
+    Evita que la consola de Windows falle si stdout usa cp1252 y el texto trae emojis
+    u otros caracteres no representables.
+    """
+    target = sys.stdout if file is None else file
+    text = sep.join(str(arg) for arg in args) + end
+
+    try:
+        target.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(target, "encoding", None) or "utf-8"
+        fallback_text = text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+        target.write(fallback_text)
+
+    if flush:
+        target.flush()
+
+
+print = safe_print
+
+
+def get_yolo_class():
+    """Carga Ultralytics solo cuando realmente se necesita."""
+    try:
+        from ultralytics import YOLO
+        return YOLO
+    except ModuleNotFoundError as exc:
+        suggested_python = os.path.join(PROJECT_DIR, "venv_311", "Scripts", "python.exe")
+        print("[ENV] ERROR: No se encontro el modulo 'ultralytics' en este interprete.")
+        print(f"[ENV] Python actual: {sys.executable}")
+        if os.path.exists(suggested_python):
+            print(f"[ENV] Sugerencia: ejecuta este script con: {suggested_python}")
+        raise SystemExit(2) from exc
 
 def format_time(seconds: float) -> str:
     """Convierte segundos a formato MM:SS.ss"""
@@ -87,6 +129,17 @@ def load_simba_model(model_path: str):
     warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
     with open(model_path, 'rb') as f:
         clf = pickle.load(f)
+    # Evita problemas de joblib/thread pools en Windows y hace el renderer reproducible.
+    if hasattr(clf, "n_jobs"):
+        try:
+            clf.n_jobs = 1
+        except Exception:
+            pass
+    if hasattr(clf, "verbose"):
+        try:
+            clf.verbose = 0
+        except Exception:
+            pass
     return clf
 
 def load_and_clean_features(df_master, clf):
@@ -96,13 +149,20 @@ def load_and_clean_features(df_master, clf):
     """
     df_reducido = df_master.copy()
     try:
-        expected_feats = clf.feature_names_in_
-        for f in expected_feats:
-            if f not in df_reducido.columns:
-                df_reducido[f] = 0.0 
+        expected_feats = list(clf.feature_names_in_)
+        missing_feats = [f for f in expected_feats if f not in df_reducido.columns]
+        
+        if len(missing_feats) > 0:
+            print(f"[MODEL] Advertencia: Faltan {len(missing_feats)} características. Se usará 0.0.")
+            # Crear un dataframe con ceros para las faltantes y concatenar
+            df_missing = pd.DataFrame(0.0, index=df_reducido.index, columns=missing_feats)
+            df_reducido = pd.concat([df_reducido, df_missing], axis=1)
+        else:
+            print(f"[MODEL] Éxito: Todas las {len(expected_feats)} características encontradas.")
+            
         df_reducido = df_reducido[expected_feats]
     except AttributeError:
-        pass
+        print("[MODEL] El modelo no tiene atributo feature_names_in_. Se usará el dataframe tal cual.")
     return df_reducido
 
 def draw_hud(frame, time_str, fps, width, height,
@@ -179,12 +239,15 @@ def draw_hud(frame, time_str, fps, width, height,
     # ================= PINTAR TEXTOS ESPACIALES =================
     cv2.putText(frame, "TIEMPOS POR BRAZO", (x_br + 15, y_br + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
     curr_y = y_br + 70
-    laberinto_nombres = ["Norte (Abierto)", "Sur (Abierto)", "Este (Cerrado)", "Oeste (Cerrado)", "Centro"]
-    for brazo in laberinto_nombres:
-        if brazo in combined_timers:
-            sec = combined_timers[brazo] / fps
-            cv2.putText(frame, f"{brazo}: {sec:.1f} s", (x_br + 25, curr_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            curr_y += 30
+    
+    # Extraemos todos los nombres de las zonas dinámicamente
+    for brazo, count in combined_timers.items():
+        if "muro" in str(brazo).lower() or "pared" in str(brazo).lower():
+            continue # No contar tiempo de permanencia en "muros" lógicos
+            
+        sec = count / fps
+        cv2.putText(frame, f"{brazo}: {sec:.1f} s", (x_br + 25, curr_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        curr_y += 30
     
     # Marco exterior de alerta si hay Thigmotaxis y Grooming
     if thigmo_pred_status == 2 and groom_pred_status == 2:
@@ -251,27 +314,53 @@ def state_machine_update(prob_val, current_sec, frames_acc, events_list, current
             
     return status_text, bar_color, pred_status, frames_acc, events_list, current_start, is_confirming
 
-def generate_video(video_path: str, features_path: str, model_thigmo: str, model_grooming: str, output_path: str, zonas_json_str: str = ""):
+def generate_video(video_path: str, features_path: str, output_path: str, zonas_json_str: str = "", model_thigmo: str = "", model_grooming: str = ""):
+    import sys
+    import os
+    
+    # Guardia defensiva: evita pd.read_csv('') que genera FileNotFoundError críptico
+    if not features_path or not os.path.isfile(features_path):
+        print(f"[FATAL] features_path inválido o inexistente: '{features_path}'")
+        print("  → Primero extrae los keypoints en 02 · Keypoints para generar el CSV de features.")
+        sys.exit(1)
+
     print("Cargando features maestras...")
     df_master = pd.read_csv(features_path)
     if 'Unnamed: 0' in df_master.columns:
         df_master = df_master.drop(columns=['Unnamed: 0'])
 
-    # Cargar Thigmotaxis
-    print("Iniciando carga T...")
-    clf_thigmo = load_simba_model(model_thigmo)
-    df_thigmo = load_and_clean_features(df_master, clf_thigmo)
-    probs_thigmo = clf_thigmo.predict_proba(df_thigmo)[:, 1] 
+    src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if src_path not in sys.path:
+        sys.path.append(src_path)
+    
+    from src.analysis_logic import detectar_thigmotaxis, checar_zona
 
-    # Cargar Grooming
-    print("Iniciando carga G...")
-    clf_groom = load_simba_model(model_grooming)
-    df_groom = load_and_clean_features(df_master, clf_groom)
-    probs_groom = clf_groom.predict_proba(df_groom)[:, 1]
+    # --- CARGA DE MODELOS MACHINE LEARNING (SimBA) ---
+    print("\n[IA] Solicitud de Modelos entrenados (RF SimBA)...")
+    if model_thigmo and os.path.exists(model_thigmo):
+        print(f"[IA] Cargando modelo Thigmotaxis: {model_thigmo}")
+        clf_thigmo = load_simba_model(model_thigmo)
+        X_thigmo = load_and_clean_features(df_master, clf_thigmo)
+        # Random Forest returns [prob_class0, prob_class1] usually
+        preds = clf_thigmo.predict_proba(X_thigmo) if hasattr(clf_thigmo, "predict_proba") else None
+        probs_thigmo = preds[:, 1] if preds is not None else clf_thigmo.predict(X_thigmo)
+    else:
+        print("[IA] Modelo de Thigmotaxis no encontrado. Se usará 0.0")
+        probs_thigmo = np.zeros(len(df_master))
 
-    # --- SUAVIZADO Y FILTROS HEURÍSTICOS (Moving Average) ---
-    print("Suavizando probabilidades para ignorar picos de 1 microsegundo...")
-    # Thigmotaxis: Filtro de 15 frames (0.5s). Evita que oler las esquinas por 1 segundo dispare alertas falsas.
+    if model_grooming and os.path.exists(model_grooming):
+        print(f"[IA] Cargando modelo Grooming: {model_grooming}")
+        clf_groom = load_simba_model(model_grooming)
+        X_groom = load_and_clean_features(df_master, clf_groom)
+        preds2 = clf_groom.predict_proba(X_groom) if hasattr(clf_groom, "predict_proba") else None
+        probs_groom = preds2[:, 1] if preds2 is not None else clf_groom.predict(X_groom)
+    else:
+        print("[IA] Modelo de Grooming no encontrado. Se usará 0.0")
+        probs_groom = np.zeros(len(df_master))
+
+    # --- SUAVIZADO Y FILTROS (Moving Average) ---
+    print("Suavizando probabilidades para evitar parpadeo de microsegundos...")
+    # Thigmotaxis: Filtro de 15 frames (0.5s). Evita alertas falsas breves.
     probs_thigmo = pd.Series(probs_thigmo).rolling(window=15, min_periods=1, center=True).mean().values
     
     # Grooming: Filtro de 15 frames (0.5s). 
@@ -319,7 +408,11 @@ def generate_video(video_path: str, features_path: str, model_thigmo: str, model
             # Si existen zonas personalizadas no contempladas arriba, les asignamos un color default
             for nombre in maze_rois:
                 if not any(c['id'] == nombre for c in config_cats):
-                    config_cats.append({"id": nombre, "color": (200, 200, 200)}) 
+                    if "abierto" in nombre.lower(): col = (120, 120, 240)    # Coral/Rojo tenue
+                    elif "cerrado" in nombre.lower(): col = (255, 250, 0)    # Cyan
+                    elif "centro" in nombre.lower(): col = (0, 165, 255)     # Naranja
+                    else: col = (150, 150, 150) # default gris oscuro
+                    config_cats.append({"id": nombre, "color": col}) 
 
             print(f"✅ Zonas cargadas vía JSON (modo silencioso): {list(maze_rois.keys())}")
         except Exception as e:
@@ -335,7 +428,9 @@ def generate_video(video_path: str, features_path: str, model_thigmo: str, model
         maze_rois, config_cats = roi_result
 
     print("Cargando modelo de seguimiento YOLO11 (Tracker Principal)...")
-    yolo_model = YOLO(r"c:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\yolo_tracker.pt")
+    if not os.path.exists(YOLO_MODEL_PATH):
+        raise FileNotFoundError(f"No se encontro el modelo YOLO en: {YOLO_MODEL_PATH}")
+    yolo_model = get_yolo_class()(YOLO_MODEL_PATH)
 
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -372,39 +467,8 @@ def generate_video(video_path: str, features_path: str, model_thigmo: str, model
         current_sec = frame_idx / fps
         time_str = f"[{int(current_sec//60):0>2}:{current_sec%60:05.2f}]"
             
-        if frame_idx < len(probs_thigmo) and frame_idx < len(probs_groom):
-            p_thigmo = probs_thigmo[frame_idx]
+        if frame_idx < len(probs_groom):
             p_groom = probs_groom[frame_idx]
-            # --- EVALUAR THIGMOTAXIS (Umbral: 35%) ---
-            (t_txt, t_col, t_status, thigmo_frames, thigmo_events, 
-             thigmo_start, thigmo_is_conf) = state_machine_update(
-                prob_val=p_thigmo, 
-                current_sec=current_sec, 
-                frames_acc=thigmo_frames, 
-                events_list=thigmo_events, 
-                current_start=thigmo_start, 
-                is_confirming=thigmo_is_conf,
-                umbral_confrm=0.35,
-                umbral_posible=0.30
-            )
-            if t_col == (0, 0, 255): t_col = (0, 0, 255) # Thigmo rojo
-            elif t_col == (0, 255, 255): t_col = (0, 165, 255) # Thigmo naranja
-
-            # --- EVALUAR GROOMING (Umbral ajustado a la realidad: 50%) ---
-            (g_txt, g_col, g_status, groom_frames, groom_events, 
-             groom_start, groom_is_conf) = state_machine_update(
-                prob_val=p_groom, 
-                current_sec=current_sec, 
-                frames_acc=groom_frames, 
-                events_list=groom_events, 
-                current_start=groom_start, 
-                is_confirming=groom_is_conf,
-                umbral_confrm=0.50, # Ajustado del 55% al 50%
-                umbral_posible=0.40 # Ajustado del 45% al 40%
-            )
-            # Personalizamos colores visuales del Grooming (Violeta/Magenta)
-            if g_col == (0, 0, 255): g_col = (255, 0, 255) # Confirmado es Violeta
-            elif g_col == (0, 255, 255): g_col = (255, 105, 180) # Posible es Rosado
 
             # Tracker YOLO
             yolo_results = yolo_model(frame, verbose=False)
@@ -421,24 +485,66 @@ def generate_video(video_path: str, features_path: str, model_thigmo: str, model
                 yolo_cx = int((x1 + x2) / 2)
                 yolo_cy = int((y1 + y2) / 2)
 
-            # Dibujar ROIs
-            overlay_rois = frame.copy()
-            for nombre, r in maze_rois.items():
-                col = next(c["color"] for c in config_cats if c["id"] == nombre)
-                cv2.rectangle(overlay_rois, (r[0], r[1]), (r[0]+r[2], r[1]+r[3]), col, -1)
-            cv2.addWeighted(overlay_rois, 0.15, frame, 0.85, 0, frame)
-
-            # Punto Rojo YOLO
+            # Punto Rojo YOLO y Detección en Tiempo Real de Zona
             current_zone = "Ninguna"
+            p_thigmo = 0.0
             if yolo_cx is not None and yolo_cy is not None:
                 dot_color = (255, 255, 255)
                 for nombre, roi in maze_rois.items():
                     if is_point_in_roi(yolo_cx, yolo_cy, roi):
                         arm_timers[nombre] += 1
                         current_zone = nombre
-                        dot_color = next(c["color"] for c in config_cats if c["id"] == nombre)
+                        dot_color = next((c["color"] for c in config_cats if c["id"] == nombre), (255,255,255))
                         break
+                
+                # Usando la probabilidad ML original del modelo SimBA
+                if frame_idx < len(probs_thigmo):
+                    p_thigmo = probs_thigmo[frame_idx]
 
+            # --- EVALUAR THIGMOTAXIS (Basado en el Tracking en Tiempo Real de YOLO) ---
+            (t_txt, t_col, t_status, thigmo_frames, thigmo_events, 
+             thigmo_start, thigmo_is_conf) = state_machine_update(
+                prob_val=p_thigmo, 
+                current_sec=current_sec, 
+                frames_acc=thigmo_frames, 
+                events_list=thigmo_events, 
+                current_start=thigmo_start, 
+                is_confirming=thigmo_is_conf,
+                umbral_confrm=0.30, # Ajustado al umbral validado del modelo
+                umbral_posible=0.25
+            )
+            if t_col == (0, 0, 255): t_col = (0, 0, 255) # Thigmo rojo
+            elif t_col == (0, 255, 255): t_col = (0, 165, 255) # Thigmo naranja
+
+            # --- EVALUAR GROOMING (Umbral ajustado a la realidad: 50%) ---
+            (g_txt, g_col, g_status, groom_frames, groom_events, 
+             groom_start, groom_is_conf) = state_machine_update(
+                prob_val=p_groom, 
+                current_sec=current_sec, 
+                frames_acc=groom_frames, 
+                events_list=groom_events, 
+                current_start=groom_start, 
+                is_confirming=groom_is_conf,
+                umbral_confrm=0.38, # Alineado al threshold validado del modelo
+                umbral_posible=0.30
+            )
+            # Personalizamos colores visuales del Grooming (Violeta/Magenta)
+            if g_col == (0, 0, 255): g_col = (255, 0, 255) # Confirmado es Violeta
+            elif g_col == (0, 255, 255): g_col = (255, 105, 180) # Posible es Rosado
+
+            # Dibujar ROIs
+            overlay_rois = frame.copy()
+            
+            # 1. Dibujar Zonas Rectangulares (Fondo Transparente)
+            for nombre, r in maze_rois.items():
+                col = next((c["color"] for c in config_cats if c["id"] == nombre), (200, 200, 200))
+                cv2.rectangle(overlay_rois, (r[0], r[1]), (r[0]+r[2], r[1]+r[3]), col, -1)
+            cv2.addWeighted(overlay_rois, 0.15, frame, 0.85, 0, frame)
+
+            # 2. Muros / Paredes Físicas (Ocultos a peticion del usuario)
+            pass
+
+            if yolo_cx is not None and yolo_cy is not None:
                 cv2.circle(frame, (yolo_cx, yolo_cy), 3, dot_color, -1)
                 cv2.circle(frame, (yolo_cx, yolo_cy), 5, (255, 255, 255), 1)
                 
@@ -448,8 +554,8 @@ def generate_video(video_path: str, features_path: str, model_thigmo: str, model
                 "x": yolo_cx if yolo_cx is not None else 0,
                 "y": yolo_cy if yolo_cy is not None else 0,
                 "Zona": current_zone,
-                "Grooming": 1 if g_status else 0,
-                "Thigmotaxis": 1 if t_status else 0,
+                "Grooming": 1 if g_status == 2 else 0,
+                "Thigmotaxis": 1 if t_status == 2 else 0,
             })
             
             # Draw HUD Multimodal
@@ -496,4 +602,5 @@ if __name__ == "__main__":
     parser.add_argument("--zonas_json", type=str, required=False, default="", help="Zonas en formato JSON para evitar prompt interactivo.")
     
     args = parser.parse_args()
-    generate_video(args.video, args.features, args.model_thigmo, args.model_grooming, args.output, args.zonas_json)
+    # model_thigmo y model_grooming are passed directly to override geometry
+    generate_video(args.video, args.features, args.output, args.zonas_json, args.model_thigmo, args.model_grooming)

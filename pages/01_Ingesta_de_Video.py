@@ -9,10 +9,11 @@ import re
 # REGLA #1: set_page_config SIEMPRE primero, antes de cualquier st.*
 st.set_page_config(page_title="Ingesta de Video (EPM)", page_icon="📥", layout="wide")
 
-# Asegurar que podemos importar desde src
-if os.getcwd() not in sys.path:
-    sys.path.append(os.getcwd())
-from src.session_utils import load_session, save_session
+if os.path.join(os.getcwd(), "src") not in sys.path:
+    sys.path.append(os.path.join(os.getcwd(), "src"))
+
+from ui_components import generic_splash_loader
+from session_utils import load_session, save_session
 
 # Cargar sesión antes de validar login
 load_session()
@@ -33,166 +34,101 @@ if st.session_state.get("role") == "admin":
     st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
     st.stop()
 
-# =============== 2. SELECTOR DE TEMA =================
-if "theme_mode" not in st.session_state:
-    st.session_state.theme_mode = "Oscuro"
+# =============== 2. TEMA Y ESTILOS =================
+from ui_theme import use_theme
+use_theme()
 
-theme_mode = st.sidebar.radio(
-    "Tema de la interfaz",
-    ["Claro", "Oscuro"],
-    index=0 if st.session_state.theme_mode == "Claro" else 1,
-)
-st.session_state.theme_mode = theme_mode
+def ingestion_loading_sequence():
+    """Generador para el splash screen de Ingesta."""
+    yield 30, "Conectando con la base de datos..."
+    from db.connection import get_db_engine
+    engine = get_db_engine()
+    
+    yield 70, "Preparando entorno de carga..."
+    # No buscamos tratamientos previos para el selector, según solicitud del usuario
+    
+    yield 100, "Módulo de ingesta listo."
+    return []
 
-# Paleta verde según tema (con colores de inputs/uploader/browse)
-if theme_mode == "Claro":
-    colors = {
-        "page_bg": "#d1fae5",
-        "card_bg": "#ecfdf5",
-        "text_main": "#064e3b",
-        "shadow": "rgba(15, 23, 42, 0.15)",
-        "primary": "#10b981",
-        "primary_hover": "#059669",
-        "input_bg": "#f0fdf4",
-        "input_text": "#064e3b",
-        "input_border": "#6ee7b7",
-        "browse_bg": "#ffffff",       # << caja blanca
-        "browse_text": "#064e3b",
-        "browse_border": "#6ee7b7",
-    }
-else:
-    colors = {
-        "page_bg": "#022c22",
-        "card_bg": "#064e3b",
-        "text_main": "#ecfdf5",
-        "shadow": "rgba(0,0,0,0.6)",
-        "primary": "#22c55e",
-        "primary_hover": "#16a34a",
-        "input_bg": "#022c22",
-        "input_text": "#ecfdf5",
-        "input_border": "#34d399",
-        "browse_bg": "#111827",       # botón oscuro en tema oscuro
-        "browse_text": "#e5e7eb",
-        "browse_border": "#4b5563",
-    }
+# ================== 2. EJECUCIÓN DEL SPLASH SCREEN (INGESTA) ==================
+if "ingestion_loaded" not in st.session_state:
+    st.session_state["_prev_treatments_cache"] = generic_splash_loader(ingestion_loading_sequence())
+    st.session_state.ingestion_loaded = True
 
 # =============== 3. CSS GLOBAL PARA INGESTA =================
 st.markdown(
-    f"""
+    """
     <style>
-    .stApp {{
-        background-color: {colors["page_bg"]};
-    }}
-
-    .tt-ingesta-title {{
-        font-family: 'Segoe UI', sans-serif;
+    .tt-ingesta-title {
+        font-family: 'Inter', sans-serif;
         font-weight: 800;
         font-size: 1.9rem;
-        color: {colors["text_main"]};
+        color: var(--text-main);
         letter-spacing: 0.04em;
         margin-bottom: 0.3rem;
-    }}
+    }
 
-    .tt-ingesta-subtitle {{
+    .tt-ingesta-subtitle {
         font-size: 0.95rem;
-        color: {colors["text_main"]};
+        color: var(--text-main);
         opacity: 0.9;
         margin-bottom: 1.2rem;
-    }}
+    }
 
-    .tt-ingesta-card {{
-        background-color: {colors["card_bg"]};
-        border-radius: 18px;
+    .tt-ingesta-card {
+        background-color: var(--card-bg);
+        border-radius: 0.5rem;
         padding: 1.6rem 1.8rem;
-        box-shadow: 0 14px 30px {colors["shadow"]};
-        border: 1px solid rgba(15,23,42,0.18);
+        box-shadow: 0 4px 15px var(--shadow);
+        border: 1px solid var(--card-border);
+        border-top: 3px solid var(--primary);
         margin-bottom: 1.5rem;
-    }}
+    }
 
     /* Labels y textos dentro de la tarjeta */
     .tt-ingesta-card label,
     .tt-ingesta-card p,
-    .tt-ingesta-card span {{
-        color: {colors["text_main"]} !important;
-    }}
-
-    /* TEXT INPUTS */
-    .stTextInput input {{
-        background-color: {colors["input_bg"]} !important;
-        color: {colors["input_text"]} !important;
-        border: 1px solid {colors["input_border"]} !important;
-        border-radius: 10px;
-        font-size: 0.95rem;
-    }}
-    .stTextInput > label {{
-        color: {colors["text_main"]} !important;
-        font-weight: 600;
-    }}
-
-    /* DATE INPUT */
-    .stDateInput input {{
-        background-color: {colors["input_bg"]} !important;
-        color: {colors["input_text"]} !important;
-        border: 1px solid {colors["input_border"]} !important;
-        border-radius: 10px;
-        font-size: 0.95rem;
-    }}
-    .stDateInput > label {{
-        color: {colors["text_main"]} !important;
-        font-weight: 600;
-    }}
+    .tt-ingesta-card span {
+        color: var(--text-main) !important;
+    }
 
     /* SELECTBOX */
-    div[data-baseweb="select"] > div {{
-        background-color: {colors["input_bg"]} !important;
-        color: {colors["input_text"]} !important;
-        border: 1px solid {colors["input_border"]} !important;
-        border-radius: 10px;
-    }}
-    .stSelectbox > label {{
-        color: {colors["text_main"]} !important;
+    div[data-baseweb="select"] > div {
+        background-color: var(--input-bg) !important;
+        color: var(--text-main) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 0.35rem;
+    }
+    .stSelectbox > label {
+        color: var(--text-main) !important;
         font-weight: 600;
-    }}
+    }
 
     /* FILE UPLOADER - zona de drop */
-    div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {{
-        background-color: {colors["input_bg"]} !important;
-        border-radius: 12px !important;
-        border: 1px dashed {colors["input_border"]} !important;
-    }}
-    div[data-testid="stFileUploader"] section * {{
-        color: {colors["input_text"]} !important;
-    }}
+    div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {
+        background-color: var(--input-bg) !important;
+        border-radius: 0.5rem !important;
+        border: 1px dashed var(--input-border) !important;
+    }
+    div[data-testid="stFileUploader"] section * {
+        color: var(--text-main) !important;
+    }
 
     /* FILE UPLOADER - botón "Browse files" */
-    div[data-testid="stFileUploader"] button {{
-        background-color: {colors["browse_bg"]} !important;
-        color: {colors["browse_text"]} !important;
-        border: 1px solid {colors["browse_border"]} !important;
-        border-radius: 8px !important;
+    div[data-testid="stFileUploader"] button {
+        background-color: var(--card-bg) !important;
+        color: var(--text-main) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 0.35rem !important;
         padding: 0.2rem 0.9rem !important;
         font-size: 0.85rem !important;
         font-weight: 600 !important;
-    }}
+    }
 
-    /* Botones generales (Cargar Video, Confirmar, etc.) */
-    .stButton > button {{
-        background-color: {colors["primary"]};
-        color: white;
-        border: none;
-        border-radius: 999px;
-        padding: 0.45rem 1.3rem;
-        font-size: 0.9rem;
-        font-weight: 600;
-    }}
-    .stButton > button:hover {{
-        background-color: {colors["primary_hover"]};
-    }}
-
-    /* Slider con gradiente verde */
-    [data-testid="stSlider"] > div > div > div {{
-        background: linear-gradient(to right, {colors["primary"]}, {colors["primary_hover"]});
-    }}
+    /* Slider con gradiente IPN */
+    [data-testid="stSlider"] > div > div > div {
+        background: linear-gradient(to right, var(--primary), var(--primary-hover));
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -217,58 +153,31 @@ st.markdown('<div class="tt-ingesta-card">', unsafe_allow_html=True)
 
 with st.form("registro_experimento"):
     c1, c2 = st.columns(2)
-    # Leer tratamientos previos desde la BD (lazy import — solo si la BD está disponible)
-    prev_treatments = []
-    if "_prev_treatments_cache" not in st.session_state:
-        try:
-            from src.db.connection import get_db_engine
-            from sqlalchemy import text
-            engine = get_db_engine()
-            if engine:
-                with engine.connect() as conn:
-                    rows = conn.execute(text("SELECT DISTINCT treatment FROM experiments ORDER BY treatment"))
-                    st.session_state["_prev_treatments_cache"] = [
-                        r[0] for r in rows.fetchall() if r[0]
-                    ]
-            else:
-                st.session_state["_prev_treatments_cache"] = []
-        except Exception:
-            st.session_state["_prev_treatments_cache"] = []
-    prev_treatments = st.session_state.get("_prev_treatments_cache", [])
 
     with c1:
         id_raton = st.text_input("ID del Espécimen", placeholder="Ej. MOUSE-001")
-        # Opciones de tratamiento con autocompletado nativo
-        if prev_treatments:
-            opciones_trat = ["", "Añadir Nuevo..."] + sorted(prev_treatments)
-            tratamiento_sel = st.selectbox("ID del Tratamiento", opciones_trat)
-            
-            if tratamiento_sel == "Añadir Nuevo..." or tratamiento_sel == "":
-                tratamiento_input = st.text_input(
-                    "Escribe nuevo tratamiento",
-                    placeholder="Ej. Diazepam 5mg",
-                    key="tratamiento_text"
-                )
-            else:
-                tratamiento_input = tratamiento_sel
-                # Guardamos en session_state silenciosamente el selection
-                st.session_state["tratamiento_text"] = tratamiento_sel
-        else:
-            tratamiento_input = st.text_input(
-                "ID del Tratamiento",
-                value=st.session_state.get("tratamiento_text", ""),
-                key="tratamiento_text",
-                placeholder="Escribe el tratamiento"
-            )
+        # Campo libre para el tratamiento según solicitud del usuario
+        tratamiento_input = st.text_input(
+            "ID del Tratamiento",
+            placeholder="Ej. Diazepam 5mg, Molécula X, Vehículo...",
+            key="tratamiento_text"
+        )
     with c2:
         fecha = st.date_input("Fecha del Experimento")
         responsable = st.text_input("Responsable", value="Equipo TT")
     
     video_file = st.file_uploader("Cargar Video (MP4 / MOV / AVI)", type=["mp4", "mov", "avi"])
     
-    submitted = st.form_submit_button("Cargar Video")
+    submitted = st.form_submit_button("Cargar Video y Reemplazar Actual")
 
 st.markdown("</div>", unsafe_allow_html=True)
+
+if "video_en_edicion" in st.session_state:
+    st.info(
+        "Seleccionar un archivo en el formulario no cambia por sí solo el video activo. "
+        "Para reemplazarlo, pulsa `Cargar Video y Reemplazar Actual` y luego confirma "
+        "que el bloque azul `Video en edición` muestre el nuevo nombre."
+    )
 
 # =============== 6. PROCESAMIENTO DE LA CARGA =================
 if submitted and video_file is not None:
@@ -283,19 +192,51 @@ if submitted and video_file is not None:
         with open(ruta_guardado, "wb") as f:
             f.write(video_file.getbuffer())
         
-        st.session_state["video_en_edicion"] = ruta_guardado
-        st.session_state["id_raton_actual"] = id_raton
-        # Guardar tratamiento en la sesión para que el procesamiento lo persista en BD
-        st.session_state["treatment"] = tratamiento
+        # ── Resetear estado de análisis previo al cargar video nuevo ────────
+        st.session_state["video_en_edicion"]  = ruta_guardado
+        st.session_state["id_raton_actual"]   = id_raton
+        st.session_state["treatment_id"]       = tratamiento   # usado por 04_Analisis_Final
+        st.session_state["treatment"]          = tratamiento
+        # Limpiar contexto de análisis anterior para no confundir keypoints/zonas
+        for _k in ["ruta_video_actual", "inicio_recorte", "fin_recorte",
+                   "pipeline_dlc_activo", "zonas_configuradas"]:
+            st.session_state.pop(_k, None)
         save_session()
-        st.success("✅ Video subido correctamente.")
+        st.success(f"✅ Video '**{video_file.name}**' subido correctamente. Confirma el recorte abajo.")
+        st.rerun()  # Forzar rerender para mostrar el nuevo video inmediatamente
 
 # =============== 7. EDITOR PERSISTENTE =================
 if "video_en_edicion" in st.session_state:
     ruta_actual = st.session_state["video_en_edicion"]
-    
+
+    # ── Guardia: si el archivo ya no existe en disco, limpiar la sesión ───────
+    if not os.path.exists(ruta_actual):
+        st.warning("⚠️ El video en sesión ya no existe en disco. Carga uno nuevo.")
+        st.session_state.pop("video_en_edicion", None)
+        st.stop()
+
     st.markdown('<div class="tt-ingesta-card">', unsafe_allow_html=True)
-    st.subheader(f"✂️ Edición del video: {st.session_state['id_raton_actual']}")
+
+    # ── Banner del video activo ──────────────────────────────────────────────
+    st.warning(
+        "El recorte de abajo siempre se aplica al video mostrado en `Video en edición`. "
+        "Si acabas de seleccionar otro archivo arriba, primero debes cargarlo."
+    )
+
+    nombre_video = os.path.basename(ruta_actual)
+    id_display   = st.session_state.get("id_raton_actual", nombre_video)
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-left:4px solid #63b3ed;
+                    border-radius:8px;padding:0.8rem 1.2rem;margin-bottom:1rem;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#63b3ed;">Video en edición</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#EDF2F7;font-family:monospace;">{nombre_video}</div>
+            <div style="font-size:0.7rem;color:rgba(237,242,247,0.5);font-family:monospace;">ID: {id_display} · {ruta_actual}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.subheader(f"✂️ Rango de análisis")
 
     try:
         # Lazy import: moviepy carga FFmpeg internamente; solo se importa aquí
@@ -345,7 +286,7 @@ if "video_en_edicion" in st.session_state:
         if end_seconds is None:
             st.error("Formato inválido para Fin. Use mm:ss o segundos enteros.")
             valid = False
-        if valid:
+        if valid and start_seconds is not None and end_seconds is not None:
             if start_seconds < 0 or start_seconds > duracion:
                 st.error("El tiempo de Inicio está fuera de rango del video.")
                 valid = False
@@ -357,15 +298,15 @@ if "video_en_edicion" in st.session_state:
                 valid = False
 
         # Show video starting at parsed start time if valid, otherwise default to 0
-        if valid:
+        if valid and start_seconds is not None and end_seconds is not None:
             st.video(ruta_actual, start_time=int(start_seconds))
             st.info(f"⏱️ Se analizará de **{fmt_seconds_to_mmss(start_seconds)}** a **{fmt_seconds_to_mmss(end_seconds)}** ({start_seconds}–{end_seconds} s).")
 
-            if st.button("💾 Confirmar recorte y procesar"):
+            if st.button("💾 Confirmar recorte y continuar →", type="primary"):
                 st.session_state["ruta_video_actual"] = ruta_actual
-                st.session_state["inicio_recorte"] = start_seconds
-                st.session_state["fin_recorte"] = end_seconds
-                # Persistir sesión
+                st.session_state["inicio_recorte"]   = start_seconds
+                st.session_state["fin_recorte"]       = end_seconds
+                # treatment_id ya fue guardado en el submit del form
                 save_session()
 
                 # Guardar/asegurar tratamiento en la base de datos para histórico/autocompletado
