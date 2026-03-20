@@ -25,6 +25,24 @@ import glob
 import json
 import math
 
+# ── Path setup ───────────────────────────────────────────────────────────────
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+if os.path.join(os.getcwd(), "src") not in sys.path:
+    sys.path.append(os.path.join(os.getcwd(), "src"))
+
+from session_utils import load_session, save_session
+from access_control import require_researcher
+from sidebar_control import apply_sidebar_visibility
+
+# Cargar sesión y verificar acceso
+load_session()
+
+# Aplicar control de sidebar
+apply_sidebar_visibility()
+
+require_researcher()  # Solo investigadores y estudiantes
+
 
 def _python_has_module(python_exe: str, module_name: str) -> bool:
     """Verifica si un interprete concreto puede importar un modulo."""
@@ -135,7 +153,7 @@ if not st.session_state.get("logged_in"):
     st.warning("⚠️ Debes iniciar sesión en 🔐 Login primero.")
     st.stop()
 
-from auth import check_admin_access
+from src.auth import check_admin_access
 if check_admin_access(st.session_state.get("role")):
     st.warning("⛔ Los administradores no pueden ejecutar análisis.")
     st.stop()

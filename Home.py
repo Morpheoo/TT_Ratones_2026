@@ -7,6 +7,7 @@ import sys
 # Seteamos la ruta de src para importar utilerías
 sys.path.append(os.path.join(os.getcwd(), "src"))
 from session_utils import load_session, save_session
+from sidebar_control import apply_sidebar_visibility
 
 # La guardia DEBE estar antes de cualquier import de torch/dlc
 if "init_done" not in st.session_state:
@@ -98,6 +99,10 @@ if new_device != st.session_state.dlc_device_opt:
     st.sidebar.warning("⚠️ El cambio de hardware requiere reiniciar la app para aplicarse al 100%.")
 
 save_session() # Guardar estado al cambiar tema o device
+
+# ================= CONTROL DE NAVEGACIÓN POR ROL =================
+# Aplicar control de sidebar basado en rol
+apply_sidebar_visibility()
 
 # Definición de paletas
 if theme_mode == "Claro":

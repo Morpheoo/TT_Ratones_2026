@@ -14,15 +14,17 @@ if os.getcwd() not in sys.path:
 from src.session_utils import load_session, save_session
 from src.auth import check_admin_access
 from src.db.connection import get_db_engine
+from src.access_control import require_admin
+from src.sidebar_control import apply_sidebar_visibility
 
 # Cargar sesión para tener el rol actualizado
 load_session()
 
+# Aplicar control de sidebar
+apply_sidebar_visibility()
+
 # ================= SEGURIDAD: SOLO ADMINS =================
-role = st.session_state.get("role", "")
-if not check_admin_access(role):
-    st.warning("⛔ Acceso Denegado. Esta página es exclusiva para Administradores.")
-    st.stop()
+require_admin()  # Solo administradores
 
 st.markdown("# 🛡️ Panel de Administración")
 st.markdown("### Gestión de Usuarios y Auditoría")

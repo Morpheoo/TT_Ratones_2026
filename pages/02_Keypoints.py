@@ -39,16 +39,15 @@ st.set_page_config(
 
 # ── Sesión y login ────────────────────────────────────────────────────────────
 from session_utils import load_session, save_session
+from access_control import require_researcher
+from sidebar_control import apply_sidebar_visibility
 load_session()
 
-if not st.session_state.get("logged_in"):
-    st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login primero.")
-    st.stop()
+# Aplicar control de sidebar
+apply_sidebar_visibility()
 
-from auth import check_admin_access
-if check_admin_access(st.session_state.get("role")):
-    st.warning("⛔ Los administradores no pueden ejecutar análisis.")
-    st.stop()
+# Solo investigadores y estudiantes
+require_researcher()
 
 # ── Tema ─────────────────────────────────────────────────────────────────────
 from ui_theme import use_theme

@@ -15,6 +15,8 @@ if os.path.join(os.getcwd(), "src") not in sys.path:
 from ui_components import generic_splash_loader
 from session_utils import load_session, save_session
 from simba_roi_bridge import sync_streamlit_rois_to_simba
+from access_control import require_researcher
+from sidebar_control import apply_sidebar_visibility
 
 SIMBA_PROJECT_FOLDER = os.path.abspath(
     os.path.join(
@@ -29,16 +31,11 @@ SIMBA_PROJECT_FOLDER = os.path.abspath(
 # Cargar sesión antes de validar login
 load_session()
 
-# =============== 1. VERIFICAR LOGIN ==================
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
-    st.stop()
+# Aplicar control de sidebar
+apply_sidebar_visibility()
 
-# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
-if st.session_state.get("role") == "admin":
-    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
-    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
-    st.stop()
+# =============== 1. VERIFICAR LOGIN Y ROL ==================
+require_researcher()  # Solo investigadores y estudiantes, NO admins
 
 # =============== 2. TEMA Y ESTILOS =================
 from ui_theme import use_theme
@@ -96,26 +93,37 @@ def zones_loading_sequence():
     """Generador para el splash screen de Configuración de Zonas."""
     yield 10, "Validando contexto del video..."
     if "ruta_video_actual" not in st.session_state:
+        yield 100, "Error: No hay video cargado"
         return None
     
     ruta_video = st.session_state["ruta_video_actual"]
+    
+    # Verificar que el archivo existe
+    if not os.path.exists(ruta_video):
+        yield 100, "Error: Archivo de video no encontrado"
+        return None
+    
     tiempo_inicio = st.session_state.get("inicio_recorte", 0)
     
     yield 40, "Inicializando motor de video (MoviePy)..."
-    from moviepy.editor import VideoFileClip
-    clip = VideoFileClip(ruta_video)
-    
-    yield 80, "Extrayendo fotograma de referencia..."
-    ancho_real, alto_real = clip.size
-    frame_array = clip.get_frame(tiempo_inicio)
-    image_original = Image.fromarray(frame_array)
-    clip.close()
-    
-    yield 100, "Zonas listas."
-    return {
-        "image": image_original,
-        "size": (ancho_real, alto_real)
-    }
+    try:
+        from moviepy.editor import VideoFileClip
+        clip = VideoFileClip(ruta_video)
+        
+        yield 80, "Extrayendo fotograma de referencia..."
+        ancho_real, alto_real = clip.size
+        frame_array = clip.get_frame(tiempo_inicio)
+        image_original = Image.fromarray(frame_array)
+        clip.close()
+        
+        yield 100, "Zonas listas."
+        return {
+            "image": image_original,
+            "size": (ancho_real, alto_real)
+        }
+    except Exception as e:
+        yield 100, f"Error cargando video: {str(e)}"
+        return None
 
 # ================== 2. EJECUCIÓN DEL SPLASH SCREEN (ZONAS) ==================
 if "zones_loaded" not in st.session_state:
@@ -202,7 +210,12 @@ if "ruta_video_actual" not in st.session_state:
 
 # Datos recuperados del splash
 if not st.session_state.get("_zones_cache"):
-    st.error("Error cargando recursos de video.")
+    st.error("❌ Error cargando recursos de video.")
+    st.info("💡 Verifica que hayas cargado un video en la página **Ingesta de Video** primero.")
+    if st.button("🔄 Reintentar carga"):
+        if "zones_loaded" in st.session_state:
+            del st.session_state["zones_loaded"]
+        st.rerun()
     st.stop()
 
 image_original = st.session_state["_zones_cache"]["image"]

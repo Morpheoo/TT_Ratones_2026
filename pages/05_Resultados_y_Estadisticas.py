@@ -14,6 +14,8 @@ if os.path.join(os.getcwd(), "src") not in sys.path:
     sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from ui_components import generic_splash_loader
+from access_control import require_researcher
+from sidebar_control import apply_sidebar_visibility
 
 # ================= 0. PERSISTENCIA =================
 st.set_page_config(page_title="Resultados (EPM)", page_icon="📊", layout="wide")
@@ -25,16 +27,11 @@ from session_utils import load_session, save_session
 # Cargar sesión antes de validar login
 load_session()
 
-# =============== 1. VERIFICAR LOGIN ==================
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
-    st.stop()
+# Aplicar control de sidebar
+apply_sidebar_visibility()
 
-# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
-if st.session_state.get("role") == "admin":
-    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
-    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
-    st.stop()
+# =============== 1. VERIFICAR LOGIN Y ROL ==================
+require_researcher()  # Solo investigadores y estudiantes, NO admins
 
 # =============== 2. TEMA Y ESTILOS =================
 from ui_theme import use_theme

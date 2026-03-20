@@ -17,9 +17,17 @@ st.set_page_config(page_title="Análisis IA (EPM)", page_icon="🧠", layout="wi
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 from src.session_utils import load_session, save_session
+from src.access_control import require_researcher
+from src.sidebar_control import apply_sidebar_visibility
 
 # Cargar sesión antes de validar login
 load_session()
+
+# Aplicar control de sidebar
+apply_sidebar_visibility()
+
+# =============== VERIFICAR ACCESO ==================
+require_researcher()  # Solo investigadores y estudiantes
 
 # ================== GUARDIA DE ENTORNO (RTX 5060 FIX) ==================
 # Detectamos la GPU sin importar torch (para evitar inicializar CUDA antes de tiempo)
@@ -575,12 +583,18 @@ if iniciar_completo:
         # Ruta al script
         script_path = os.path.abspath(os.path.join("src", "scripts", "full_pipeline.py"))
         venv_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
-        
+
         if not os.path.exists(venv_python):
              st.error("No se encontró el entorno venv_310")
              st.stop()
+        
+        # Obtener la ruta del video de la sesión
+        video_path = st.session_state.get("ruta_video_actual", "")
+        if not video_path or not os.path.exists(video_path):
+            st.error("❌ No hay video cargado o el archivo no existe")
+            st.stop()
              
-        cmd = [venv_python, script_path]
+        cmd = [venv_python, script_path, "--video", video_path]
         
         process = subprocess.Popen(
             cmd,

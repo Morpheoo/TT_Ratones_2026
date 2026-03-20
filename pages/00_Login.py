@@ -6,6 +6,7 @@ import sys
 # Seteamos la ruta de src para importar utilerías
 sys.path.append(os.path.join(os.getcwd(), "src"))
 from session_utils import load_session, save_session
+from sidebar_control import apply_sidebar_visibility
 
 # Cargar sesión previa
 if "init_done" not in st.session_state:
@@ -14,6 +15,9 @@ if "init_done" not in st.session_state:
 
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="TT 2026 - Login", page_icon="🐭", layout="wide")
+
+# Aplicar control de sidebar
+apply_sidebar_visibility()
 
 # 2. FUNCIÓN DE IMAGEN
 PRIVACY_NOTICE = """

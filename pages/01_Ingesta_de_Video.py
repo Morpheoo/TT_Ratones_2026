@@ -14,14 +14,17 @@ if os.path.join(os.getcwd(), "src") not in sys.path:
 
 from ui_components import generic_splash_loader
 from session_utils import load_session, save_session
+from access_control import require_researcher
+from sidebar_control import apply_sidebar_visibility
 
 # Cargar sesión antes de validar login
 load_session()
 
-# =============== 1. VERIFICAR LOGIN ==================
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
-    st.stop()
+# Aplicar control de sidebar
+apply_sidebar_visibility()
+
+# =============== 1. VERIFICAR LOGIN Y ROL ==================
+require_researcher()  # Solo investigadores y estudiantes, NO admins
 
 # Cargar sesión y establecer init_done si no está ya
 if not st.session_state.get("init_done"):
