@@ -71,141 +71,66 @@ if img_base64:
 else:
     logo_html = '<div style="text-align:center;">⚠️ Logo no encontrado</div>'
 
-# 3. SELECTOR DE TEMA (CLARO / OSCURO) EN SIDEBAR
-if "theme_mode" not in st.session_state:
-    st.session_state.theme_mode = "Oscuro"
+# 3. TEMA Y ESTILOS
+from ui_theme import use_theme
+use_theme()
 
-theme_mode = st.sidebar.radio(
-    "Tema de la interfaz",
-    ["Claro", "Oscuro"],
-    index=0 if st.session_state.theme_mode == "Claro" else 1,
-)
-st.session_state.theme_mode = theme_mode
-
-# Paleta VERDE según el tema (sin blanco puro)
-if theme_mode == "Claro":
-    colors = {
-        "page_bg": "#d1fae5",
-        "card_bg": "#ecfdf5",
-        "text_main": "#064e3b",
-        "shadow": "rgba(15, 23, 42, 0.15)",
-        "input_bg": "#f0fdf4",
-        "input_text": "#064e3b",
-        "input_border": "#6ee7b7",
-        "primary": "#10b981",
-        "primary_hover": "#059669",
-    }
-else:  # Oscuro
-    colors = {
-        "page_bg": "#022c22",
-        "card_bg": "#064e3b",
-        "text_main": "#ecfdf5",
-        "shadow": "rgba(0,0,0,0.6)",
-        "input_bg": "#022c22",
-        "input_text": "#ecfdf5",
-        "input_border": "#34d399",
-        "primary": "#22c55e",
-        "primary_hover": "#16a34a",
-    }
-
-# 4. CSS ESTILIZADO
+# 4. CSS ESTILIZADO ESPECÍFICO DEL LOGIN
 st.markdown(
-    f"""
+    """
     <style>
-    .stApp {{
-        background-color: {colors["page_bg"]};
-    }}
+    /* Estilizar el formulario principal como tarjeta IPN */
+    [data-testid="stForm"] {
+        background-color: var(--card-bg);
+        padding: 3rem 3.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 15px var(--shadow);
+        border: 1px solid var(--card-border);
+        border-top: 4px solid var(--primary);
+        max-width: 600px;
+        margin: 2rem auto 1rem auto;
+    }
 
-    [data-testid="stForm"] {{
-        background-color: {colors["card_bg"]};
-        padding: 3.4rem 3.6rem;
-        border-radius: 22px;
-        box-shadow: 0 16px 40px {colors["shadow"]};
-        border: 1px solid rgba(15,23,42,0.18);
-        max-width: 640px;
-        margin: 3rem auto 1rem auto;
-    }}
+    .tt-logo {
+        width: 90px;
+        height: auto;
+    }
 
-    .tt-logo {{
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 190px;
-        max-width: 60%;
-        margin-bottom: 24px;
-    }}
-
-    h1.tt-title {{
+    h1.tt-title {
         text-align: center;
-        font-family: 'Segoe UI', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-weight: 800;
         font-size: 2.1rem !important;
-        letter-spacing: 0.06em;
-        color: {colors["text_main"]};
+        letter-spacing: -0.02em;
+        color: var(--text-main);
         margin: 0 0 6px 0;
         padding: 0;
-    }}
+    }
 
-    div.tt-subtitle {{
+    div.tt-subtitle {
         text-align: center;
         font-size: 1.05rem;
-        opacity: 0.85;
-        margin-bottom: 32px;
-        color: {colors["text_main"]};
-    }}
-
-    .stTextInput > label {{
-        font-size: 1rem;
         font-weight: 600;
-        color: {colors["text_main"]};
-    }}
+        margin-bottom: 32px;
+        color: var(--primary);
+    }
 
-    .stTextInput input {{
-        font-size: 0.98rem;
-        padding-top: 0.55rem;
-        padding-bottom: 0.55rem;
-        background-color: {colors["input_bg"]};
-        color: {colors["input_text"]};
-        border: 1px solid {colors["input_border"]};
-        border-radius: 10px;
-    }}
-
-    .stTextInput input:focus {{
-        border-color: {colors["primary"]} !important;
-        box-shadow: 0 0 0 1px {colors["primary"]} !important;
-    }}
-
-    .stButton > button {{
-        width: 100%;
-        border-radius: 12px;
-        font-weight: 700;
-        font-size: 0.98rem;
-        background-color: {colors["primary"]};
-        color: white;
-        border: none;
-        padding: 0.7rem;
-    }}
-    .stButton > button:hover {{
-        background-color: {colors["primary_hover"]};
-    }}
-
-    @media (max-width: 768px) {{
-        [data-testid="stForm"] {{
+    @media (max-width: 768px) {
+        [data-testid="stForm"] {
             padding: 2.3rem 1.6rem;
             max-width: 100%;
             margin: 2rem 1rem 1rem 1rem;
-        }}
-        h1.tt-title {{
+        }
+        h1.tt-title {
             font-size: 1.7rem !important;
-        }}
-        div.tt-subtitle {{
+        }
+        div.tt-subtitle {
             font-size: 0.95rem;
-        }}
-        .tt-logo {{
-            width: 160px;
-            max-width: 70%;
-        }}
-    }}
+        }
+        .tt-logo {
+            width: 70px;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -230,13 +155,71 @@ if st.session_state.logged_in:
         st.rerun()
     st.stop()
 
+# Logos institucionales
+import os
+import base64
+
+def get_img_as_base64_login(file_path):
+    if not os.path.exists(file_path): return None
+    with open(file_path, "rb") as f: return base64.b64encode(f.read()).decode()
+
+IPN_LOGO_PATH = os.path.join("assets", "logos", "logo_ipn.webp")
+ESCOM_LOGO_PATH = os.path.join("assets", "logos", "logo_escom.webp")
+
+ipn_img_base64 = get_img_as_base64_login(IPN_LOGO_PATH)
+if ipn_img_base64: ipn_logo_html = f'<img src="data:image/webp;base64,{ipn_img_base64}" class="institucional-logo" style="width: 140px; height: auto;">'
+else: ipn_logo_html = '<div style="width:140px; height:140px; border-radius:50%; background-color:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px; margin: 0 auto;">IPN</div>'
+
+escom_img_base64 = get_img_as_base64_login(ESCOM_LOGO_PATH)
+if escom_img_base64: escom_logo_html = f'<img src="data:image/webp;base64,{escom_img_base64}" class="institucional-logo" style="width: 80px; height: auto;">'
+else: escom_logo_html = '<div style="width:80px; height:80px; border-radius:50%; background-color:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; margin: 0 auto;">ESCOM</div>'
+
 # 7. LAYOUT CENTRADO
 c1, c2, c3 = st.columns([1, 2, 1])
 
 with c2:
-    st.markdown(logo_html, unsafe_allow_html=True)
-    st.markdown('<h1 class="tt-title">SISTEMA EPM</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="tt-subtitle">Acceso exclusivo para investigadores IPN</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <style>
+        .logos-container-login {{
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            width: 100%;
+            margin-bottom: 2rem;
+        }}
+        .logo-left-lg, .logo-right-lg {{
+            flex: 1;
+            flex-basis: 33%;
+            display: flex;
+        }}
+        .logo-left-lg {{
+            justify-content: flex-start;
+        }}
+        .logo-right-lg {{
+            justify-content: flex-end;
+        }}
+        .logo-center-lg {{
+            flex: 1;
+            flex-basis: 33%;
+            display: flex;
+            justify-content: center;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        f'''
+        <div class="logos-container-login">
+            <div class="logo-left-lg">{ipn_logo_html}</div>
+            <div class="logo-center-lg">{logo_html}</div>
+            <div class="logo-right-lg">{escom_logo_html}</div>
+        </div>
+        ''', unsafe_allow_html=True
+    )
+    st.markdown('<h1 class="tt-title">INSTITUTO POLITÉCNICO NACIONAL</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="tt-subtitle">Sistema EPM - Plataforma Institucional</div>', unsafe_allow_html=True)
 
     # MODIFICACIÓN: Si hay verificación pendiente, ocultamos los tabs para no confundir
     if st.session_state.get("show_verification"):
@@ -421,8 +404,8 @@ with c2:
     # Pie de página
     st.markdown(
         '<div style="text-align:center; margin-top:15px; '
-        'font-size:0.8rem; opacity:0.7; color:#065f46;">'
-        "ESCOM - IPN © 2025"
+        'font-size:0.85rem; color:var(--text-sub); font-weight: 500;">'
+        "Escuela Superior de Cómputo - Instituto Politécnico Nacional © 2026"
         "</div>",
         unsafe_allow_html=True,
     )

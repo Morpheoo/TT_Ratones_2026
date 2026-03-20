@@ -7,8 +7,9 @@ from unittest.mock import MagicMock, patch
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # Mock streamlit
-sys.modules['streamlit'] = MagicMock()
-sys.modules['streamlit'].secrets = {} # Ensure secrets dict exists if accessed
+st_mock = MagicMock()
+st_mock.configure_mock(secrets={})  # Ensure secrets dict exists if accessed
+sys.modules['streamlit'] = st_mock
 
 # Import auth after mocking
 # We need to make sure auth can import db.connection

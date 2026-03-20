@@ -12,7 +12,7 @@ try:
                 bin_path = os.path.join(root, "bin")
                 os.environ["PATH"] += os.pathsep + bin_path
                 try:
-                    os.add_dll_directory(bin_path) # Python 3.8+ safety
+                    getattr(os, "add_dll_directory")(bin_path) # Python 3.8+ safety
                 except:
                     pass
         print("Added NVIDIA DLLs to PATH")

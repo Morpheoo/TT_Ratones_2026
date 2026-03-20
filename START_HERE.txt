@@ -1,0 +1,169 @@
+================================================================================
+                    TESTING SUITE - RESUMEN VISUAL
+================================================================================
+
+ARCHIVOS CREADOS PARA PRUEBAS:
+────────────────────────────────────────────────────────────────────────────
+
+┌─ OPCIÓN 1: QUICK CHECK (10 segundos) ─────────────────────────────────────┐
+│                                                                              │
+│  Comando: python quick_diag.py                                             │
+│  Tamaño: 2.2 KB                                                            │
+│                                                                              │
+│  ✓ Docker daemon corriendo                                                │
+│  ✓ Contenedores UP                                                         │
+│  ✓ PostgreSQL respondiendo                                                │
+│  ✓ Paquetes Python instalados                                             │
+│  ✓ Archivos del proyecto                                                  │
+│                                                                              │
+│  Cuándo usar: Chequeo diario rápido ANTES de abrir la app                │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ OPCIÓN 2: FULL TEST SUITE (1-2 minutos) ────────────────────────────────┐
+│                                                                              │
+│  Comando: python test_docker_setup.py                                     │
+│  Tamaño: 10 KB                                                             │
+│                                                                              │
+│  10 Tests individuales:                                                    │
+│    1. Docker CLI instalado                                                │
+│    2. Docker daemon corriendo                                              │
+│    3. docker-compose disponible                                            │
+│    4. Archivos del proyecto existen                                        │
+│    5. Estado de contenedores                                               │
+│    6. docker-compose up -d (levanta servicios)                            │
+│    7. PostgreSQL health check                                              │
+│    8. Conexión psycopg2                                                    │
+│    9. SQLAlchemy engine                                                    │
+│   10. start_services.py execution                                          │
+│                                                                              │
+│  Cuándo usar: Setup inicial / Debugging profundo                          │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ OPCIÓN 3: INTERACTIVE TEST (30-60 segundos) ────────────────────────────┐
+│                                                                              │
+│  Comando: python test_interactive.py                                      │
+│  Tamaño: 6.9 KB                                                            │
+│                                                                              │
+│  Simula flujo completo:                                                    │
+│    launcher.bat → run_app.py → start_services.py                          │
+│                                                                              │
+│  Tests:                                                                     │
+│    ✓ Docker basics                                                         │
+│    ✓ Archivos del proyecto                                                 │
+│    ✓ Flujo completo                                                        │
+│    ✓ Contenedores                                                          │
+│    ✓ Conectividad BD                                                       │
+│    ✓ Integración Streamlit                                                 │
+│                                                                              │
+│  Cuándo usar: Verificar flujo ANTES de ejecutar launcher.bat              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ OPCIÓN 4: MENU EN WINDOWS ─────────────────────────────────────────────┐
+│                                                                              │
+│  Comando: run_tests.bat                                                    │
+│  Tamaño: 2 KB                                                              │
+│                                                                              │
+│  Menu interactivo para seleccionar test:                                   │
+│    1) Quick Diagnostic                                                     │
+│    2) Full Test Suite                                                      │
+│    3) Interactive Test                                                     │
+│    4) Run All Tests in Sequence                                            │
+│                                                                              │
+│  Cuándo usar: Si prefieres menu gráfico en Windows                        │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ DOCUMENTACIÓN ─────────────────────────────────────────────────────────┐
+│                                                                              │
+│  Archivo: TESTING_GUIDE.md (4.8 KB)                                       │
+│                                                                              │
+│  Incluye:                                                                   │
+│    - Cómo usar cada test                                                   │
+│    - Orden recomendado                                                     │
+│    - Interpretación de resultados                                          │
+│    - Debugging avanzado                                                    │
+│    - Checklist final                                                       │
+│                                                                              │
+│  Cuándo usar: Cuando necesitas ayuda o interpretación de resultados      │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                           FLUJO RECOMENDADO
+================================================================================
+
+PRIMERA VEZ (Setup inicial):
+  1. python test_docker_setup.py        (Verificación completa - 1-2 min)
+  2. launcher.bat                        (Abre la app si todo OK)
+
+USO DIARIO (Cada sesión):
+  1. python quick_diag.py               (Chequeo rápido - 10 seg)
+  2. launcher.bat                        (Abre la app si todo OK)
+
+SI ALGO FALLA:
+  1. python quick_diag.py               (Identifica qué está mal)
+  2. python test_docker_setup.py        (Debugging profundo - 1-2 min)
+  3. Revisa TESTING_GUIDE.md            (Soluciones específicas)
+
+================================================================================
+                             POSIBLES RESULTADOS
+================================================================================
+
+✓ TODOS LOS TESTS PASAN:
+  → ¡Excelente! Tu sistema está listo
+  → Ejecuta: launcher.bat
+  → Streamlit debería abrirse automáticamente
+
+✗ UN TEST FALLA:
+  → Revisa el mensaje de error
+  → Busca la solución en TESTING_GUIDE.md
+  → Ejecuta nuevamente el test después de arreglarlo
+
+⚠️  VARIOS TESTS FALLAN:
+  → Probablemente Docker no está abierto
+  → Abre Docker Desktop
+  → Espera a que esté listo (puede tardar 30-60 segundos)
+  → Ejecuta nuevamente los tests
+
+================================================================================
+                         COMANDOS ÚTILES DE DOCKER
+================================================================================
+
+Ver estado de contenedores:
+  docker ps -a
+
+Ver logs en vivo:
+  docker logs -f tt_ratones_db
+
+Reiniciar servicios:
+  docker-compose restart
+
+Detener servicios:
+  docker-compose down
+
+Levantar servicios:
+  docker-compose up -d
+
+Entrar al contenedor:
+  docker exec -it tt_ratones_db bash
+
+Ver volúmenes:
+  docker volume ls
+
+Limpiar todo (CUIDADO - borra datos):
+  docker-compose down -v
+
+================================================================================
+
+Para empezar, ejecuta AHORA:
+
+  ⚡ Opción rápida:     python quick_diag.py
+  🔧 Opción completa:   python test_docker_setup.py
+  🎯 Menu Windows:      run_tests.bat
+
+¿Cuál quieres ejecutar primero?
+
+================================================================================

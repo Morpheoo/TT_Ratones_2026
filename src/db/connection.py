@@ -1,11 +1,17 @@
 import os
+import logging
 import streamlit as st
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
+# Logger dedicado para la capa de base de datos
+_db_logger = logging.getLogger("tt_ratones.db")
+if not _db_logger.handlers:
+    _db_logger.setLevel(logging.WARNING)
+
 # Cargar variables de entorno desde .env (si existe)
-load_dotenv()
+load_dotenv(override=True)
 
 # Configuración de Conexión (Coincide con docker-compose.yml)
 DB_USER     = os.getenv("POSTGRES_USER")
@@ -29,29 +35,31 @@ DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NA
 # reruns ocurran.  Elimina el overhead de reconexión en cada página.
 # ────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
+def _create_engine_cached():
+    """
+    Crea el engine UNA SOLA VEZ. Si falla, lanza excepción
+    para que @st.cache_resource NO guarde el resultado fallido.
+    """
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        connect_args={"connect_timeout": 5},
+    )
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    return engine
+
+
 def get_db_engine():
-    """
-    Retorna el engine SQLAlchemy cacheado a nivel de proceso.
-    Solo se crea la primera vez; los siguientes llamados devuelven
-    la misma instancia sin tocar la red ni el pool de conexiones.
-    """
+    """Wrapper seguro: retorna engine o None, sin cachear fallos."""
     try:
-        print(f"[*] Conectando a Base de Datos: {DB_HOST}:{DB_PORT}/{DB_NAME}...")
-        engine = create_engine(
-            DATABASE_URL,
-            pool_pre_ping=True,          # Verifica la conexión antes de usarla
-            pool_size=5,                  # Máximo 5 conexiones simultáneas
-            max_overflow=10,
-            connect_args={"connect_timeout": 5},
-        )
-        # Verificar que la conexión funciona realmente
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        print("[+] Motor SQL creado satisfactoriamente.")
-        return engine
+        return _create_engine_cached()
     except Exception as e:
-        print(f"[-] Error creando motor SQL: {e}")
+        _db_logger.error(f"Error creando motor SQL: {e}")
         return None
+
 
 
 def get_session_maker():
@@ -70,7 +78,7 @@ def init_db():
 
     schema_path = os.path.join(os.getcwd(), "schema.sql")
     if not os.path.exists(schema_path):
-        print("[!] No se encontró schema.sql")
+        _db_logger.warning("No se encontró schema.sql")
         return False
 
     try:
@@ -83,10 +91,10 @@ def init_db():
                 if statement.strip():
                     conn.execute(text(statement))
             conn.commit()
-        print("[+] Tablas inicializadas o verificadas.")
+        _db_logger.info("Tablas inicializadas o verificadas.")
         return True
     except Exception as e:
-        print(f"[-] Error ejecutando schema.sql: {e}")
+        _db_logger.error(f"Error ejecutando schema.sql: {e}")
         return False
 
 

@@ -4,9 +4,9 @@ csv_path = r"c:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\sim
 df = pd.read_csv(csv_path)
 
 total = len(df)
-grooming_count = int(df["Grooming"].sum())
-thigmotaxis_count = int(df["Thigmotaxis"].sum())
-neither_count = int(((df["Grooming"] == 0) & (df["Thigmotaxis"] == 0)).sum())
+grooming_count = int(df["Grooming"].sum()) # type: ignore
+thigmotaxis_count = int(df["Thigmotaxis"].sum()) # type: ignore
+neither_count = int(((df["Grooming"] == 0) & (df["Thigmotaxis"] == 0)).sum()) # type: ignore
 
 grooming_pct = grooming_count / total * 100
 thigmotaxis_pct = thigmotaxis_count / total * 100

@@ -50,6 +50,29 @@ CREATE TABLE IF NOT EXISTS analysis_results (
     status VARCHAR(20) DEFAULT 'pending'
 );
 
+-- ─────────────────────────────────────────────
+-- Tabla de Auditoría de Seguridad
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS security_audit_log (
+    id          SERIAL PRIMARY KEY,
+    timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    event_type  VARCHAR(50)  NOT NULL,
+    username    VARCHAR(100),
+    ip_address  VARCHAR(45),
+    success     BOOLEAN DEFAULT TRUE,
+    message     TEXT,
+    level       VARCHAR(10)  DEFAULT 'INFO'
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_timestamp
+    ON security_audit_log (timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_username
+    ON security_audit_log (username);
+
+CREATE INDEX IF NOT EXISTS idx_audit_event
+    ON security_audit_log (event_type);
+
 -- Insertar usuario admin inicial si no existe
 INSERT INTO users (username, password_hash, role)
 VALUES ('admin', 'pbkdf2:sha256:260000$....', 'admin') -- La contraseña real se generará desde Python

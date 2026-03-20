@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any, Dict
 
 TEMPLATES_FILE = "data/zone_templates.json"
 
@@ -12,11 +13,14 @@ def _ensure_dir():
 
 def save_template(name, canvas_json, display_names):
     _ensure_dir()
+    data: Dict[str, Any] = {}
     with open(TEMPLATES_FILE, "r") as f:
         try:
-            data = json.load(f)
-        except:
-            data = {}
+            raw = json.load(f)
+            if isinstance(raw, dict):
+                data.update(raw)
+        except Exception:
+            pass
     
     data[name] = {
         "canvas": canvas_json,

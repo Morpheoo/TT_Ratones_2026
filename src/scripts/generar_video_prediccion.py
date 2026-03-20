@@ -13,6 +13,16 @@ import json
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
+SIMBA_MODELS_DIR = os.path.join(
+    PROJECT_DIR,
+    "data",
+    "simba_projects",
+    "New folder",
+    "thigmotaxis_optimizado",
+    "models",
+)
+GENERATED_MODELS_DIR = os.path.join(SIMBA_MODELS_DIR, "generated_models")
+VALIDATION_MODELS_DIR = os.path.join(SIMBA_MODELS_DIR, "validations")
 
 
 def safe_print(*args, sep=" ", end="\n", file=None, flush=False):
@@ -49,6 +59,29 @@ def get_yolo_class():
         if os.path.exists(suggested_python):
             print(f"[ENV] Sugerencia: ejecuta este script con: {suggested_python}")
         raise SystemExit(2) from exc
+
+
+def resolve_behavior_model(requested_path: str, generated_name: str, fallback_names: list[str]) -> str:
+    """
+    Prefiere los modelos re-entrenados en models/generated_models.
+    Si no existen, cae al path pedido y luego a modelos históricos de validations.
+    """
+    candidate_paths = [os.path.join(GENERATED_MODELS_DIR, generated_name)]
+    if requested_path:
+        candidate_paths.append(requested_path)
+    for fallback_name in fallback_names:
+        candidate_paths.append(os.path.join(VALIDATION_MODELS_DIR, fallback_name))
+
+    seen: set[str] = set()
+    for candidate_path in candidate_paths:
+        normalized = os.path.abspath(candidate_path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        if os.path.exists(normalized):
+            return normalized
+
+    return os.path.abspath(requested_path) if requested_path else ""
 
 def format_time(seconds: float) -> str:
     """Convierte segundos a formato MM:SS.ss"""
@@ -337,6 +370,17 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
 
     # --- CARGA DE MODELOS MACHINE LEARNING (SimBA) ---
     print("\n[IA] Solicitud de Modelos entrenados (RF SimBA)...")
+    model_thigmo = resolve_behavior_model(
+        model_thigmo,
+        "Thigmotaxis.sav",
+        ["Thigmotaxis_3.sav", "Thigmotaxis_0.sav", "Thigmotaxis_2.sav"],
+    )
+    model_grooming = resolve_behavior_model(
+        model_grooming,
+        "Grooming.sav",
+        ["Grooming_0.sav", "Grooming_1.sav", "Grooming_2.sav"],
+    )
+
     if model_thigmo and os.path.exists(model_thigmo):
         print(f"[IA] Cargando modelo Thigmotaxis: {model_thigmo}")
         clf_thigmo = load_simba_model(model_thigmo)

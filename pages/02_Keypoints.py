@@ -204,6 +204,11 @@ pose_render_source = h5_existentes[0] if h5_existentes else (csv_existentes[0] i
 dlc_video_source = _resolve_dlc_source_video(pose_render_source, ruta_video)
 dlc_overlay_output = os.path.splitext(dlc_video_source)[0] + "_dlc_overlay.mp4"
 tiene_dlc_overlay = os.path.exists(dlc_overlay_output)
+bbox_pose_h5 = os.path.join(WORK_DIR, f"{base_name}_bbox_constrained.h5")
+bbox_pose_csv = os.path.join(WORK_DIR, f"{base_name}_bbox_constrained.csv")
+bbox_overlay_output = os.path.join(WORK_DIR, f"{base_name}_bbox_constraint.mp4")
+tiene_bbox_pose = os.path.exists(bbox_pose_h5) or os.path.exists(bbox_pose_csv)
+tiene_bbox_overlay = os.path.exists(bbox_overlay_output)
 
 # ── Detección de features SimBA (paso posterior al H5) ───────────────────────
 # full_pipeline añade sufijo "_full" al base_name del video
@@ -245,6 +250,8 @@ with col_cfg:
         st.caption("⏱ Tiempo estimado: **25–50 min** por video de 5 min en RTX 5070 Ti")
         st.caption("📦 Output: `.h5` + `.csv` de 27 keypoints por frame")
         st.caption("🧠 Modelo: `superanimal_topviewmouse`")
+        st.caption("🛡️ Post-proceso automático: YOLO BBox Constraint antes de importar a SimBA")
+        st.caption("🎞️ Desde cero, DLC analiza el clip en resolución original. Ya no hay downscale.")
 
         # Opciones avanzadas
         with st.expander("⚙️ Opciones Avanzadas"):
@@ -356,6 +363,44 @@ with col_status:
 
         if tiene_dlc_overlay:
             st.video(dlc_overlay_output)
+
+        st.markdown("---")
+        st.markdown("#### 🛡️ Inspección Visual Filtrada")
+        st.caption(
+            "El pipeline aplica automáticamente `BBox Constraint` después de DLC y antes de SimBA. "
+            "Aquí se muestra el MP4 final de validación para que el investigador confirme que los "
+            "keypoints permanecen pegados al ratón."
+        )
+
+        filtered_cols = st.columns([1, 1])
+        with filtered_cols[0]:
+            if tiene_bbox_overlay:
+                st.success("✅ Video filtrado YOLO/DLC disponible")
+                st.caption(f"📄 `{os.path.basename(bbox_overlay_output)}`")
+                st.caption("📍 Ruta exacta del MP4 filtrado:")
+                st.code(bbox_overlay_output, language="text")
+            elif tiene_bbox_pose:
+                st.info(
+                    "La pose corregida ya existe, pero todavía no está el MP4 de validación. "
+                    "Vuelve a completar el pipeline para regenerarlo."
+                )
+            else:
+                st.info(
+                    "El video filtrado aparecerá automáticamente cuando termine el paso "
+                    "de corrección YOLO BBox Constraint."
+                )
+
+        with filtered_cols[1]:
+            if tiene_bbox_pose:
+                bbox_name = os.path.basename(bbox_pose_h5 if os.path.exists(bbox_pose_h5) else bbox_pose_csv)
+                st.caption(f"🧬 Pose corregida: `{bbox_name}`")
+                st.caption("➡️ Esta es la pose que se convierte y se manda a SimBA.")
+                bbox_pose_path = bbox_pose_h5 if os.path.exists(bbox_pose_h5) else bbox_pose_csv
+                st.caption("📍 Ruta exacta de la pose corregida:")
+                st.code(bbox_pose_path, language="text")
+
+        if tiene_bbox_overlay:
+            st.video(bbox_overlay_output)
 
         st.markdown("---")
 
@@ -478,6 +523,12 @@ if st.session_state.get("pipeline_dlc_activo") or _pipeline_is_running() or os.p
         if tiene_keypoints:
             st.success("✅ **Keypoints extraídos correctamente.**")
             st.info("Ya puedes proceder a la **Configuración de Zonas** y posteriormente al análisis de **YOLO + SimBA**.")
+            if tiene_bbox_overlay:
+                st.success("✅ **También se generó el MP4 filtrado con YOLO BBox Constraint.**")
+                st.caption("📍 Ruta exacta del video filtrado:")
+                st.code(bbox_overlay_output, language="text")
+            elif tiene_bbox_pose:
+                st.info("La pose corregida ya existe, pero todavía no se detecta el MP4 filtrado en esta recarga.")
             
             if status_code != "0":
                 with st.expander("ℹ️ Detalle de finalización (Error menor detectado)"):

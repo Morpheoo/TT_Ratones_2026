@@ -1,0 +1,132 @@
+{
+  "test_suite": {
+    "name": "TT Ratones 2026 - Testing Suite",
+    "version": "1.0",
+    "created": "2026-03-16",
+    "purpose": "Verificar que Docker, PostgreSQL y Streamlit funcionan correctamente",
+    
+    "tests": [
+      {
+        "id": 1,
+        "name": "Quick Diagnostic",
+        "file": "quick_diag.py",
+        "size_kb": 2.2,
+        "duration_seconds": 10,
+        "command": "python quick_diag.py",
+        "when_to_use": "Chequeo diario rápido",
+        "checks": [
+          "Docker daemon running",
+          "Containers UP",
+          "PostgreSQL responding",
+          "Python packages installed",
+          "Project files present"
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Full Test Suite",
+        "file": "test_docker_setup.py",
+        "size_kb": 10,
+        "duration_seconds": 90,
+        "command": "python test_docker_setup.py",
+        "when_to_use": "Setup inicial y debugging profundo",
+        "checks": [
+          "Docker CLI installed",
+          "Docker daemon running",
+          "docker-compose available",
+          "Project files exist",
+          "Containers status",
+          "docker-compose up -d",
+          "PostgreSQL health check",
+          "psycopg2 connection",
+          "SQLAlchemy engine",
+          "start_services.py execution"
+        ]
+      },
+      {
+        "id": 3,
+        "name": "Interactive Test",
+        "file": "test_interactive.py",
+        "size_kb": 6.9,
+        "duration_seconds": 45,
+        "command": "python test_interactive.py",
+        "when_to_use": "Verificar flujo completo antes de launcher.bat",
+        "checks": [
+          "Docker basics",
+          "Project files",
+          "Complete flow simulation",
+          "Containers",
+          "Database connectivity",
+          "Streamlit integration"
+        ]
+      },
+      {
+        "id": 4,
+        "name": "Windows Menu",
+        "file": "run_tests.bat",
+        "size_kb": 2,
+        "duration_seconds": 0,
+        "command": "run_tests.bat",
+        "when_to_use": "Menu interactivo en Windows",
+        "options": [
+          "Quick Diagnostic",
+          "Full Test Suite",
+          "Interactive Test",
+          "Run All Tests in Sequence"
+        ]
+      }
+    ],
+    
+    "documentation": {
+      "main_guide": "TESTING_GUIDE.md",
+      "quick_start": "START_HERE.txt",
+      "info": "TEST_SUITE_INFO.md"
+    },
+    
+    "recommended_flow": {
+      "first_time": [
+        "python test_docker_setup.py (1-2 minutes)",
+        "launcher.bat (if all tests pass)"
+      ],
+      "daily_use": [
+        "python quick_diag.py (10 seconds)",
+        "launcher.bat (if all checks pass)"
+      ],
+      "troubleshooting": [
+        "python quick_diag.py (identify issue)",
+        "python test_docker_setup.py (debug)",
+        "Review TESTING_GUIDE.md (find solution)"
+      ]
+    },
+    
+    "system_requirements": {
+      "docker": "20.10+",
+      "python": "3.11+",
+      "os": ["Windows", "Linux", "macOS"]
+    },
+    
+    "success_criteria": {
+      "all_tests_pass": "System ready - run launcher.bat",
+      "some_fail": "Review error messages, fix, retry",
+      "all_fail": "Likely Docker not running - open Docker Desktop"
+    },
+    
+    "files_modified": [
+      "run_app.py",
+      "Home.py",
+      "launcher.bat"
+    ],
+    
+    "files_created": [
+      "start_services.py",
+      "quick_diag.py",
+      "test_docker_setup.py",
+      "test_interactive.py",
+      "run_tests.bat",
+      "TESTING_GUIDE.md",
+      "TEST_SUITE_INFO.md",
+      "START_HERE.txt",
+      "testing_manifest.json"
+    ]
+  }
+}

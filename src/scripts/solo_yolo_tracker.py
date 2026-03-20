@@ -40,11 +40,14 @@ def run_tracker(video_path: str, output_path: str):
         best_box = None
         for box in results[0].boxes:
             if box.conf[0] > 0.35:
-                if best_box is None or box.conf[0] > best_box.conf[0]:
+                if best_box is None:
+                    best_box = box
+                elif box.conf[0] > best_box.conf[0]:
                     best_box = box
 
         if best_box is not None:
-            x1, y1, x2, y2 = map(int, best_box.xyxy[0])
+            # type: ignore
+            x1, y1, x2, y2 = map(int, best_box.xyxy[0]) # type: ignore
             cx = int((x1 + x2) / 2)
             cy = int((y1 + y2) / 2)
 

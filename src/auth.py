@@ -1,9 +1,9 @@
 import random
-import random
 import bcrypt
 from sqlalchemy import text
-from .db.connection import get_db_engine
-from .email_utils import send_verification_email
+from db.connection import get_db_engine
+from email_utils import send_verification_email
+from security_logger import log_security_event
 
 def hash_password(password: str) -> str:
     """Bcrypt hashing."""
@@ -22,6 +22,11 @@ def authenticate(email, password):
     """Authenticate a user against the PostgreSQL database."""
     engine = get_db_engine()
     if not engine:
+        log_security_event(
+            "DB_ERROR", user=email,
+            message="Motor de BD no disponible durante autenticación",
+            level="ERROR", success=False
+        )
         return None
 
     try:
@@ -47,22 +52,54 @@ def authenticate(email, password):
                     is_ver = res_status[1]
 
                     if is_active is False:
+                        log_security_event(
+                            "LOGIN_SUSPENDED", user=email,
+                            message="Intento de acceso con cuenta suspendida",
+                            level="WARNING", success=False
+                        )
                         return {"status": "SUSPENDED", "email": email}
 
                     if is_ver is None: # Si por alguna razón es NULL, asumimos False o legacy
                         is_ver = False
                         
                     if not is_ver:
+                        log_security_event(
+                            "LOGIN_NOT_VERIFIED", user=email,
+                            message="Intento de acceso con cuenta no verificada",
+                            level="INFO", success=False
+                        )
                         return {"status": "NOT_VERIFIED", "email": email}
-                        
+                    
+                    log_security_event(
+                        "LOGIN_SUCCESS", user=email,
+                        message=f"Login exitoso. Rol: {role}",
+                        level="INFO", success=True
+                    )
                     return {
                         "name": name,
                         "role": role,
                         "email": email,
                         "status": "ACTIVE"
                     }
+                else:
+                    log_security_event(
+                        "LOGIN_FAILED", user=email,
+                        message="Contraseña incorrecta",
+                        level="WARNING", success=False
+                    )
+            else:
+                log_security_event(
+                    "LOGIN_FAILED", user=email,
+                    message="Usuario no encontrado en BD",
+                    level="WARNING", success=False
+                )
+
     except Exception as e:
-        print(f"[-] Error en autenticación BD: {e}")
+        log_security_event(
+            "DB_ERROR", user=email,
+            message=f"Error en autenticación BD: {e}",
+            level="ERROR", success=False
+        )
     
     return None
 
@@ -80,17 +117,33 @@ def register_user(email, password, role, name):
     
     # 1. Validar Dominio IPN
     if not validate_ipn_domain(email):
+        log_security_event(
+            "REGISTER_FAILED", user=email,
+            message="Intento de registro con dominio no IPN",
+            level="WARNING", success=False
+        )
         return False, "❌ Registro restringido. Debes usar un correo institucional (@ipn.mx o @alumno.ipn.mx)."
         
     engine = get_db_engine()
     if not engine:
         return False, "No hay conexión a la base de datos."
 
+    log_security_event(
+        "REGISTER_ATTEMPT", user=email,
+        message=f"Intento de registro. Rol solicitado: {role}",
+        level="INFO", success=True
+    )
+
     try:
         with engine.connect() as conn:
             # 2. Verificar si existe
             check = text("SELECT id FROM users WHERE username = :email")
             if conn.execute(check, {"email": email}).fetchone():
+                log_security_event(
+                    "REGISTER_FAILED", user=email,
+                    message="Usuario ya existe en BD",
+                    level="WARNING", success=False
+                )
                 return False, "⚠️ El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
             
             # 3. Generar Código OTP
@@ -116,16 +169,24 @@ def register_user(email, password, role, name):
                 # However, to simulate "Rollback on Email Fail" as requested:
                 
                 # 5. Enviar Correo
-                print(f"[*] Enviando código {otp_code} a {email}...")
                 sent, msg = send_verification_email(email, otp_code)
                 
                 if not sent:
-                    print(f"[-] Fallo envío de correo: {msg}")
+                    log_security_event(
+                        "REGISTER_FAILED", user=email,
+                        message=f"Fallo en envío de correo OTP: {msg} — transacción revertida",
+                        level="ERROR", success=False
+                    )
                     # Raise exception to trigger rollback of the transaction context
                     raise Exception(f"Fallo envío de correo: {msg}")
                 
                 # If we get here, transaction commits automatically on exit of with block
             
+            log_security_event(
+                "REGISTER_SUCCESS", user=email,
+                message=f"Usuario registrado. OTP enviado. Rol: {role}",
+                level="INFO", success=True
+            )
             return True, "✅ Código de verificación enviado a tu correo IPN."
             
     except Exception as e:
@@ -156,6 +217,11 @@ def verify_otp(email, code):
                 minutes_passed = conn.execute(check_time, {"e": email}).scalar() or 0
                 
                 if minutes_passed > 5:
+                    log_security_event(
+                        "OTP_EXPIRED", user=email,
+                        message=f"OTP expirado ({minutes_passed:.1f} minutos desde emisión)",
+                        level="WARNING", success=False
+                    )
                     return False, "⏳ El código ha expirado (más de 5 mins). Solicita uno nuevo."
 
             if str(db_code).strip() == str(code).strip():
@@ -163,8 +229,18 @@ def verify_otp(email, code):
                 update = text("UPDATE users SET is_verified = TRUE, verification_code = NULL WHERE username = :email")
                 conn.execute(update, {"email": email})
                 conn.commit()
+                log_security_event(
+                    "OTP_SUCCESS", user=email,
+                    message="Cuenta verificada exitosamente mediante OTP",
+                    level="INFO", success=True
+                )
                 return True, "¡Cuenta verificada exitosamente!"
             else:
+                log_security_event(
+                    "OTP_FAILED", user=email,
+                    message="Código OTP incorrecto ingresado",
+                    level="WARNING", success=False
+                )
                 return False, "Código incorrecto."
     except Exception as e:
         return False, f"Error: {e}"
@@ -191,6 +267,11 @@ def resend_verification_code(email):
             
             sent, msg = send_verification_email(email, new_otp)
             if sent:
+                log_security_event(
+                    "OTP_RESENT", user=email,
+                    message="Nuevo OTP generado y enviado",
+                    level="INFO", success=True
+                )
                 return True, "✅ Nuevo código enviado."
             else:
                 return False, f"Error enviando correo: {msg} (Código debug: {new_otp})"
@@ -199,6 +280,11 @@ def resend_verification_code(email):
 
 def request_password_reset(email):
     """Inicia el proceso de recuperación de contraseña."""
+    log_security_event(
+        "PASSWORD_RESET_REQUEST", user=email,
+        message="Solicitud de restablecimiento de contraseña iniciada",
+        level="INFO", success=True
+    )
     return resend_verification_code(email) # Reutilizamos la lógica de generar OTP
 
 def reset_password(email, otp, new_password):
@@ -224,9 +310,19 @@ def reset_password(email, otp, new_password):
                 """)
                 minutes_passed = conn.execute(check_time, {"e": email}).scalar() or 0
                 if minutes_passed > 5:
-                     return False, "⏳ El código ha expirado."
+                    log_security_event(
+                        "OTP_EXPIRED", user=email,
+                        message=f"OTP de recuperación expirado ({minutes_passed:.1f} mins)",
+                        level="WARNING", success=False
+                    )
+                    return False, "⏳ El código ha expirado."
 
             if str(db_code).strip() != str(otp).strip():
+                log_security_event(
+                    "OTP_FAILED", user=email,
+                    message="OTP de recuperación incorrecto",
+                    level="WARNING", success=False
+                )
                 return False, "Código incorrecto."
 
             # 2. Actualizar Password
@@ -238,7 +334,17 @@ def reset_password(email, otp, new_password):
             conn.execute(update, {"pwd": hash_password(new_password), "email": email})
             conn.commit()
             
+            log_security_event(
+                "PASSWORD_RESET_SUCCESS", user=email,
+                message="Contraseña actualizada exitosamente",
+                level="INFO", success=True
+            )
             return True, "✅ Contraseña actualizada exitosamente."
             
     except Exception as e:
+        log_security_event(
+            "DB_ERROR", user=email,
+            message=f"Error al restablecer contraseña: {e}",
+            level="ERROR", success=False
+        )
         return False, f"Error BD: {e}"

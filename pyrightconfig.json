@@ -1,0 +1,11 @@
+{
+  "pythonVersion": "3.10",
+  "extraPaths": ["."],
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "none",
+  "reportOptionalSubscript": "warning",
+  "reportOptionalMemberAccess": "warning",
+  "reportOptionalCall": "warning",
+  "reportGeneralTypeIssues": "warning"
+}

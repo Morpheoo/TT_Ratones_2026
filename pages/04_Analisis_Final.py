@@ -107,11 +107,15 @@ def _resolve_pose_source_csv(
     return ""
 
 
-def _resolve_preferred_simba_model(model_dir: str, candidate_names: list[str]) -> tuple[str, str]:
-    for candidate_name in candidate_names:
-        candidate_path = os.path.join(model_dir, candidate_name)
-        if os.path.exists(candidate_path):
-            return candidate_path, candidate_name
+def _resolve_preferred_simba_model(candidate_paths: list[str]) -> tuple[str, str]:
+    seen: set[str] = set()
+    for candidate_path in candidate_paths:
+        normalized = os.path.abspath(candidate_path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        if os.path.exists(normalized):
+            return normalized, os.path.basename(normalized)
     return "", ""
 
 # ── Path setup ────────────────────────────────────────────────────────────────
@@ -240,17 +244,23 @@ zonas = st.session_state.get("zonas_configuradas", [])
 tiene_zonas = bool(zonas)
 
 # 3. ¿Modelos SimBA disponibles?
-MODEL_VALIDATIONS_DIR = os.path.join(
-    "data", "simba_projects", "New folder", "thigmotaxis_optimizado", "models", "validations"
+MODEL_ROOT_DIR = os.path.join(
+    "data", "simba_projects", "New folder", "thigmotaxis_optimizado", "models"
 )
-MODEL_THIGMO, MODEL_THIGMO_NAME = _resolve_preferred_simba_model(
-    MODEL_VALIDATIONS_DIR,
-    ["Thigmotaxis_3.sav", "Thigmotaxis_0.sav", "Thigmotaxis_2.sav"],
-)
-MODEL_GROOMING, MODEL_GROOMING_NAME = _resolve_preferred_simba_model(
-    MODEL_VALIDATIONS_DIR,
-    ["Grooming_0.sav", "Grooming_1.sav", "Grooming_2.sav"],
-)
+MODEL_GENERATED_DIR = os.path.join(MODEL_ROOT_DIR, "generated_models")
+MODEL_VALIDATIONS_DIR = os.path.join(MODEL_ROOT_DIR, "validations")
+MODEL_THIGMO, MODEL_THIGMO_NAME = _resolve_preferred_simba_model([
+    os.path.join(MODEL_GENERATED_DIR, "Thigmotaxis.sav"),
+    os.path.join(MODEL_VALIDATIONS_DIR, "Thigmotaxis_3.sav"),
+    os.path.join(MODEL_VALIDATIONS_DIR, "Thigmotaxis_0.sav"),
+    os.path.join(MODEL_VALIDATIONS_DIR, "Thigmotaxis_2.sav"),
+])
+MODEL_GROOMING, MODEL_GROOMING_NAME = _resolve_preferred_simba_model([
+    os.path.join(MODEL_GENERATED_DIR, "Grooming.sav"),
+    os.path.join(MODEL_VALIDATIONS_DIR, "Grooming_0.sav"),
+    os.path.join(MODEL_VALIDATIONS_DIR, "Grooming_1.sav"),
+    os.path.join(MODEL_VALIDATIONS_DIR, "Grooming_2.sav"),
+])
 tiene_modelos = os.path.exists(MODEL_THIGMO) and os.path.exists(MODEL_GROOMING)
 
 with st.expander("📋 Verificación de Prerrequisitos", expanded=not (tiene_features and tiene_zonas)):

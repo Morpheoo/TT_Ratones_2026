@@ -5,17 +5,17 @@ import unittest
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.auth import hash_password, validate_ipn_domain, check_admin_access
+from src.auth import hash_password, check_password, validate_ipn_domain, check_admin_access
 
 class TestAuthLogic(unittest.TestCase):
 
     def test_hash_password(self):
-        """Test that hashing is deterministic and not plain text."""
+        """Test that hashing is secure and verifiable."""
         p1 = "secret123"
         h1 = hash_password(p1)
-        h2 = hash_password(p1)
-        self.assertEqual(h1, h2)
         self.assertNotEqual(p1, h1)
+        self.assertTrue(check_password(p1, h1))
+        self.assertFalse(check_password("wrong", h1))
         self.assertTrue(len(h1) > 10)
 
     def test_validate_domain(self):

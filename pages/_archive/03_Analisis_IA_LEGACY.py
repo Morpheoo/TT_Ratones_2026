@@ -10,13 +10,20 @@ import threading
 # moviepy NO se importa aquí: este módulo delega el procesamiento de video
 # a subprocesos externos (venv_310), por lo que el import sería overhead puro.
 
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+if os.path.join(os.getcwd(), "src") not in sys.path:
+    sys.path.append(os.path.join(os.getcwd(), "src"))
+
+from ui_components import generic_splash_loader
+
 # ================= 0. PERSISTENCIA =================
 # REGLA #1: set_page_config SIEMPRE primero, antes de cualquier st.*
 st.set_page_config(page_title="Análisis IA (EPM)", page_icon="🧠", layout="wide")
 
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
-from src.session_utils import load_session, save_session
+from session_utils import load_session, save_session
 
 # Cargar sesión antes de validar login
 load_session()
@@ -51,8 +58,7 @@ if st.session_state.get("dlc_device_opt") == "CPU (Forzar)":
     except ImportError:
         pass
 else:
-    if "CUDA_VISIBLE_DEVICES" in os.environ:
-        del os.environ["CUDA_VISIBLE_DEVICES"]
+    os.environ.pop("CUDA_VISIBLE_DEVICES", None)
 # Los imports pesados (deeplabcut, ultralytics) se cargan DESPUÉS de la guardia
 # para asegurar que respetan CUDA_VISIBLE_DEVICES
 import traceback
@@ -61,53 +67,65 @@ import threading
 deeplabcut = None
 dlc_import_error = None
 
+@st.cache_resource
+def cargar_motores_dlc():
+    """Carga de forma persistente DeepLabCut con parches."""
+    try:
+        import os
+        os.environ["TF_USE_LEGACY_KERAS"] = "1"
+        import tensorflow as tf
+        import tf_keras
+        if not hasattr(tf_keras, "legacy_tf_layers"):
+            tf_keras.legacy_tf_layers = tf.compat.v1.layers
+        
+        import deeplabcut as dlc_lib
+        
+        import importlib
+        import deeplabcut.modelzoo.api.superanimal_inference
+        importlib.reload(deeplabcut.modelzoo.api.superanimal_inference)
+        import deeplabcut.modelzoo.api.spatiotemporal_adapt
+        importlib.reload(deeplabcut.modelzoo.api.spatiotemporal_adapt)
+        import deeplabcut.pose_estimation_tensorflow.predict_supermodel
+        importlib.reload(deeplabcut.pose_estimation_tensorflow.predict_supermodel)
+        
+        return dlc_lib
+    except Exception as e:
+        return f"{type(e).__name__}: {str(e)}"
+
+@st.cache_resource
+def cargar_motor_yolo():
+    """Carga persistente de YOLOv8."""
+    try:
+        from ultralytics import YOLO
+        return YOLO
+    except Exception as e:
+        return e
+
 # Función para cargar motores bajo demanda
 def cargar_motores():
+    """Carga persistente de motores usando st.cache_resource."""
     global deeplabcut, dlc_import_error
+    res = cargar_motores_dlc()
+    if isinstance(res, str):
+        dlc_import_error = res
+    else:
+        deeplabcut = res
+    return
+
+def dlc_loading_sequence():
+    """Generador para el splash screen de Análisis IA."""
+    yield 10, "Validando entorno Blackwell/CPU..."
+    time.sleep(0.4)
     
-    # Cargar DeepLabCut
-    if deeplabcut is None:
-        try:
-            # --- HOTFIX: Patch tf_keras to include legacy_tf_layers ---
-            import os
-            os.environ["TF_USE_LEGACY_KERAS"] = "1"
-            import tensorflow as tf
-            import tf_keras
-            if not hasattr(tf_keras, "legacy_tf_layers"):
-                try:
-                    tf_keras.legacy_tf_layers = tf.compat.v1.layers
-                    print("[HOTFIX] Patched tf_keras.legacy_tf_layers = tf.compat.v1.layers")
-                except Exception as e:
-                    print(f"[HOTFIX WARNING] Could not patch legacy_tf_layers: {e}")
-            # -------------------------------------------------------------
-
-            import deeplabcut as dlc_lib
-            deeplabcut = dlc_lib
-            
-            # --- HOTFIX: Reload modules to apply patches (Windows Path Limit) ---
-            import importlib
-            try:
-                # 1. Reload the patched inference module
-                import deeplabcut.modelzoo.api.superanimal_inference
-                importlib.reload(deeplabcut.modelzoo.api.superanimal_inference)
-                
-                # 2. Reload the adapter which uses the inference module
-                import deeplabcut.modelzoo.api.spatiotemporal_adapt
-                importlib.reload(deeplabcut.modelzoo.api.spatiotemporal_adapt)
-
-                # 3. Reload the predict logic which uses the adapter
-                import deeplabcut.pose_estimation_tensorflow.predict_supermodel
-                importlib.reload(deeplabcut.pose_estimation_tensorflow.predict_supermodel)
-                
-                print("[HOTFIX] DeepLabCut modules reloaded successfully.")
-            except Exception as e:
-                print(f"[HOTFIX WARNING] Could not reload DLC modules: {e}")
-            # -------------------------------------------------------------------
-            
-        except Exception as e:
-            dlc_import_error = f"{type(e).__name__}: {str(e)}"
-            
-    # YOLO se carga globalmente pero solo se usa después
+    yield 50, "Cargando DeepLabCut (Keypoints)..."
+    cargar_motores()
+    
+    yield 80, "Cargando Ultralytics (YOLOv8)..."
+    cargar_motor_yolo()
+    
+    yield 100, "Sincronizando estado de sesión..."
+    time.sleep(0.3)
+    return True
 
 # ================== 1. VERIFICAR LOGIN Y ENTORNO ==================
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -122,14 +140,14 @@ if not sys.version.startswith("3.11"):
     if not st.checkbox("Continuar de todos modos (DLC no funcionará)"):
         st.stop()
 
-# ================== 2. CARGAR MOTORES (LAZY) ==================
-cargar_motores()
-
-from ultralytics import YOLO # Importar aquí para que respete la env var anterior
+# ================== 2. EJECUCIÓN DEL SPLASH SCREEN (MÓDULO IA) ==================
+if "ai_loaded" not in st.session_state:
+    generic_splash_loader(dlc_loading_sequence())
+    st.session_state.ai_loaded = True
 
 st.session_state.init_done = True
 
-from src.auth import check_admin_access
+from auth import check_admin_access
 
 # GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
 role = st.session_state.get("role")
@@ -138,126 +156,78 @@ if check_admin_access(role):
     st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
     st.stop()
 
-# ================== 2. TEMA CLARO / OSCURO ==================
-if "theme_mode" not in st.session_state:
-    st.session_state.theme_mode = "Oscuro"
-
-theme_mode = st.sidebar.radio(
-    "Tema de la interfaz",
-    ["Claro", "Oscuro"],
-    index=0 if st.session_state.theme_mode == "Claro" else 1,
-)
-st.session_state.theme_mode = theme_mode
-
-if theme_mode == "Claro":
-    colors = {
-        "page_bg": "#d1fae5",
-        "card_bg": "#ecfdf5",
-        "text_main": "#064e3b",
-        "shadow": "rgba(15, 23, 42, 0.15)",
-        "primary": "#10b981",
-        "primary_hover": "#059669",
-    }
-else:
-    colors = {
-        "page_bg": "#022c22",
-        "card_bg": "#064e3b",
-        "text_main": "#ecfdf5",
-        "shadow": "rgba(0,0,0,0.6)",
-        "primary": "#22c55e",
-        "primary_hover": "#16a34a",
-    }
+# ================== 2. TEMA Y ESTILOS ==================
+from ui_theme import use_theme
+use_theme()
 
 # ================== 3. CSS GLOBAL ==================
 st.markdown(
-    f"""
+    """
     <style>
-    .stApp {{
-        background-color: {colors["page_bg"]};
-    }}
+    /* Labels genéricos */
+    label {
+        color: var(--text-main) !important;
+    }
 
-/* Labels genéricos */
-label {{
-    color: {colors["text_main"]} !important;
-}}
+    /* Toggle, sliders, etc. -> usan este contenedor */
+    [data-testid="stWidgetLabel"] * {
+        color: var(--text-main) !important;
+    }
 
-/* Toggle, sliders, etc. -> usan este contenedor */
-[data-testid="stWidgetLabel"] * {{
-    color: {colors["text_main"]} !important;
-}}
+    /* Métricas (Zona actual) */
+    [data-testid="stMetric"] * {
+        color: var(--text-main) !important;
+    }
 
-/* Métricas (Zona actual) */
-[data-testid="stMetric"] * {{
-    color: {colors["text_main"]} !important;
-}}
-
-.tt-ia-title {{
-        font-family: 'Segoe UI', sans-serif;
+    .tt-ia-title {
+        font-family: 'Inter', sans-serif;
         font-weight: 800;
         font-size: 1.9rem;
-        color: {colors["text_main"]};
+        color: var(--text-main) !important;
         letter-spacing: 0.04em;
         margin-bottom: 0.3rem;
-    }}
+    }
 
-    .tt-ia-subtitle {{
+    .tt-ia-subtitle {
         font-size: 0.95rem;
-        color: {colors["text_main"]};
+        color: var(--text-main) !important;
         opacity: 0.9;
         margin-bottom: 1.2rem;
-    }}
+    }
 
-    .tt-card {{
-        background-color: {colors["card_bg"]};
-        border-radius: 18px;
+    .tt-card {
+        background-color: var(--card-bg);
+        border-radius: 0.5rem;
         padding: 1.2rem 1.4rem;
-        box-shadow: 0 14px 30px {colors["shadow"]};
-        border: 1px solid rgba(15,23,42,0.18);
+        box-shadow: 0 4px 15px var(--shadow);
+        border: 1px solid var(--card-border);
+        border-top: 3px solid var(--primary);
         margin-bottom: 1.2rem;
-        color: {colors["text_main"]};
-    }}
-    .tt-card p, .tt-card span, .tt-card div {{
-        color: {colors["text_main"]} !important;
-    }}
+        color: var(--text-main) !important;
+    }
+    .tt-card p, .tt-card span, .tt-card div {
+        color: var(--text-main) !important;
+    }
 
-    .tt-section-title {{
+    .tt-section-title {
         font-size: 1.05rem;
         font-weight: 700;
-        color: {colors["text_main"]};
+        color: var(--text-main) !important;
         margin-bottom: 0.5rem;
-    }}
-
-    /* Botones */
-    .stButton > button {{
-        background-color: {colors["primary"]};
-        color: white;
-        border: none;
-        border-radius: 999px;
-        padding: 0.45rem 1.3rem;
-        font-size: 0.9rem;
-        font-weight: 600;
-    }}
-    .stButton > button:hover {{
-        background-color: {colors["primary_hover"]};
-    }}
+    }
 
     /* Alertas (info, warning, etc.) */
-    .stAlert {{
-        color: {colors["text_main"]} !important;
-        border-radius: 14px;
-    }}
-
-    /* Labels de inputs (slider, text_input, toggle, etc.) */
-    label {{
-        color: {colors["text_main"]} !important;
-    }}
+    .stAlert {
+        color: var(--text-main) !important;
+        border-radius: 0.5rem;
+    }
 
     /* MÉTRICAS: Zona actual en el mismo color del tema */
     [data-testid="stMetricValue"],
     [data-testid="stMetricLabel"],
-    [data-testid="stMetricDelta"] {{
-        color: {colors["text_main"]} !important;
-    }}
+    [data-testid="stMetricDelta"] {
+        color: var(--text-main) !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -300,7 +270,7 @@ with st.expander("⏩ Carga Rápida de Experimentación (Atajo)", expanded=False
         videos_disponibles = sorted(list(set(videos_validos)))
         video_rapido = st.selectbox("1. Seleccionar Video Procesado", ["(Usar video del flujo actual)"] + videos_disponibles)
     with col_var2:
-        from src.zone_templates import list_templates, load_template
+        from zone_templates import list_templates, load_template
         templates = list_templates()
         template_rapido = st.selectbox("2. Seleccionar Template de Zonas", ["(Usar zonas actuales)"] + templates)
 
@@ -317,7 +287,7 @@ with col_var2:
             import os
             if os.getcwd() not in sys.path:
                 sys.path.append(os.getcwd())
-            from src.scripts.generar_video_prediccion import select_maze_rois
+            from scripts.generar_video_prediccion import select_maze_rois
             
             # Esto bloqueará Streamlit hasta que el usuario termine en la ventana local de OpenCV
             roi_result = select_maze_rois(st.session_state.get("ruta_video_actual"))
@@ -563,70 +533,121 @@ with col_video:
 
 # ================== 7. FUNCIÓN GEOMÉTRICA ==================
 # ================== 7. FUNCIÓN GEOMÉTRICA Y HEURÍSTICAS ==================
-from src.analysis_logic import checar_zona, calcular_distancia, detectar_grooming, detectar_thigmotaxis
+from analysis_logic import checar_zona, calcular_distancia, detectar_grooming, detectar_thigmotaxis
 
 # ================== 8. BUCLE DE PROCESAMIENTO ==================
-if iniciar_completo:
-    st.toast("Iniciando Pipeline Completo...")
-    status_container = st.status("Ejecutando Full Pipeline (esto tomará varios minutos)...", expanded=True)
-    log_area = st.empty()
-    
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS: Proceso Desvinculado (Sobrevive al cambio de pestaña)
+# ─────────────────────────────────────────────────────────────────────────────
+PIPELINE_LOG  = os.path.abspath("logs/pipeline_dlc.log")
+PIPELINE_PID  = os.path.abspath("logs/pipeline_dlc.pid")
+PIPELINE_DONE = os.path.abspath("logs/pipeline_dlc.done")
+
+def _pipeline_is_running() -> bool:
+    """Devuelve True si el proceso del pipeline aún existe en el sistema."""
+    if not os.path.exists(PIPELINE_PID):
+        return False
     try:
-        # Ruta al script
-        script_path = os.path.abspath(os.path.join("src", "scripts", "full_pipeline.py"))
-        venv_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
-        
-        if not os.path.exists(venv_python):
-             st.error("No se encontró el entorno venv_310")
-             st.stop()
-             
-        cmd = [venv_python, script_path]
-        
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1,
-            creationflags=subprocess.CREATE_NO_WINDOW
-        )
-        
-        logs = []
-        for line in iter(process.stdout.readline, ''):
-            clean_line = line.strip()
-            logs.append(clean_line)
-            # Mantener solo las últimas 20 líneas para no saturar UI
-            log_text = "\n".join(logs[-20:]) 
-            log_area.code(log_text, language="bash")
-            print(f"[Pipeline] {clean_line}")
-            
-        process.stdout.close()
-        return_code = process.wait()
-        
-        if return_code == 0:
-            status_container.update(label="✅ Pipeline completado con éxito!", state="complete")
-            st.success("¡Análisis completo terminado!")
-            
-            # Buscar video resultante
-            # El script full_pipeline guarda en videos/R5B20_01mar24_full_behavior_h264.mp4
-            # Pero el nombre depende de la variable en el script.
-            # Buscamos el h264 más reciente en la carpeta de videos del proyecto SimBA
-            project_videos_dir = os.path.join("data", "simba_projects", "SimBA_EPM_Analysis", "project_folder", "videos")
-            if os.path.exists(project_videos_dir):
-                files = glob.glob(os.path.join(project_videos_dir, "*_behavior_h264.mp4"))
-                if files:
-                    latest_video = max(files, key=os.path.getctime)
-                    st.info(f"Video generado: {os.path.basename(latest_video)}")
-                    st.video(latest_video)
-                else:
-                    st.warning("No se encontró el video final generado.")
+        pid = int(open(PIPELINE_PID).read().strip())
+        os.kill(pid, 0)  # señal 0 = ¿existe el proceso?
+        return True
+    except (ValueError, OSError):
+        return False
+
+def _launch_detached_pipeline(cmd: list) -> int:
+    """Lanza el pipeline como proceso completamente desvinculado de Streamlit."""
+    os.makedirs("logs", exist_ok=True)
+    # Limpiar archivos de sesión anterior
+    for f in [PIPELINE_LOG, PIPELINE_PID, PIPELINE_DONE]:
+        if os.path.exists(f):
+            os.remove(f)
+
+    log_file = open(PIPELINE_LOG, "w", encoding="utf-8", buffering=1)
+
+    _DETACHED   = 0x00000008   # DETACHED_PROCESS   – sin consola adjunta
+    _NEW_PG     = 0x00000200   # CREATE_NEW_PROCESS_GROUP – SIGINT aislado
+    _NO_WINDOW  = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        close_fds=True,
+        creationflags=_DETACHED | _NEW_PG | _NO_WINDOW,
+    )
+    # Guardar PID en disco para poder reenganchar la UI tras cambio de pestaña
+    with open(PIPELINE_PID, "w") as f:
+        f.write(str(proc.pid))
+    return proc.pid
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BLOQUE PRINCIPAL: Iniciar o Monitorear pipeline DLC
+# ─────────────────────────────────────────────────────────────────────────────
+if iniciar_completo:
+    script_path  = os.path.abspath(os.path.join("src", "scripts", "full_pipeline.py"))
+    venv_python  = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
+
+    if not os.path.exists(venv_python):
+        st.error("❌ No se encontró el entorno **venv_310**. Verifica la instalación.")
+        st.stop()
+
+    cmd = [venv_python, script_path, "--video", ruta_video]
+    pid = _launch_detached_pipeline(cmd)
+    st.session_state["pipeline_dlc_activo"] = True
+    st.toast(f"🚀 Pipeline lanzado (PID {pid}). ¡Ya puedes cambiar de pestaña!")
+    st.rerun()
+
+# Panel de monitoreo persistente (se muestra si hay pipeline corriendo O si terminó recientemente)
+if st.session_state.get("pipeline_dlc_activo") or _pipeline_is_running() or os.path.exists(PIPELINE_DONE):
+
+    corriendo = _pipeline_is_running()
+    terminado = os.path.exists(PIPELINE_DONE) and not corriendo
+
+    if corriendo:
+        st.session_state["pipeline_dlc_activo"] = True
+        monitor_label = "🔄 Pipeline DLC corriendo en segundo plano — puedes navegar libremente"
+        st.info(monitor_label)
+    elif terminado:
+        st.session_state["pipeline_dlc_activo"] = False
+        exito = open(PIPELINE_DONE).read().strip() == "0"
+        if exito:
+            st.success("✅ **¡Pipeline DLC completado con éxito!** Puedes lanzar el Re-Análisis Acelerado.")
         else:
-            status_container.update(label="❌ Error en el pipeline", state="error")
-            st.error("El pipeline falló. Revisa los logs arriba.")
-            
-    except Exception as e:
-        status_container.update(label="❌ Error de ejecución", state="error")
-        st.error(f"Error lanzando subprocess: {e}")
+            st.error("❌ El pipeline terminó con errores. Revisa los logs abajo.")
+
+    # ── Log en vivo ──────────────────────────────────────────────────────────
+    with st.expander("📋 Terminal del Pipeline DLC (Log en Vivo)", expanded=corriendo):
+        log_placeholder = st.empty()
+        if os.path.exists(PIPELINE_LOG):
+            try:
+                raw_log = open(PIPELINE_LOG, encoding="utf-8", errors="replace").readlines()
+                ultimas = "".join(raw_log[-30:])  # Mostrar últimas 30 líneas
+                log_placeholder.code(ultimas, language="bash")
+            except Exception:
+                log_placeholder.warning("Leyendo log...")
+
+    col_mon1, col_mon2 = st.columns(2)
+    with col_mon1:
+        if corriendo and st.button("🔁 Refrescar Log", use_container_width=True):
+            st.rerun()
+    with col_mon2:
+        if corriendo and st.button("⛔ Cancelar Pipeline", use_container_width=True, type="secondary"):
+            try:
+                pid = int(open(PIPELINE_PID).read().strip())
+                import signal
+                os.kill(pid, signal.SIGTERM)
+                for f in [PIPELINE_PID, PIPELINE_DONE]:
+                    if os.path.exists(f): os.remove(f)
+                st.session_state["pipeline_dlc_activo"] = False
+                st.warning("Pipeline cancelado manualmente.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"No se pudo cancelar: {e}")
+
+    # Auto-refresco cada 5 segundos mientras corre
+    if corriendo:
+        time.sleep(5)
+        st.rerun()
 
 if iniciar_acelerado:
     st.toast("Iniciando Re-Análisis Acelerado...")
@@ -670,14 +691,16 @@ if iniciar_acelerado:
             "--zonas_json", zonas_json_str
         ]
         
+        _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
             bufsize=1,
-            creationflags=subprocess.CREATE_NO_WINDOW
+            creationflags=_NO_WINDOW
         )
+        assert process.stdout is not None  # stdout=PIPE garantizado
         logs = []
         for line in iter(process.stdout.readline, ''):
             clean_line = line.strip()
@@ -728,7 +751,7 @@ if iniciar_acelerado:
                 
                 # --- GUARDAR HISTORIAL EN LA BASE DE DATOS ---
                 try:
-                    from src.db.connection import get_db_engine
+                    from db.connection import get_db_engine
                     from sqlalchemy import text
                     engine = get_db_engine()
                     if engine:
@@ -816,7 +839,7 @@ if iniciar:
         progress_text = st.empty()
         
         # Variable para capturar el resultado/error del hilo
-        analysis_state = {"done": False, "error": None}
+        analysis_state: dict = {"done": False, "error": None}
         
         # Capturar parámetros ANTES de lanzar el hilo (st.session_state no es accesible dentro del thread)
         t_start_val = st.session_state.get("inicio_recorte", 0)
@@ -850,7 +873,8 @@ if iniciar:
                 print(f"[DLC] Valores de recorte recibidos: t_start={t_start}, t_end={t_end}")
                 
                 # Cargar el clip para obtener la duración real
-                original_clip = VideoFileClip(video_path)
+                from moviepy.editor import VideoFileClip as _VideoFileClip
+                original_clip = _VideoFileClip(video_path)
                 duracion_total = original_clip.duration
                 
                 # Solo recortamos si el rango es diferente al video completo
@@ -898,21 +922,22 @@ if iniciar:
                 print(f"[DLC] Ejecutando comando: {' '.join(cmd)}")
                 
                 # Ejecutar subprocess y capturar salida en tiempo real
+                _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     universal_newlines=True,
                     bufsize=1,
-                    creationflags=subprocess.CREATE_NO_WINDOW
+                    creationflags=_NO_WINDOW
                 )
                 
-                # Leer salida línea por línea para logs
-                for line in iter(process.stdout.readline, ''):
-                    print(f"[Subprocess] {line.strip()}")
-                    # Podríamos parsear % aquí si el script lo escupiera
-                
-                process.stdout.close()
+                stdout_handle = process.stdout
+                logs: list[str] = []
+                if stdout_handle:
+                    for line in iter(stdout_handle.readline, ''):
+                        print(f"[Subprocess] {line.strip()}")
+                    stdout_handle.close()
                 return_code = process.wait()
                 
                 if return_code != 0:
@@ -962,7 +987,6 @@ if iniciar:
         
         try:
             # Buscar el archivo .h5 o .csv generado
-            import glob
             dest_folder = os.path.dirname(ruta_video)
             video_usado = st.session_state.get("ultimo_video_analizado", ruta_video)
             base_name_usado = os.path.splitext(os.path.basename(video_usado))[0]
@@ -1102,7 +1126,12 @@ if iniciar:
                 if model_target == "yolov8n.pt":  # Sugerir pose si usan el default n
                      st.info("💡 Consejo: Usa un modelo '-pose.pt' para detección postural.")
                 
-                model = YOLO(model_target)
+                YOLO_CLASS = cargar_motor_yolo()
+                if isinstance(YOLO_CLASS, Exception):
+                    st.error(f"Error cargando motor YOLO: {YOLO_CLASS}")
+                    st.stop()
+                
+                model = YOLO_CLASS(model_target)
                 st.success(f"Modelo `{model_target}` cargado correctamente.")
             except Exception as e:
                 st.error(f"Error cargando modelo: {e}")

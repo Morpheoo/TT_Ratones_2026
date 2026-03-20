@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 title Launcher TT Ratones 2026
 
 echo ========================================================
@@ -7,10 +7,25 @@ echo       SISTEMA DE ASISTENCIA PARA EPM - TT 2026
 echo ========================================================
 echo.
 
-REM *** CRITICAL FIX: cambiar al directorio del .bat PRIMERO ***
+REM *** Cambiar al directorio del .bat PRIMERO ***
 cd /d "%~dp0"
 
-echo [INFO] Verificando estado de Docker...
+REM *** Verificar que los archivos necesarios existen ***
+if not exist "run_app.py" (
+    echo [ERROR] No se encontro run_app.py
+    echo [INFO] Asegurate que estás en el directorio correcto
+    pause
+    exit /b 1
+)
+
+if not exist "start_services.py" (
+    echo [ERROR] No se encontro start_services.py
+    echo [INFO] Por favor descarga los archivos más recientes del proyecto
+    pause
+    exit /b 1
+)
+
+echo [INFO] Verificando Docker Desktop...
 docker info >nul 2>&1
 if %errorlevel% neq 0 (
     echo [WARN] Docker no esta corriendo.
@@ -19,53 +34,52 @@ if %errorlevel% neq 0 (
     if exist "C:\Program Files\Docker\Docker\Docker Desktop.exe" (
         start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
     ) else (
-        echo [ERROR] No se encontro Docker Desktop. Inicie Docker Desktop manualmente.
+        echo [ERROR] No se encontro Docker Desktop en la ubicacion esperada.
+        echo [INFO] Por favor abre Docker Desktop manualmente y vuelve a ejecutar este script.
         pause
+        exit /b 1
     )
 
-    echo [INFO] Esperando a que Docker inicie...
+    echo [INFO] Esperando a que Docker daemon inicie (max 60 segundos)...
+    set "count=0"
     :WAIT_DOCKER
-    timeout /t 5 /nobreak >nul
+    timeout /t 3 /nobreak >nul
     docker info >nul 2>&1
-    if %errorlevel% neq 0 goto WAIT_DOCKER
-    echo [OK] Docker esta listo!
+    if %errorlevel% neq 0 (
+        set /a count+=1
+        if !count! geq 20 (
+            echo [ERROR] Docker tardo demasiado en iniciar. Intenta nuevamente.
+            pause
+            exit /b 1
+        )
+        goto WAIT_DOCKER
+    )
+    echo [OK] Docker daemon esta listo.
 ) else (
-    echo [OK] Docker ya esta corriendo.
+    echo [OK] Docker ya estaba corriendo.
 )
 
 echo.
-echo [INFO] Levantando servicios de Base de Datos (docker-compose)...
-docker-compose up -d
-if %errorlevel% neq 0 (
-    echo [ERROR] Fallo al ejecutar docker-compose up. Verifique su instalacion.
-    pause
-    exit /b 1
-)
-
-echo [INFO] Esperando a que PostgreSQL acepte conexiones (health-check)...
-:WAIT_POSTGRES
-timeout /t 3 /nobreak >nul
-docker exec tt_ratones_db pg_isready -q >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [..] PostgreSQL aun iniciando, reintentando...
-    goto WAIT_POSTGRES
-)
-echo [OK] Base de Datos lista y aceptando conexiones en 5432.
-
-echo.
-echo [START] Levantando Base de Datos (Docker) en 2do plano...
-echo.
-echo [INFO] Iniciando Aplicacion Streamlit...
-echo [INFO] Se abrira en su navegador predeterminado.
-echo [INFO] NO CIERRE ESTA VENTANA NEGRA mientras use la aplicacion.
+echo ========================================================
+echo [INFO] Iniciando servicios con run_app.py...
+echo [INFO] Esto levantara docker-compose y esperara a PostgreSQL
+echo ========================================================
 echo.
 
+REM *** Buscar venv_311 y activar si existe ***
 if exist "venv_311\Scripts\activate.bat" (
+    echo [INFO] Activando entorno venv_311...
     call venv_311\Scripts\activate.bat
 ) else (
     echo [WARN] No se encontro venv_311, usando python del sistema...
 )
 
-streamlit run Home.py
+echo.
+echo [INFO] Ejecutando run_app.py (esto abre Streamlit)...
+echo [INFO] Se abrira en tu navegador predeterminado.
+echo [INFO] NO CIERRE ESTA VENTANA mientras uses la aplicacion.
+echo.
+
+python run_app.py
 
 pause

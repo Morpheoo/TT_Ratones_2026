@@ -1,0 +1,702 @@
+1
+Manual de 
+Diseño Web
+Institucional
+Instituto Politécnico Nacional
+2
+4
+18
+48
+3
+Introducción
+Página de inicio
+Uso de componentes
+Estrategia SEO 
+(visualización en 
+buscadores)
+Indice
+3
+Introducción
+• Con el propósito de establecer lineamientos claros para la 
+organización y diseño de los contenidos en las dependencias 
+politécnicas, se desarrolló el Manual de Diseño Web.
+• Este documento unifica criterios para asegurar que todos los sitios 
+mantengan una estructura coherente, una imagen institucional sólida 
+y una experiencia de navegación sencilla y funcional.
+• Asimismo, ofrece pautas precisas que facilitan la creación, edición y 
+crecimiento de los sitios web, garantizando una presentación uniforme 
+y un acceso ágil a la información para todos los usuarios.
+4
+Página de inicio
+Este espacio concentra las actividades, oportunidades y noticias más recientes para mantener a toda la comunidad académica 
+informada y conectada: estudiantes, docentes y personal administrativo y público en general.
+Nombre y descripción de la unidad
+Bienvenidos a [Nombre de la Unidad Académica]
+[Nombre de la Unidad Académica] es una institución dedicada a la formación de profesionales de excelencia en [áreas de 
+especialización]. Aquí encontrarás información relevante sobre nuestras actividades, programas académicos y servicios para 
+toda la comunidad.
+“Bienvenidos a [Nombre de la Unidad Académica]. Somos una institución comprometida con la formación de profesionales 
+de excelencia, destacándonos en [áreas de especialización]. Aquí encontrarás información clave sobre nuestras actividades, 
+programas académicos y servicios para estudiantes, docentes y personal administrativo y público en general.”
+
+5
+Promovemos una comunicación fluida con estudiantes y docentes, proporcionando acceso fácil a información clave y 
+eventos que refuercen los lazos académicos y profesionales.
+Incluir testimonios de estudiantes, egresados y docentes sobre su experiencia en la unidad académica puede 
+proporcionar una visión personal y atractiva que atraiga a nuevos aspirantes y refuerce la confianza en la institución.
+Conexión con la Comunidad Politécnica
+
+6
+En el slider responsivo se deben 
+usar imágenes con bajo contraste
+7
+Datos numéricos pertinentes para nivel superior – opciones (numeralia):
+1. Número de estudiantes matriculados (actuales y egresados por generación).
+2. Porcentaje de titulados o tasas de graduación.
+3. Programas académicos ofrecidos (licenciaturas, maestrías, doctorados).
+4. Tasa de empleabilidad de egresados.
+Estas métricas pueden mostrar de manera clara los logros y el impacto de la unidad académica.
+Conoce nuestros logros, trayectoria y la participación destacada de estudiantes y académicos, reflejando nuestro compromiso 
+con la excelencia y el crecimiento constante.
+Llamadas a la acción (CTAs):
+Llamadas a la acción (CTAs):
+Agrega botones visibles y atractivos con frases como “Lee más”, “Inscríbete aquí” o “Descubre más” para dirigir a los usuarios 
+hacia contenido o formularios relevantes. Ubícalos estratégicamente para aumentar la interacción.
+
+8
+Comunicación
+Mantenemos una comunicación activa con nuestra comunidad, invitando a estudiantes y docentes a participar en 
+eventos, capacitaciones y actividades que enriquecen su formación. También podrás inscribirte en próximos eventos 
+que fortalecen los lazos y la participación en la vida académica.
+Además, ofrecemos inscripciones a próximos eventos, diseñados para fortalecer los lazos dentro de nuestra unidad 
+y asegurar una participación integral en la vida académica.
+
+9
+Importancia de promover la oferta académica
+Destacar los programas académicos permite atraer nuevos estudiantes, fortalecer la reputación institucional y mantener un 
+crecimiento sostenido. 
+Es esencial presentar de forma clara la oferta educativa, con información accesible sobre planes de estudio, perfiles y 
+oportunidades, para asegurar el éxito y la competitividad de la unidad.
+
+10
+Navegación y participación
+Facilita tu experiencia en nuestro sitio web explorando las principales secciones y participando activamente en nuestra 
+comunidad. Utiliza los siguientes enlaces para acceder a la información clave. Navega fácilmente por estas opciones y mantente 
+conectado con nuestras actualizaciones y oportunidades:
+• Estudiantes: Recursos y servicios para tu éxito académico.
+• Aspirantes: Información sobre programas académicos y procesos de admisión.
+• Docentes: Datos y recursos para tu desarrollo profesional.
+• Servicios: Servicios disponibles para estudiantes y personal.
+• Egresados: Oportunidades y mantenimientos de contacto para graduados.
+• Investigación: Proyectos y recursos de investigación en nuestra unidad.
+Resalta los recursos y facilidades que ofrece la unidad académica, como bibliotecas, laboratorios, centros de apoyo, etc. Esto 
+puede ayudar a los visitantes a comprender mejor los beneficios y la infraestructura disponible.
+
+11
+Promoción de actividades y procesos institucionales
+Para mejorar nuestra presencia en la comunidad politécnica y mantener a todos informados, es fundamental promover 
+nuestras actividades y procesos en el sitio web. Aquí te explicamos cómo hacerlo de manera efectiva:
+Crear Secciones Dedicadas
+Reserva espacios específicos en el sitio web para los procesos institucionales. Incluye anuncios de convocatorias, 
+oportunidades y otros procesos relevantes. Asegúrate de que esta información sea clara y fácil de encontrar , utilizando 
+enlaces y listados organizados.
+Utilizar Componentes Adecuados
+Implementa herramientas y componentes del sistema de gestión de contenido (CMS) para gestionar y mostrar eventos 
+y actividades. Estos deben permitir actualizar la información fácilmente y presentar los datos de manera atractiva, 
+mejorando la navegación y el acceso a los detalles importantes.
+Mejorar la Visibilidad y Participación:
+Al seguir estos pasos, lograrás una mayor visibilidad de nuestras actividades y procesos, fomentando una mayor 
+participación y fortaleciendo el compromiso con la comunidad politécnica. 
+12
+Ubicación y contacto
+Esta sección presenta la ubicación de nuestra unidad académica y un medio de contacto accesible para solicitar información. 
+Incluye un mapa interactivo, indicaciones precisas y un formulario para enviar consultas.
+Importancia en la Página Principal
+Su presencia en la página principal facilita el acceso a nuestros canales de comunicación, mejora la experiencia del usuario y 
+refuerza la confianza en nuestra institución al demostrar transparencia y compromiso con la comunidad.
+
+13
+Uso de redes sociales
+Fortalece la vinculación con nuestra comunidad mediante redes sociales. A través de nuestros perfiles oficiales, los usuarios 
+pueden seguirnos, compartir contenido y participar en actividades. Estas plataformas permiten difundir noticias, eventos y 
+actualizaciones, además de fomentar la interacción directa y reforzar nuestra presencia institucional.
+Brevedad y claridad
+Mantén el resumen breve y conciso, pero asegurándote de que cada sección capte el interés de los diferentes usuarios 
+(estudiantes, docentes, visitantes).
+
+14
+Imagen de identidad
+Difusión
+Difusión
+Numeralia
+Numeralia
+Iconos
+Iconos
+Agenda
+Agenda
+Enlaces directos
+Enlaces directos
+Oferta académica
+Oferta académica
+Agenda politécnica
+Agenda politécnica
+Ubicación
+Ubicación
+Plantillas y secciones
+Ir a plantilla 1
+Ir a plantilla 2
+15
+Imagen de identidad Imagen de identidad
+Difusión
+Noticias y eventos
+Iconos
+Noticias y eventos
+Oferta académica
+Agenda politécnica
+Ubicación
+Difusión
+Noticias y eventos
+Enlaces directos
+Oferta académica
+Agenda politécnica
+Noticias y eventos
+Ir a plantilla 3 Ir a plantilla 4
+16
+Estructura de menús en los sitios de las dependencias politécnicas
+Cada sitio web debe estar estructurado de acuerdo con el perfil de la dependencia, lo cual ayuda a mantener una navegación 
+clara y ordenada para los usuarios. 
+Las dependencias están organizadas en las siguientes categorías:
+• Estructura de Nivel Medio Superior .
+• Nivel Superior .
+• Posgrado.
+• Centros de Investigación.
+• Centros de Vinculación y Regionales.
+• Áreas Centrales.
+Importancia del menú principal y el menú secundario
+Menú principal: Este menú debe contener las secciones esenciales del sitio web, permitiendo a los usuarios acceder fácilmente a 
+la información más relevante de cada dependencia. Es fundamental que el menú principal mantenga una estructura homogénea 
+y coherente en todos los sitios, reflejando las áreas clave que representan el perfil de la dependencia.
+2. Menú secundario: Debe incluir enlaces o subsecciones que complementen al menú principal, centrados en temas específicos 
+de la dependencia. Debe mantenerse conciso para evitar la saturación y asegurar una navegación clara, organizada e intuitiva.
+
+17
+Guías de Estructuras de contenido 
+Para asegurar que el contenido de los menús esté alineado con las guías y el perfil de las diferentes dependencias politécnicas, 
+cada nivel o tipo de dependencia debe estructurarse y presentarse acorde a sus funciones y público objetivo. A continuación, te 
+proporcionamos las guías de estructuras de contenido para cada tipo de dependencia:
+Recomendaciones generales para la estructura de menús
+• Establecer un máximo de 10 niveles en la jerarquía de menús para mantener una navegación simple y accesible.
+• Mantener una estructura uniforme en todas las secciones del sitio para facilitar la orientación del usuario.
+• Incluir únicamente enlaces necesarios en los menús principales y secundarios para evitar saturación.
+• Utilizar nombres de menú con un máximo de dos palabras y que sean pertinentes al perfil de la dependencia.
+• Evitar el uso de siglas en los menús para garantizar claridad, accesibilidad y correcta interpretación en buscadores.
+• No utilizar menús ancla en la página principal para evitar confusión y saturación del contenido.
+• Organizar la página principal con enlaces que dirijan a subpáginas específicas según el contenido de cada sección. 
+• Nivel Medio Superior
+• Nivel Superior
+• Posgrado
+• Centros de Investigación
+18
+El uso de componentes en la Plataforma Web Institucional MODx v3 las unidades politécnicas deben seguir los lineamientos 
+específicos para mantener la estructura y legibilidad del sitio web:
+Titulos y formato de texto 
+1. Títulos de Componentes: 
+Los componentes deben incluir títulos claros y descriptivos.
+Limitar su uso a secciones o elementos que necesiten destacar información clave.
+Evitar el uso excesivo para no saturar visualmente la interfaz.
+2. Jerarquía de títulos (Heading)
+Utilizar la jerarquía H1–H6 para asegurar consistencia y accesibilidad.
+H1: Título principal de la página. Debe emplear el componente “Título de la unidad”.
+H2–H6: Subtítulos para estructurar secciones y contenidos secundarios.
+Uso de componentes
+Mantener la jerarquía sin saltar niveles y evitando aplicar títulos donde no son necesarios.
+Componente “Display”: Reservar su uso para destacar temas de alta relevancia.
+Su aplicación debe ser limitada para mantener impacto visual y semántico.
+19
+3. MarkDown formato texto 
+El uso de Markdown o formatos de texto en una página debe seguir estas pautas para asegurar una presentación clara y 
+profesional:
+ Jerarquía de Títulos:
+• Usa ##, ###, etc., para organizar el contenido en niveles, ## para secciones y ### para subsecciones. Esto mejora la claridad 
+y facilita la navegación. Evita usar solo un # para los títulos.
+Listas:
+• Utiliza listas con -, *, o 1. para enumeraciones. Las listas ordenadas son ideales para pasos secuenciales, mientras que las 
+desordenadas funcionan bien para ítems sin orden específico.
+Énfasis:
+• Usa *texto* o _texto_ para cursiva y **texto** para negrita, destacando palabras o frases clave.
+Enlaces y Referencias:
+• Añade enlaces con [texto del enlace](URL) para dirigir a los usuarios a otros recursos. Esto enriquece el contenido y facilita el 
+acceso a información adicional.
+Seguir estas pautas ayuda a mantener un formato consistente, accesible y profesional en las páginas.
+
+20
+Paleta de color
+Se establecen los colores que deben usarse en el contenido, con el fin de homologar y mantener una identidad institucional, por 
+lo que se describe sus valores en hexadecimal y en RGB.
+Si bien no es obligatorio utilizar la paleta de color secundaria, si es una sugerencia utilizarla en imágenes, iconos o gráficos de 
+apoyo; los colores de esta paleta fueron seleccionados con rigurosidad para la armonización del contexto del sitio web.
+Paleta de color principal
+Paleta de color secundaria
+
+21
+Sistema de retícula
+Sistema de retícula: se incluyó un sistema responsivo, este sistema de fluido logra escalarse de manera apropiada hasta 12 
+columnas, de acuerdo con el tamaño del dispositivo o ventana gráfica.
+Ejemplo de retícula con columnas  apagadas
+Evitar el uso de código en el frontend de las páginas web es importante por varias razones:
+1. Seguridad: Incluir código directamente en el frontend, como scripts embebidos en HTML, puede abrir puertas a 
+vulnerabilidades como inyección de código o ataques XSS (Cross-Site Scripting), que permiten a atacantes ejecutar código 
+malicioso en el navegador de los usuarios.
+22
+2. Mantenimiento: Al separar el código (especialmente JavaScript y CSS) del HTML, es más fácil actualizar y mantener cada 
+componente. 
+3. Desempeño: Cargar grandes bloques de código en el frontend puede hacer que la página se vuelva más lenta y afecte 
+negativamente la experiencia del usuario. 
+4. Accesibilidad y SEO: Los motores de búsqueda y las herramientas de accesibilidad procesan mejor el contenido cuando 
+el código no interfiere con la estructura HTML. Una página limpia y bien estructurada facilita el posicionamiento SEO y la 
+accesibilidad.
+5. Escalabilidad: Mantener el código separado en archivos específicos para el frontend y backend facilita el escalado del 
+proyecto. Los archivos dedicados permiten a los desarrolladores trabajar en paralelo y escalar la aplicación sin afectar la 
+estructura de la página.
+En resumen, evitar el código en el frontend ayuda a crear sitios más seguros, fáciles de mantener , rápidos y escalables, además 
+de mejorar la accesibilidad y el SEO.
+Uso correcto de fondos en páginas web
+1. Fondos de color sólido: Para áreas con texto, utiliza fondos de color sólido que aseguren un contraste adecuado y faciliten la 
+lectura. Esto mejora la claridad y accesibilidad del contenido.
+23
+2. Resaltar bloques de contenido específicos: Usa fondos de color solo para resaltar bloques específicos de contenido. Evita 
+llenar toda la página con fondos de diferentes colores, ya que esto puede hacer que el sitio se vea sobrecargado y desordenado.
+
+24
+4. Mantener un diseño limpio: Un diseño limpio y organizado mejora la experiencia del usuario. Limita el uso de fondos 
+decorativos para crear un sitio visualmente atractivo, claro y profesional.
+3. Evitar Texto en Fondos con Patrones: No coloques texto sobre fondos con patrones complejos, ya que pueden dificultar la 
+legibilidad y distraer al usuario. Los patrones en los fondos deben usarse solo para destacar áreas visuales sin texto.
+
+25
+5. Imágenes de fondo (Background): Al utilizar imágenes como fondo en un sitio web, es recomendable optar por aquellas que 
+sirvan como textura sutil y discreta. Las imágenes deben ser de bajo contraste y con pocos elementos visuales llamativos, para 
+evitar distracciones del contenido principal.
+ 
+Esto ayuda a mantener la atención en los bloques de información y garantiza una lectura cómoda, sin interferencias que 
+reduzcan la claridad de los mensajes clave.
+Recomendación adicional: Si la imagen de fondo contiene detalles visuales, aplica un filtro de [opacidad o desenfoque leve] para 
+disminuir su impacto y mantener el contenido como foco principal.
+
+26
+Imágenes
+1. Imágenes responsivas: Utiliza los componentes de imágenes responsivas para que se adapten automáticamente al tamaño 
+de la celda o contenedor en distintos dispositivos, sin olvidar utilizar el ALT descriptivo de la imagen.
+2. Formatos recomendados: Las imágenes deben estar en formato .jpg, .gif,  .webp o .svg para optimizar la carga. 
+ Evita el formato .png 
+3. Iconografía: Usa iconos específicos según el diseño, asegurándote de que estén optimizados para la web.
+4. Peso de las imágenes: Reduce el tamaño de archivo de las imágenes para mejorar el rendimiento de la página y reducir 
+tiempos de carga.
+5. Evitar el uso excesivo de imágenes y reducir el peso de la página, te recomiendo lo siguiente:
+Definir prioridades visuales
+Descripción: Identifica las imágenes esenciales para el propósito de la página. Evita imágenes puramente decorativas o 
+redundantes que no agreguen valor al contenido. Recomendación: Limita el uso de imágenes por las que realmente aporten 
+valor informativo o visual al usuario.
+Optimización de Imágenes
+Compresión: Utiliza herramientas de compresión como TinyPNG, iloveIMG o ImageOptim para reducir el tamaño de las 
+imágenes sin perder calidad.
+Uso de Iconos en SVG o CSS
+Descripción: Sustituye las imágenes pequeñas, como los iconos, por gráficos vectoriales en formato SVG o, si es posible, crea los 
+iconos usando CSS. 
+Ventajas: Los SVG son ligeros y escalables, mientras que CSS permite crear elementos visuales sin cargar archivos de imagen.
+
+27
+Resolución de imágenes
+Alta resolución para imágenes clave: Utiliza imágenes de alta resolución únicamente en secciones clave, como banners o fondos 
+principales y su peso no debe ser mayor de 200kb.
+Resolución baja para el resto: Para las imágenes complementarias, utiliza resoluciones y optimizadas.
+Revisión regular de Imágenes
+Descripción: Realiza revisiones periódicas del contenido visual en la página para asegurarte de que todas las imágenes utilizadas 
+sean relevantes y necesarias.
+ 
+Acción: elimina imágenes que ya no aporten al contenido y siempre busca la optimización.
+
+28
+Componentes con imágenes
+Componente Carrusel y Slider
+Los carruseles o sliders son componentes visuales para destacar contenido en una página web. Sin embargo, su efectividad 
+depende de una implementación cuidadosa, ya que un uso inapropiado puede afectar la experiencia del usuario y el rendimiento 
+del sitio. Por ello, es necesario seguir las recomendaciones para su correcto uso:
+1. Contenido relevante y limitado
+Limita las diapositivas a información crítica y evita saturar al usuario.
+2. Compatibilidad y accesibilidad
+Asegura accesibilidad usando etiquetas ALT descriptivas, texto con contraste adecuado y navegación por teclado. 
+Estas prácticas garantizan una experiencia inclusiva, clara y eficiente para todos los usuarios.
+
+29
+3. Optimización para SEO y rendimiento
+Reducir el peso de imágenes y recursos en el carrusel (máximo 8) mejora la velocidad de carga del sitio. Además, incluir texto 
+alternativo y descripciones adecuadas favorece la indexación en buscadores y aumenta la visibilidad del contenido.
+4. Un solo carrusel o slider por página
+Se recomienda usar únicamente un carrusel por página para evitar afectar la velocidad de carga y el uso de recursos. Esto mejora 
+la navegación, especialmente en dispositivos móviles, y permite destacar el contenido más relevante.
+
+30
+5. Uso moderado del espacio visual en sliders de ancho completo.
+Los sliders full-width no deben ocupar demasiado espacio en la vista inicial. Su diseño debe equilibrar estética y contenido 
+relevante, apoyando la información de la página sin convertirse en el elemento principal.
+Componentes de agenda institucional y agenda de eventos institucionales
+Estos componentes permiten difundir actividades y eventos de la comunidad politécnica. La Agenda Institucional se utiliza para 
+eventos de interés general dirigidos a toda la comunidad, promoviendo la participación y colaboración en la institución.
+
+31
+Medidas de imágenes
+Imagen de 
+background
+1920x1080 px
+Imagen de slider
+1000x800 px
+Agenda de Eventos Institucionales: Este componente se enfoca en la publicación de actividades propias de la institución, dando 
+prioridad a aquellas que involucran a la comunidad académica. Este espacio está destinado a resaltar eventos institucionales 
+de carácter académico y administrativo, proporcionando información relevante para estudiantes, docentes y personal 
+administrativo.
+El componente deberá estar sobre un fondo claro y solido
+
+32
+Imagen horizontal
+600x300 px
+Imagen con fondo transparente 
+debe ser en formato .webp, el 
+formato .png ya no se permitirá.
+Imagen 
+600x300 px
+Ícono
+200x200 px
+Imagen de slider
+1920x500 px
+33
+Imágenes para 
+contenido
+600x400 px 
+(horizontal)
+Imágenes para 
+contenido
+400x600 px (vertical)
+Imágenes 
+que ocupan el 
+componente
+redondo
+600x600 px
+Imagen cuadrada 
+600x600 px
+
+34
+Componentes de diseño: Modal, Tarjetas y Bloques de sombra
+Descripción General
+Estos componentes visuales están diseñados para presentar información de manera clara y accesible, permitiendo destacar 
+eventos, actividades o perfiles de personas. Cada componente tiene un propósito y estructura específicos, facilitando una 
+experiencia visual uniforme y profesional. A continuación, se detallan las características y recomendaciones de uso:
+Modal
+Ventana emergente que muestra descripciones completas sin ocultar la página principal, ideal para información ampliada.
+Tarjeta Horizontal y Tarjeta Vertical
+Muestran imagen, título y breve descripción, guiando al usuario a secciones específicas o enlaces externos de manera 
+rápida y clara.
+
+35
+Tarjeta individual con lista de enlaces
+Esta tarjeta incluye opciones adicionales, como una lista de enlaces, que puede utilizarse para mostrar contenido adicional 
+vinculado. Es útil cuando se necesita agregar más detalles específicos, como enlaces relacionados con la actividad, evento o 
+persona descrita.
+Bloque de sombra
+Este bloque realza la visualización de las tarjetas o el contenido mediante sombras sutiles, añadiendo profundidad al diseño. 
+Ayuda a crear una separación visual que permite destacar información de manera elegante.
+Recomendaciones de Uso de Layout
+Para lograr un diseño equilibrado y evitar la sobrecarga visual, se recomienda utilizar un mínimo de 3 o 4 tarjetas y un máximo 
+de 6 tarjetas por sección. Esto asegura que el usuario pueda procesar la información sin que el contenido parezca saturado.
+Nota sobre usabilidad
+Es fundamental que cada componente mantenga un diseño sencillo y directo, permitiendo que el contenido sea claro y accesible. 
+Estos componentes deben priorizar la experiencia del usuario, manteniendo un equilibrio entre el diseño visual y la funcionalidad 
+informativa, utilizando cada uno de los elementos que se tienen configurados para evitar errores de visualización a nivel SEO.
+
+36
+Componente iframe para videos y mapas
+Descripción
+El componente iframe está diseñado específicamente para integrar videos de YouTube, mapas de Google Maps y algún 
+contenido que no requiera excesiva carga de archivos en la página web. Su implementación permite mostrar contenido 
+multimedia relevante sin desviar al usuario a otra página y mejora la experiencia de navegación al mantener todo el contenido 
+dentro del mismo sitio.
+Importancia del Uso Correcto
+Utilizar el iframe para contenidos distintos a videos o mapas, como la visualización de páginas web completas o documentos 
+PDF que requiera una carga de archivos importante, no es recomendable. Esto puede afectar negativamente el rendimiento de 
+la página, ralentizar la carga de contenido y no proporcionar una experiencia visual óptima. Los documentos PDF y otras páginas 
+web pueden dificultar la navegación del usuario y, en muchos casos, no se adaptan correctamente al formato de iframe, lo que 
+afecta la funcionalidad del sitio.
+Recomendación de Uso
+El iframe debe usarse exclusivamente para los propósitos para los cuales fue creado: la integración de videos de YouTube, 
+mapas de Google Maps y contenido que no requiera excesiva carga de archivos. Esto asegura que el contenido se cargue 
+de manera eficiente y se muestre adecuadamente en todos los dispositivos, ofreciendo al usuario una experiencia 
+optimizada y manteniendo el sitio rápido y funcional.
+Para visualizar documentos como PDF o enlazar otras páginas web, se recomienda proporcionar enlaces directos  o 
+utilizar otros métodos de integración que se adapten mejor a estos tipos de contenido.
+Ser parte del IPN
+Conoce los programas académicos que ofrece el IPN y 
+sorpréndete con la calidad de su oferta educativa.
+
+37
+Tipos de menú utilizados en el sitio web
+Para facilitar la navegación y mejorar la experiencia del usuario, utilizamos tres tipos principales de menús. Cada uno cumple una 
+función específica y se adapta a diferentes necesidades de organización de contenido en el sitio web:
+Menú Lateral
+Este menú se despliega en un lateral de la pantalla y es ideal para organizar gran cantidad de contenido o secciones. Su 
+estructura permite al usuario explorar opciones sin abandonar la página principal, lo cual es útil en sitios con jerarquías 
+complejas. Es recomendable para secciones que requieren de una navegación profunda o donde el usuario debe ver varias 
+opciones en una sola vista.
+Recomendación: 
+• Mantén los títulos en un rango de 10 a 15 caracteres para una navegación más clara.
+Evita: 
+• Títulos de menú demasiado largos, que dificultan la legibilidad y ocupan mucho espacio. 
+• Uso de opciones de menú sin texto y solo con íconos o imágenes, ya que pueden 
+confundir al usuario y no comunican adecuadamente el contenido de cada sección.
+
+38
+Menú con Tabs
+Organiza el contenido en secciones independientes que se muestran al hacer clic en cada pestaña, permitiendo al usuario cambiar 
+de información sin recargar la página. Es ideal para categorías relacionadas como productos, especificaciones o perfiles de usuario.
+Menú de Anclas
+Este menú utiliza enlaces de anclaje que llevan al usuario a diferentes secciones de la misma página. Es perfecto para páginas 
+largas donde el contenido está dividido en bloques. El menú de anclas permite al usuario moverse rápidamente a una sección 
+específica sin hacer scroll, mejorando la experiencia de lectura.
+Evita:
+• Utilizar tabs excesivamente largas que dificulten 
+la navegación o generen desplazamiento 
+horizontal, especialmente en dispositivos móviles.
+• Realizar cambios de diseño o formato entre 
+pestañas que rompan la coherencia visual del 
+componente o del sitio.
+Evita:
+• Nombres de anclas largos o ambiguos. Esto puede hacer que el usuario pierda el contexto del contenido al que se dirige.
+• Exceso de anclas en una sola página, ya que una navegación excesivamente fragmentada puede abrumar al usuario.
+Cada tipo de menú tiene un propósito específico y debe elegirse según la estructura del contenido:
+• Menú Lateral: es ideal para secciones amplias o con varias subcategorías.
+• Menú con Tabs: organiza información relacionada en categorías dentro de una misma página.
+• Menú de anclas: facilita la navegación rápida dentro de una página extensa.
+Se recomienda evitar anclas largas o confusas y no saturar la página con demasiadas, para mantener una navegación clara, 
+fluida y accesible.
+
+39
+Formularios en el Sitio Web
+Se utilizan dos tipos principales: Directorio Telefónico y Buzón de Contacto. 
+Formulario de Directorio Telefónico 
+Permite consultar datos actualizados de contacto de las distintas áreas.
+Formulario de Buzón de Contacto
+Permite enviar consultas o comentarios, canalizados automáticamente al área correspondiente.
+Recomendaciones:
+Mantener los correos y datos 
+actualizados y especificar las categorías 
+de consulta mejora la atención al usuario.
+
+40
+Componente Acordeón de enlaces, Acordeón de contenido y Texto desplegable
+Acordeón de enlaces
+Facilita la navegación interna y agrupa enlaces relevantes, ideal para secciones de ayuda o recursos sin sobrecargar la página.
+Acordeón de contenido
+El acordeón de contenido es ideal para secciones extensas, como preguntas frecuentes (FAQs) o información técnica que no 
+requiere mostrarse de forma permanente.
+Recomendaciones SEO:
+• Etiqueta cada enlace con palabras clave relevantes.
+• Usa URLs  limpias y descriptivas.
+• Mantén los enlaces importantes visibles al cargar la 
+página, ya que los ocultos en acordeones pueden no 
+ser indexados por los motores de búsqueda.
+Recomendaciones SEO:
+• Usa títulos H2 o H3 en cada panel para mantener una 
+estructura jerárquica clara.
+• Recuerda que el texto dentro de acordeones tiene menor 
+peso SEO, por lo que las palabras clave principales deben 
+aparecer también en contenido visible.
+• Evita ocultar información esencial que deba ser indexada, 
+como descripciones o beneficios de productos y servicios.
+41
+Componente de texto desplegable
+El componente de texto desplegable permite mostrar detalles adicionales, como términos de glosario o políticas, sin sobrecargar 
+visualmente la página.
+Recomendaciones SEO:
+• Incluye un resumen visible con palabras clave relevantes.
+• Asegúrate de que el contenido del desplegable esté presente en el DOM al cargar , para garantizar su indexación.
+utiliza títulos relevantes (etiquetas <strong> o <h3>) para mejorar la estructura y accesibilidad del contenido.
+Estas recomendaciones te ayudarán a maximizar la indexación y mejorar el SEO del sitio mientras mantienes una 
+interfaz limpia y navegable para el usuario.
+42
+Componente Lista y Tabla
+Estos componentes son potentes para estructurar la información en tu sitio web de manera atractiva y organizada. Además, 
+implementarlos correctamente mejora la experiencia del usuario y facilita la indexación en los motores de búsqueda.
+Lista
+Organización de Información: Útil para enumerar características, ventajas, pasos en un proceso o elementos de una categoría.
+Menús y Navegación: Para listas de enlaces, como menús secundarios o listas de recursos en una página.
+FAQ: Para preguntas frecuentes, en combinación con acordeones o desplegables, ofreciendo respuestas al hacer clic.
+Recomendaciones SEO:
+• Optimización de Palabras Clave: Incluye términos clave en los elementos de la lista, pero mantén el texto natural y relevante.
+• Datos Estructurados: Implementa datos estructurados de tipo “List” para que los motores de búsqueda puedan 
+interpretar el contenido de la lista.
+43
+Tabla
+Comparaciones y Datos Numéricos: Ideal para mostrar datos tabulares, comparaciones de características de productos o 
+servicios, horarios y resultados de evaluaciones.
+Información Estructurada: Útil para cualquier tipo de información donde sea importante mostrar filas y columnas organizadas 
+(e.g., costos, especificaciones, calificaciones).
+Recomendaciones SEO:
+• Organiza la tabla con etiquetas semánticas para que los motores de búsqueda interpreten correctamente su estructura.
+• Encabezados de Tabla Claros: Los encabezados deben ser descriptivos para mejorar la comprensión tanto por usuarios como 
+por motores de búsqueda.
+• Evita Tablas Extensas: Las tablas demasiado grandes pueden ser difíciles de leer en dispositivos móviles. Considera dividir la 
+información en varias tablas o utilizar tablas responsive.
+
+44
+Componente utilitarios
+Estos componentes utilitarios no solo mejoran la presentación visual de tu sitio, sino que también pueden contribuir 
+positivamente a la optimización SEO cuando se utilizan estratégicamente.
+Componente de Espacio
+Organización Visual: Separa secciones o agrupa elementos relacionados, lo que facilita la lectura y mejora la estética del sitio.
+Añadir espacio entre elementos mejora la experiencia de usuario, especialmente en dispositivos móviles.
+Componente de Botón
+Llamados a la Acción (CTA): Utiliza botones para acciones clave, como “Contactar”, “Comprar”, “Inscribirse”, que guíen al usuario 
+a pasos importantes
+Accesibilidad y Navegación: Botones bien ubicados mejoran la usabilidad y pueden hacer más intuitiva la navegación.
+Recomendaciones SEO:
+• Asegúrate de que los estilos CSS utilizados para el espaciado sean ligeros y eficaces para no afectar el tiempo de 
+carga de la página.
+• Un buen uso de espacio en el diseño es clave para reducir la tasa de rebote, ya que facilita la lectura y navegación.
+45
+Componente de línea horizontal
+• Ideal para separar secciones o temas dentro de una página extensa, aportando una estructura visual clara.
+• Puede indicar el final de una sección y el inicio de otra, manteniendo una navegación fluida.
+Iconografía para redes sociales
+• Incluye iconos con enlaces directos a tus perfiles para facilitar que los usuarios sigan o compartan contenido.
+• Agregar botones de compartir aumenta la visibilidad y alcance de la página.
+Recomendaciones SEO:
+• Utiliza frases que incluyan palabras clave relevantes y describan claramente la acción, como “Solicita Información” en lugar 
+de   “Haz Clic Aquí”.
+Recomendaciones SEO:
+• Usa una línea simple en lugar de imágenes pesadas para evitar retrasos en la carga.
+• Coloca la línea cerca de enlaces o botones relevantes para dirigir la atención del usuario hacia elementos interactivos clave.
+Recomendaciones SEO:
+• Utiliza iconos en formato SVG o WebP para optimizar la velocidad de carga.
+• Asegúrate de que los enlaces sean indexables y aplica datos estructurados (schema.org/SocialProfile) para mejorar 
+la presencia en buscadores.
+46
+Optimizar la página de inicio de un sitio web y mejorar su ranking en motores de búsqueda
+Para mejorar el ranking en buscadores como Google, la página de inicio debe estructurar estratégicamente su contenido, 
+incorporando los elementos clave que aseguran coherencia de identidad y buen posicionamiento.
+Directrices SEO para sitio institucional
+1. Título (Title Tag) Optimizado
+• Incluir la palabra clave principal.
+• Mantener entre 40-50 caractéres + “| IPN oficial” (máximo 60 caractéres).
+• Agregar el nombre de la marca al final.
+2. Meta Descripción
+• Resumen atractivo con palabras clave.
+• Longitud ideal: 150-160 caractéres.
+• Llamada  a la acción (CTA): Añadir una llamada a la acción que invite a navegar .
+3. Encabezados (H1, H2, H3, etc.)
+• H1 único, descriptivo y con la palabra clave principal.
+• H2, H3, etc: Organiza el contenido en secciones, facilitando la lectura y mejorando la estructura SEO.
+4. Contenido de Calidad
+• Relevancia: Asegúrate de que el contenido sea relevante para tu audiencia y responda a sus necesidades o preguntas.
+• Longitud: Aunque varía según el nicho, una página de inicio con contenido de al menos 500 palabras puede ser beneficiosa.
+• Palabras clave: Incluye palabras clave de manera natural, evitando el keyword stuffing.
+• Multimedia: Imágenes, videos o gráficos relevantes y optimizados (con atributos ALT para imágenes).
+5. Velocidad de Carga
+• Optimización: Comprime imágenes, usa un hosting rápido y minimiza el código CSS y JavaScript para mejorar la velocidad de la 
+página.
+• Establecer imágenes homologadas en tamaño y peso, para el  slider principal  1920px x 550px  con un peso no mayor a 160kb 
+y para imágenes del contenido las dimesiones máximas son 600 x 600 px común peso de 50kb y en iconografías 150 x 150 px.
+• Mobile-friendly: Asegúrate de que el diseño sea responsivo y se vea bien en dispositivos móviles. 
+47
+6. Uso de Dominios y Subdominios
+• URL amigables: Asegúrate de que la URL sea corta, descriptiva y contenga palabras clave, sin acentos, caracteres especuales, tildes.
+• Estructura lógica: La organización de dominios y subdominios debe ser clara y reflejar la estructura del contenido del sitio de 
+preferencia continuar respetando la misma ruta para evitar ligas rotas.
+7. Botones de Llamada a la Acción (CTA)
+• Visibilidad: Coloca botones CTA claros y visibles, invitando a los usuarios a realizar acciones específicas (como suscribirse, 
+comprar , etc.).
+• Relevancia: Asegúrate de que los CTA estén alineados con los objetivos de la página.
+8. Datos Estructurados (Schema Markup)
+• Implementación: Utiliza datos estructurados para ayudar a los motores de búsqueda a entender mejor el contenido de tu 
+página y mejorar la visibilidad en los resultados de búsqueda.
+9. Opiniones o Testimonios
+• Prueba social: Incluir testimonios de clientes o casos de estudio puede mejorar la credibilidad y el engagement de la página.
+10. Uso de backgrounds 
+• Especificaciones: Deberás usar contrastes de color  entre cada background.
+• No utilizar textos largos con background con patrón.
+• No utilizar background con patrón repetidamente en el mismo contenido.
+11. Uso de altas y bajas en los menús de los sitios institucionales
+• El uso combinado de mayúsculas y minúsculas en los menús de los sitios institucionales busca unificar la identidad visual y 
+mejorar la experiencia del usuario. Este formato favorece la legibilidad, agiliza la comprensión de los contenidos y proyecta 
+una imagen formal y coherente en todas las plataformas.
+• Adoptar mayúsculas iniciales en lugar de texto completamente en mayúsculas mejora la velocidad de lectura, reduce la 
+fatiga visual y refuerza la identidad institucional a través de una navegación clara y consistente.
+48
+La estrategia de visibilidad tiene como propósito la de acelerar una mejora continua de las actividades de administración, 
+programación y diseño de los sitios web del IPN, esto con la finalidad de tener un efecto virtuoso en el resultado del ranqueo 
+internacional.
+ 
+Los resultados alcanzados mediante la aplicación de las prácticas de SEO deberán tener un gran impacto en el objetivo de 
+fortalecer los esfuerzos de internacionalización del Politécnico.
+Escribe etiquetas de 
+título y descripción 
+convincentes que estén 
+relacionadas con el tema.
+Optimiza tus 
+imágenes. No deben 
+pesar más de 200Kb.
+Coloca al menos una 
+etiqueta H1 en todas tus 
+páginas (una por página).
+Construye una 
+estructura de 
+entrelazado interno.
+Mejorar la 
+experiencia del 
+usuario.
+Crea URLs amigables 
+y fáciles de recordar . 
+(alias del recurso).
+Consigue enlaces de 
+referencia o backlinks 
+de autoridad.
+Crea contenido útil. Y 
+genera publicaciones 
+semanales.
+Estrategia SEO (visualización en buscadores)
+49
+Vínculos a redes sociales
+Al publicar información, noticias, eventos o avisos en las redes sociales de la unidad o dependencia, es fundamental incluir el 
+vínculo oficial de la dependencia.
+Se deben utilizar cuentas institucionales (@ipn.mx) al compartir direcciones de correo, reforzando la identidad del Instituto 
+Politécnico Nacional.
+Recomendaciones:
+• Usa acortadores de vínculos solo si redirigen a páginas dentro del dominio ipn.mx.
+• Se recomienda cutt.ly, ya que otros acortadores pueden generar errores en dispositivos Android.
+• Evita el uso de iframes para mostrar timelines de redes sociales en la página principal, ya que aumentan el tiempo de carga.
+• En su lugar , utiliza iconos con enlaces directos a las redes sociales institucionales.
+
+50
+¿Cómo crear enlaces de referencia en mi sitio?(backlinks)
+Los backlinks, también conocidos como enlaces entrantes o enlaces externos, hacen referencia a enlaces de una web que 
+apuntan a otra.
+Los motores de búsqueda, como Google o Bing, ven los backlinks como indicadores de la calidad del contenido, de ahí la 
+importancia de que obtengan el apoyo de otras webs ya que aquellas páginas con más backlinks pueden posicionarse mejor en 
+los motores de búsqueda (páginas de resultados en los motores de búsqueda).
+Agrega enlaces de referencia (ipn.mx o el sitio del Área o Unidad 
+Académica) en cada publicación de redes sociales.
+Esto impulsa el tráfico orgánico y mejora el posicionamiento SEO, 
+ya que las publicaciones compartidas generan más visibilidad y 
+backlinks naturales hacia el sitio.
+Universidades internacionales (.edu): 5 estrellas
+Revistas científicas indexadas: 4 estrellas
+Gobiernos y organismos multilaterales (.gob / .org): 4 estrellas
+Sitios de medios con alta reputación: 3 estrellas
+Blogs genéricos o directorios vacíos: 1 estrella
+
+51
+¿Cómo incrementar los backlinks? - Redes sociales
+Agrega enlaces de referencia (ipn.mx o el sitio del Área o Unidad Académica) en cada publicación de redes sociales.
+Esto impulsa el tráfico orgánico y mejora el posicionamiento SEO, ya que las publicaciones compartidas generan más visibilidad y 
+backlinks naturales hacia el sitio.
+Agregar ligas al sitio web de la unidad politécnica
+52
+La identidad web institucional del Politécnico la construimos y la cuidamos todos

@@ -18,6 +18,10 @@ from src.db.connection import get_db_engine
 # Cargar sesión para tener el rol actualizado
 load_session()
 
+# =============== TEMA INSTITUCIONAL =================
+from ui_theme import use_theme
+use_theme()
+
 # ================= SEGURIDAD: SOLO ADMINS =================
 role = st.session_state.get("role", "")
 if not check_admin_access(role):
@@ -114,3 +118,104 @@ with c_suspend:
             toggle_user_status(uid, current_active)
             st.success(f"Estado de {user_to_mod} actualizado.")
             st.rerun()
+
+# ================= GESTIÓN DE EXPERIMENTOS =================
+st.divider()
+st.markdown("## 🧪 Gestión de Experimentos")
+
+def get_all_experiments():
+    with engine.connect() as conn:
+        query = text("""
+            SELECT e.id, e.rat_id, e.treatment, e.experiment_date,
+                   e.responsible, e.processed, e.created_at,
+                   u.username AS creado_por
+            FROM experiments e
+            LEFT JOIN users u ON e.created_by = u.id
+            ORDER BY e.id DESC
+        """)
+        result = conn.execute(query).fetchall()
+        return pd.DataFrame(result)
+
+def delete_experiment_by_id(exp_id):
+    """Borra experimento + ROIs + resultados (CASCADE)."""
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM experiments WHERE id = :id"), {"id": exp_id})
+        conn.commit()
+
+def delete_unprocessed_experiments():
+    """Borra todos los experimentos no procesados."""
+    with engine.connect() as conn:
+        result = conn.execute(text("DELETE FROM experiments WHERE processed = FALSE"))
+        conn.commit()
+        return result.rowcount
+
+df_exp = get_all_experiments()
+
+if df_exp.empty:
+    st.info("📭 No hay experimentos registrados en la base de datos.")
+else:
+    # Métricas rápidas
+    e1, e2, e3 = st.columns(3)
+    e1.metric("Total Experimentos", len(df_exp))
+    e2.metric("Procesados", len(df_exp[df_exp['processed'] == True]))
+    e3.metric("Sin Procesar", len(df_exp[df_exp['processed'] == False]))
+
+    # Tabla de experimentos
+    st.dataframe(
+        df_exp,
+        column_config={
+            "id": "ID",
+            "rat_id": "Sujeto",
+            "treatment": "Tratamiento",
+            "experiment_date": st.column_config.DateColumn("Fecha Exp."),
+            "responsible": "Responsable",
+            "processed": st.column_config.CheckboxColumn("Procesado"),
+            "created_at": st.column_config.DatetimeColumn("Fecha Registro"),
+            "creado_por": "Creado Por",
+        },
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.divider()
+
+    col_del, col_bulk = st.columns([1, 1])
+
+    # --- Borrado Individual ---
+    with col_del:
+        st.markdown("### 🗑️ Eliminar Experimento")
+        exp_options = [f"ID {row['id']} — {row['rat_id']} ({row['treatment']})" for _, row in df_exp.iterrows()]
+        selected_exp = st.selectbox("Seleccionar Experimento", exp_options, key="sel_exp_del")
+
+        if selected_exp:
+            exp_id_to_del = int(selected_exp.split(" ")[1])
+
+            st.warning(
+                f"⚠️ Esto eliminará el experimento **ID {exp_id_to_del}** junto con "
+                f"todas sus ROIs y resultados de análisis asociados."
+            )
+            confirm = st.checkbox(f"Confirmo que quiero eliminar el experimento {exp_id_to_del}", key="confirm_del")
+
+            if st.button("🗑️ Eliminar", disabled=not confirm, type="primary"):
+                delete_experiment_by_id(exp_id_to_del)
+                st.success(f"✅ Experimento {exp_id_to_del} eliminado correctamente.")
+                st.rerun()
+
+    # --- Borrado Masivo ---
+    with col_bulk:
+        st.markdown("### 🧹 Limpieza Masiva")
+        n_unprocessed = len(df_exp[df_exp['processed'] == False])
+
+        if n_unprocessed == 0:
+            st.success("✅ No hay experimentos sin procesar.")
+        else:
+            st.error(f"Hay **{n_unprocessed}** experimento(s) sin procesar.")
+            confirm_bulk = st.checkbox(
+                f"Confirmo eliminar TODOS los {n_unprocessed} experimentos sin procesar",
+                key="confirm_bulk"
+            )
+            if st.button("🧹 Eliminar Todos Sin Procesar", disabled=not confirm_bulk, type="primary"):
+                deleted = delete_unprocessed_experiments()
+                st.success(f"✅ {deleted} experimento(s) eliminados.")
+                st.rerun()
+
