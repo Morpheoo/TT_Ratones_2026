@@ -25,6 +25,14 @@ import subprocess
 
 # ── Configuration ──────────────────────────────────────────────
 import sys
+import os
+from pathlib import Path
+
+# Asegurar que la raíz del proyecto esté en sys.path para poder importar 'src'
+PROJECT_ROOT_PATH = Path(__file__).parent.parent.parent.absolute()
+if str(PROJECT_ROOT_PATH) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT_PATH))
+
 from src.config import PROJECT_ROOT, VIDEOS_DIR, FFMPEG_PATH
 
 if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
