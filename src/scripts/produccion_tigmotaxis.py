@@ -1,3 +1,26 @@
+
+import sys
+import os
+from pathlib import Path
+
+# Agregar raíz del proyecto al path
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from src.config import (
+        GROOMING_MODEL,
+        THIGMOTAXIS_MODEL,
+        SIMBA_PROJECT_DIR,
+        SIMBA_FEATURES_CSV,
+        VIDEOS_DIR,
+        FFMPEG_PATH,
+        YOLO_MODEL
+    )
+except ImportError:
+    pass
+
 import os
 import glob
 import shutil
@@ -11,12 +34,12 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-PROJECT_PATH = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\New folder\thigmotaxis_optimizado\project_folder"
+PROJECT_PATH = SIMBA_PROJECT_DIR
 CONFIG_PATH = os.path.join(PROJECT_PATH, "project_config.ini")
 INPUT_CSV_DIR = os.path.join(PROJECT_PATH, "csv", "input_csv")
 OUTLIER_CSV_DIR = os.path.join(PROJECT_PATH, "csv", "outlier_corrected_movement_location")
 FEATURES_DIR = os.path.join(PROJECT_PATH, "csv", "features_extracted")
-MODEL_PATH = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\New folder\thigmotaxis_optimizado\models\Thigmotaxis.sav"
+MODEL_PATH = THIGMOTAXIS_MODEL
 
 BODY_PART_MAPPING = {
     "Nose_1": "nose",

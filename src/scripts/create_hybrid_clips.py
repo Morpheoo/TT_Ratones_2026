@@ -16,7 +16,7 @@ def trim_video(input_path, output_path, start_time="00:00:10", duration="40"):
     print(f" -> Guardado: {output_path}")
 
 def main():
-    base_dir = r"c:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\dataset_tt"
+    base_dir = VIDEOS_DIR
     out_dir = r"c:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\dataset_hibrido_clips"
     
     if not os.path.exists(out_dir):

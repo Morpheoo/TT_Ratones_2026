@@ -24,7 +24,19 @@ import argparse
 import subprocess
 
 # ── Configuration ──────────────────────────────────────────────
-INPUT_VIDEO = r"C:\Users\chavi\OneDrive\Desktop\dataser_tt_mejorado\R5B20_01mar24.mp4"
+import sys
+from src.config import PROJECT_ROOT, VIDEOS_DIR, FFMPEG_PATH
+
+if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+    INPUT_VIDEO = sys.argv[1]
+else:
+    import glob
+    videos = glob.glob(str(VIDEOS_DIR / "*.mp4"))
+    if videos:
+        INPUT_VIDEO = str(videos[0])
+        print(f"[INFO] Usando video: {INPUT_VIDEO}")
+    else:
+        INPUT_VIDEO = ""
 VIDEO_NAME = "R5B20_01mar24_full"
 ZONES_JSON = "[]"
 
@@ -106,10 +118,11 @@ def step1_prepare_video():
         print(f"  Trimmed video already exists: {output_video}")
         return True
     
-    ffmpeg_exe = r"C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
-    if not os.path.exists(ffmpeg_exe):
-        print("  ERROR: ffmpeg not found for trimming")
+    if not FFMPEG_PATH:
+        print("❌ ERROR: FFmpeg no encontrado. Instálalo o configura FFMPEG_PATH en .env")
         return False
+
+    ffmpeg_exe = str(FFMPEG_PATH)
         
     cmd = [ffmpeg_exe, "-y"]
     

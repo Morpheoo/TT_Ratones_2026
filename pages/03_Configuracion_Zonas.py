@@ -15,6 +15,8 @@ if os.path.join(os.getcwd(), "src") not in sys.path:
 from ui_components import generic_splash_loader
 from session_utils import load_session, save_session
 from simba_roi_bridge import sync_streamlit_rois_to_simba
+from db.connection import get_db_engine
+from db.experiment_history import persist_zones_for_video
 
 SIMBA_PROJECT_FOLDER = os.path.abspath(
     os.path.join(
@@ -518,6 +520,8 @@ if canvas_result.json_data is not None:
 
             roi_sync_result = None
             roi_sync_error = None
+            db_roi_result = None
+            db_roi_error = None
             try:
                 roi_sync_result = sync_streamlit_rois_to_simba(
                     project_folder=SIMBA_PROJECT_FOLDER,
@@ -529,6 +533,26 @@ if canvas_result.json_data is not None:
                 st.session_state["simba_roi_sync"] = roi_sync_result
             except Exception as error:
                 roi_sync_error = error
+
+            try:
+                engine = get_db_engine()
+                if engine:
+                    db_roi_result = persist_zones_for_video(
+                        engine,
+                        video_path=st.session_state["ruta_video_actual"],
+                        zonas=zonas_para_guardar,
+                        rat_id=st.session_state.get("id_raton_actual", base_name),
+                        treatment=(
+                            st.session_state.get("treatment")
+                            or st.session_state.get("treatment_id")
+                            or "Sin tratamiento"
+                        ),
+                        responsible=st.session_state.get("user_name", "Investigador"),
+                        username=st.session_state.get("user"),
+                        scale_factor=factor_escala,
+                    )
+            except Exception as error:
+                db_roi_error = error
 
             st.success("✅ Configuración guardada y reescalada a la resolución del video.")
             if roi_sync_result:
@@ -549,6 +573,17 @@ if canvas_result.json_data is not None:
                 st.warning(
                     "La configuración se guardó en Streamlit, pero no se pudo escribir "
                     f"ROI_definitions.h5 en SimBA: {roi_sync_error}"
+                )
+            if db_roi_result:
+                st.caption(
+                    "Historial actualizado: "
+                    f"{db_roi_result['zones_saved']} zonas guardadas en PostgreSQL "
+                    f"para el experimento #{db_roi_result['experiment_id']}."
+                )
+            elif db_roi_error:
+                st.warning(
+                    "Las zonas quedaron en sesión y SimBA, pero no se pudieron persistir "
+                    f"en PostgreSQL: {db_roi_error}"
                 )
             st.json(zonas_para_guardar)
 

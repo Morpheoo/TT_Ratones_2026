@@ -1,3 +1,26 @@
+
+import sys
+import os
+from pathlib import Path
+
+# Agregar raíz del proyecto al path
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from src.config import (
+        GROOMING_MODEL,
+        THIGMOTAXIS_MODEL,
+        SIMBA_PROJECT_DIR,
+        SIMBA_FEATURES_CSV,
+        VIDEOS_DIR,
+        FFMPEG_PATH,
+        YOLO_MODEL
+    )
+except ImportError:
+    pass
+
 import os
 import glob
 import shutil
@@ -7,11 +30,11 @@ from scipy.signal import savgol_filter
 from simba.feature_extractors.feature_extractor_8bp import ExtractFeaturesFrom8bps
 from simba.roi_tools.ROI_feature_analyzer import ROIFeatureCreator
 
-PROJECT_PATH = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\New folder\thigmotaxis_optimizado\project_folder"
+PROJECT_PATH = SIMBA_PROJECT_DIR
 INPUT_CSV_DIR = os.path.join(PROJECT_PATH, "csv", "input_csv")
 OUTLIER_CSV_DIR = os.path.join(PROJECT_PATH, "csv", "outlier_corrected_movement_location")
 VIDEOS_DIR = os.path.join(PROJECT_PATH, "videos")
-SOURCE_DATA = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\dataset_tt"
+SOURCE_DATA = VIDEOS_DIR
 
 BODY_PART_MAPPING = {
     "Nose_1": "nose",

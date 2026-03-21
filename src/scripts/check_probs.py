@@ -1,10 +1,33 @@
+
+import sys
+import os
+from pathlib import Path
+
+# Agregar raíz del proyecto al path
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from src.config import (
+        GROOMING_MODEL,
+        THIGMOTAXIS_MODEL,
+        SIMBA_PROJECT_DIR,
+        SIMBA_FEATURES_CSV,
+        VIDEOS_DIR,
+        FFMPEG_PATH,
+        YOLO_MODEL
+    )
+except ImportError:
+    pass
+
 import pandas as pd
 import pickle
 import os
 import numpy as np
 
-MODEL_PATH = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\New folder\thigmotaxis_optimizado\models\Thigmotaxis.sav"
-FEATURES_DIR = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\New folder\thigmotaxis_optimizado\project_folder\csv\features_extracted"
+MODEL_PATH = THIGMOTAXIS_MODEL
+FEATURES_DIR = SIMBA_FEATURES_CSV
 
 def probar_umbrales():
     with open(MODEL_PATH, 'rb') as f:

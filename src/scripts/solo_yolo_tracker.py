@@ -1,3 +1,26 @@
+
+import sys
+import os
+from pathlib import Path
+
+# Agregar raíz del proyecto al path
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from src.config import (
+        GROOMING_MODEL,
+        THIGMOTAXIS_MODEL,
+        SIMBA_PROJECT_DIR,
+        SIMBA_FEATURES_CSV,
+        VIDEOS_DIR,
+        FFMPEG_PATH,
+        YOLO_MODEL
+    )
+except ImportError:
+    pass
+
 """
 Solo YOLO Tracker - Punto Rojo Puro
 -------------------------------------
@@ -11,7 +34,7 @@ import cv2
 import argparse
 from ultralytics import YOLO
 
-YOLO_MODEL_PATH = r"c:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\yolo_tracker.pt"
+YOLO_MODEL_PATH = YOLO_MODEL
 
 def run_tracker(video_path: str, output_path: str):
     print("Cargando modelo YOLOv11...")

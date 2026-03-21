@@ -1,0 +1,79 @@
+﻿.\venv_310\Scripts\python.exe : Traceback (most 
+recent call last):
+At line:1 char:1
++ .\venv_310\Scripts\python.exe 
+src\scripts\full_pipeline.py --video vi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Trac 
+   eback (most recent call last)::String) [], Re  
+  moteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\chavi\.gemini\antigravity\scratch
+\TT_Ratones_2026\src\scripts\full_pipeline.py", 
+line 533, in main
+    ok = func()
+  File "C:\Users\chavi\.gemini\antigravity\scratch
+\TT_Ratones_2026\src\scripts\full_pipeline.py", 
+line 350, in step5_extract_features
+    extractor.run()
+  File "C:\Users\chavi\.gemini\antigravity\scratch
+\TT_Ratones_2026\venv_310\lib\site-packages\simba\
+feature_extractors\feature_extractor_user_defined.
+py", line 170, in run
+    raise MissingColumnsError(msg=f'There is a 
+mismatch in the number headers in file 
+{file_name} ({len(self.data_df.columns)}) and the 
+number of columns expected in the SImBA project 
+({len(self.col_headers)}) as determined by the 
+SimBA file at {self.body_parts_path}')
+simba.utils.errors.MissingColumnsError: SIMBA 
+MISSING COLUMN ERROR: There is a mismatch in the 
+number headers in file C7-R1_full (81) and the 
+number of columns expected in the SImBA project 
+(24) as determined by the SimBA file at C:\Users\c
+havi\.gemini\antigravity\scratch\TT_Ratones_2026\d
+ata\simba_projects\SimBA_EPM_Analysis\project_fold
+er\logs\measures\pose_configs\bp_names\project_bp_
+names.csv
+[OK] Added NVIDIA DLLs to PATH
+[OK] Added ptxas to PATH: C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\venv_310\Lib\site-packages\nvidia\cuda_nvcc\bin
+============================================================
+  FULL PIPELINE: mike_prueba1_full
+  Source: videos_data\mike_prueba1.mp4
+  DLC Config: batchsize=32, video_adapt=False
+  VRAM Estimada: ~10GB
+============================================================
+
+============================================================
+STEP 1: Downscaling video by 50.0%
+============================================================
+  Downscaled video already exists: C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\videos_data\mike_prueba1_down-50.mp4
+
+============================================================
+STEP 2: Running DeepLabCut analysis (GPU)
+============================================================
+  DEBUG: TRIMMED_VIDEO=C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\videos_data\mike_prueba1_down-50.mp4
+  DEBUG: Searching for existing H5 with pattern: C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\videos_data\*mike_prueba1_down-50*DLC*.h5
+  DLC results already exist: C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\videos_data\mike_prueba1_down-50DLC_snapshot-200000.h5
+
+============================================================
+STEP 3: Converting H5 to CSV
+============================================================
+  CSV already exists: C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\videos_data\mike_prueba1_full_dlc.csv
+
+============================================================
+STEP 4: Importing into SimBA project
+============================================================
+  [Guaranteed] video_info.csv updated for mike_prueba1_full (30.0fps)
+  Already imported! Skipping file copy.
+
+============================================================
+STEP 5: Extracting SimBA features
+============================================================
+Extracting features from 8 file(s)...
+Extracting features for video C7-R1_full (1/8)...
+[17:15:04] SIMBA MISSING COLUMN ERROR: There is a mismatch in the number headers in file C7-R1_full (81) and the number of columns expected in the SImBA project (24) as determined by the SimBA file at C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\SimBA_EPM_Analysis\project_folder\logs\measures\pose_configs\bp_names\project_bp_names.csv	error
+
+  ERROR at step 'Extract features': SIMBA MISSING COLUMN ERROR: There is a mismatch in the number headers in file C7-R1_full (81) and the number of columns expected in the SImBA project (24) as determined by the SimBA file at C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\SimBA_EPM_Analysis\project_folder\logs\measures\pose_configs\bp_names\project_bp_names.csv

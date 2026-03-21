@@ -1,3 +1,26 @@
+
+import sys
+import os
+from pathlib import Path
+
+# Agregar raíz del proyecto al path
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from src.config import (
+        GROOMING_MODEL,
+        THIGMOTAXIS_MODEL,
+        SIMBA_PROJECT_DIR,
+        SIMBA_FEATURES_CSV,
+        VIDEOS_DIR,
+        FFMPEG_PATH,
+        YOLO_MODEL
+    )
+except ImportError:
+    pass
+
 """
 Generate an annotated video with SimBA behavior predictions overlaid.
 Shows Grooming (green) and Thigmotaxis (blue) detections with probability bars.
@@ -326,7 +349,7 @@ def generate_video():
         out2.release()
         
         # Use FFmpeg command line to convert
-        ffmpeg_exe = r"C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
+        ffmpeg_exe = FFMPEG_PATH
         if not os.path.exists(ffmpeg_exe):
             print("Warning: explicit ffmpeg path not found, trying global 'ffmpeg'") 
             ffmpeg_exe = "ffmpeg"

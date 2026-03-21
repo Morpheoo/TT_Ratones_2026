@@ -1,3 +1,26 @@
+
+import sys
+import os
+from pathlib import Path
+
+# Agregar raíz del proyecto al path
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from src.config import (
+        GROOMING_MODEL,
+        THIGMOTAXIS_MODEL,
+        SIMBA_PROJECT_DIR,
+        SIMBA_FEATURES_CSV,
+        VIDEOS_DIR,
+        FFMPEG_PATH,
+        YOLO_MODEL
+    )
+except ImportError:
+    pass
+
 import os
 import glob
 import shutil
@@ -6,7 +29,7 @@ import numpy as np
 from scipy.signal import savgol_filter
 
 # Directorios
-PROJECT_PATH = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\data\simba_projects\thigmotaxis_optimizado\project_folder"
+PROJECT_PATH = SIMBA_PROJECT_DIR
 INPUT_CSV_DIR = os.path.join(PROJECT_PATH, "csv", "input_csv")
 VIDEOS_DIR = os.path.join(PROJECT_PATH, "videos")
 SOURCE_DATA = r"C:\Users\chavi\.gemini\antigravity\scratch\TT_Ratones_2026\dataset_hibrido_clips"

@@ -24,6 +24,7 @@ import time
 import glob
 import json
 import math
+import pandas as pd
 
 
 def _python_has_module(python_exe: str, module_name: str) -> bool:
@@ -134,6 +135,13 @@ st.set_page_config(
 # ── Sesión y login ─────────────────────────────────────────────────────────────
 from session_utils import load_session, save_session
 load_session()
+from db.connection import get_db_engine
+from db.experiment_history import (
+    fetch_recent_experiments_with_zones,
+    load_experiment_zones,
+    persist_zones_for_video,
+    replace_experiment_rois,
+)
 
 if not st.session_state.get("logged_in"):
     st.warning("⚠️ Debes iniciar sesión en 🔐 Login primero.")
@@ -195,11 +203,126 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+def _format_history_label(experiment_row: dict) -> str:
+    date_label = experiment_row.get("experiment_date") or "Sin fecha"
+    rat_label = experiment_row.get("rat_id") or "Sin sujeto"
+    treatment_label = experiment_row.get("treatment") or "Sin tratamiento"
+    return f"#{experiment_row['id']} · {rat_label} · {treatment_label} · {date_label}"
+
+
+db_engine = get_db_engine()
+
+# Backfill suave: si ya hay video y zonas activas en sesión, se persisten para
+# que el historial reutilizable pueda recuperarlas después.
+current_video_path = st.session_state.get("ruta_video_actual")
+current_zones = st.session_state.get("zonas_configuradas", [])
+if db_engine and current_video_path and current_zones:
+    try:
+        sync_key = json.dumps(
+            {"video": current_video_path, "zonas": current_zones},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        if st.session_state.get("_analysis_history_sync_key") != sync_key:
+            current_base_name = os.path.splitext(os.path.basename(current_video_path))[0]
+            persist_zones_for_video(
+                db_engine,
+                video_path=current_video_path,
+                zonas=current_zones,
+                rat_id=st.session_state.get("id_raton_actual", current_base_name),
+                treatment=(
+                    st.session_state.get("treatment")
+                    or st.session_state.get("treatment_id")
+                    or "Sin tratamiento"
+                ),
+                responsible=st.session_state.get("user_name", "Investigador"),
+                username=st.session_state.get("user"),
+                scale_factor=1.0,
+            )
+            st.session_state["_analysis_history_sync_key"] = sync_key
+    except Exception:
+        pass
+
+history_rows = []
+history_error = None
+if db_engine:
+    try:
+        history_rows = fetch_recent_experiments_with_zones(db_engine, limit=20)
+    except Exception as error:
+        history_error = error
+
+st.markdown('<div class="af-card">', unsafe_allow_html=True)
+st.markdown("#### 🕘 Historial Reutilizable")
+st.caption(
+    "Recarga un experimento previo con sus zonas guardadas para volver a ejecutar "
+    "el análisis final sin redibujar las ROIs."
+)
+
+if history_rows:
+    history_df = pd.DataFrame(
+        [
+            {
+                "ID": row["id"],
+                "Sujeto / Video": row.get("rat_id", ""),
+                "Tratamiento": row.get("treatment", ""),
+                "Fecha": str(row.get("experiment_date") or ""),
+                "Investigador": row.get("responsible", ""),
+                "Zonas": int(row.get("zone_count") or 0),
+            }
+            for row in history_rows
+        ]
+    )
+    st.dataframe(history_df, use_container_width=True, hide_index=True, height=180)
+
+    history_options = {
+        _format_history_label(row): row
+        for row in history_rows
+    }
+    selected_history_label = st.selectbox(
+        "Selecciona un experimento para recargar:",
+        options=list(history_options.keys()),
+        index=0,
+    )
+    selected_history = history_options[selected_history_label]
+    selected_history_zones = load_experiment_zones(db_engine, int(selected_history["id"]))
+    if selected_history_zones:
+        zone_names = [
+            zone.get("Nombre Zona", zone.get("id", "Zona"))
+            for zone in selected_history_zones
+        ]
+        st.caption(f"Zonas guardadas: {', '.join(zone_names)}")
+    st.caption(f"Ruta fuente: `{selected_history['video_path']}`")
+
+    if st.button("📥 Cargar experimento y zonas en esta sesión", use_container_width=True):
+        st.session_state["ruta_video_actual"] = selected_history["video_path"]
+        st.session_state["zonas_configuradas"] = selected_history_zones
+        st.session_state["id_raton_actual"] = selected_history.get("rat_id")
+        st.session_state["treatment"] = selected_history.get("treatment")
+        st.session_state["treatment_id"] = selected_history.get("treatment")
+        st.session_state["inicio_recorte"] = 0
+        st.session_state["fin_recorte"] = 0
+        save_session()
+        st.success("Contexto histórico cargado. Recargando la página...")
+        st.rerun()
+elif history_error:
+    st.warning(f"No se pudo cargar el historial reutilizable: {history_error}")
+else:
+    st.info(
+        "Todavía no hay experimentos con zonas persistidas en PostgreSQL. "
+        "Guarda zonas o ejecuta un análisis final nuevo."
+    )
+
+st.markdown("</div>", unsafe_allow_html=True)
+
 # ── Banner de video activo ─────────────────────────────────────────────────────
 video_ok = render_video_banner("Video a analizar (Análisis Final)")
 
 if not video_ok:
-    st.error("⚠️ Selecciona un video en **01 · Ingesta de Video** antes de continuar.")
+    st.error(
+        "⚠️ Selecciona un video en **01 · Ingesta de Video** o cárgalo desde el "
+        "**Historial Reutilizable** antes de continuar."
+    )
     st.stop()
 
 ruta_video = st.session_state["ruta_video_actual"]
@@ -591,7 +714,6 @@ if iniciar_analisis:
 
                 # --- Guardar en BD ---
                 try:
-                    from db.connection import get_db_engine
                     from sqlalchemy import text as sql_text
                     engine = get_db_engine()
                     if engine:
@@ -611,6 +733,12 @@ if iniciar_analisis:
 
                             if ex_res:
                                 new_id = ex_res[0]
+                                replace_experiment_rois(
+                                    conn,
+                                    new_id,
+                                    zonas,
+                                    scale_factor=1.0,
+                                )
                                 conn.commit()
 
                                 res_z    = df_trayectoria.groupby("Zona")["Tiempo (s)"].count() * 0.1
