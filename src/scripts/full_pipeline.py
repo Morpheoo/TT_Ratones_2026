@@ -328,6 +328,21 @@ def step3_convert_h5():
             if coord in ['x', 'y']:
                 df[col] = df[col] * scale
             
+    # Auto-Padding for SimBA FrameRangeWarning
+    import cv2
+    cap = cv2.VideoCapture(TRIMMED_VIDEO)
+    if cap.isOpened():
+        video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        df_frames = len(df)
+        if df_frames > 0 and video_frames > df_frames:
+            diff = video_frames - df_frames
+            print(f"  [AUTO-PADDING] Video frames: {video_frames} | CSV frames: {df_frames}")
+            print(f"  [AUTO-PADDING] Rellenando {diff} frames con la ultima posicion para evitar FrameRangeWarning en SimBA...")
+            last_row = df.iloc[[-1]]
+            padding_df = pd.concat([last_row] * diff, ignore_index=True)
+            df = pd.concat([df, padding_df], ignore_index=True)
+        cap.release()
+
     df.to_csv(csv_out)
     print(f"  Saved CSV: {csv_out} ({len(df)} frames)")
     return True
