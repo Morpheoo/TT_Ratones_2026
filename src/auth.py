@@ -1,5 +1,4 @@
 import random
-import random
 import bcrypt
 from sqlalchemy import text
 from .db.connection import get_db_engine

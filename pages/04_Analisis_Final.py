@@ -25,6 +25,13 @@ import glob
 import json
 import math
 
+# ── Page config (DEBE ser lo primero antes de cualquier st.*) ────────────────
+st.set_page_config(
+    page_title="Análisis Final (EPM)",
+    page_icon="🔬",
+    layout="wide",
+)
+
 # ── Path setup ───────────────────────────────────────────────────────────────
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
@@ -34,6 +41,8 @@ if os.path.join(os.getcwd(), "src") not in sys.path:
 from session_utils import load_session, save_session
 from access_control import require_researcher
 from sidebar_control import apply_sidebar_visibility
+from ui_theme import use_theme
+from video_context_banner import render_video_banner
 
 # Cargar sesión y verificar acceso
 load_session()
@@ -42,6 +51,9 @@ load_session()
 apply_sidebar_visibility()
 
 require_researcher()  # Solo investigadores y estudiantes
+
+# Aplicar tema
+use_theme()
 
 
 def _python_has_module(python_exe: str, module_name: str) -> bool:
@@ -131,39 +143,6 @@ def _resolve_preferred_simba_model(model_dir: str, candidate_names: list[str]) -
         if os.path.exists(candidate_path):
             return candidate_path, candidate_name
     return "", ""
-
-# ── Path setup ────────────────────────────────────────────────────────────────
-if os.getcwd() not in sys.path:
-    sys.path.append(os.getcwd())
-if os.path.join(os.getcwd(), "src") not in sys.path:
-    sys.path.append(os.path.join(os.getcwd(), "src"))
-
-# ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Análisis Final (EPM)",
-    page_icon="🔬",
-    layout="wide",
-)
-
-# ── Sesión y login ─────────────────────────────────────────────────────────────
-from session_utils import load_session, save_session
-load_session()
-
-if not st.session_state.get("logged_in"):
-    st.warning("⚠️ Debes iniciar sesión en 🔐 Login primero.")
-    st.stop()
-
-from src.auth import check_admin_access
-if check_admin_access(st.session_state.get("role")):
-    st.warning("⛔ Los administradores no pueden ejecutar análisis.")
-    st.stop()
-
-# ── Tema ───────────────────────────────────────────────────────────────────────
-from ui_theme import use_theme
-use_theme()
-
-# ── Componentes compartidos ────────────────────────────────────────────────────
-from video_context_banner import render_video_banner
 
 # ════════════════════════════════════════════════════════════════════════════════
 # CSS LOCAL

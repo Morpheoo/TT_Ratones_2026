@@ -1,0 +1,45 @@
+# Dependencias para venv_311 (Python 3.11)
+# Entorno principal de la aplicación Streamlit
+# NO incluye DeepLabCut ni TensorFlow (esos van en venv_310)
+
+# Framework principal
+streamlit==1.52.1
+streamlit-drawable-canvas-fix==0.9.8
+
+# Análisis de datos
+pandas==2.3.3
+numpy==2.3.5
+polars==1.36.1
+pyarrow==22.0.0
+
+# Visualización
+plotly==6.5.0
+matplotlib==3.10.7
+seaborn==0.13.2
+altair==6.0.0
+
+# Machine Learning (no deep learning)
+scikit-learn==1.8.0
+scipy==1.16.3
+
+# Procesamiento de video e imágenes
+opencv-python==4.11.0.86
+moviepy==1.0.3
+pillow==11.3.0
+imageio==2.37.2
+imageio-ffmpeg==0.6.0
+
+# Base de datos
+sqlalchemy==2.0.45
+psycopg2-binary==2.9.11
+
+# Autenticación y seguridad
+bcrypt==4.1.2
+
+# Configuración
+python-dotenv==1.2.1
+pyyaml==6.0.3
+
+# Utilidades
+requests==2.32.5
+python-dateutil==2.9.0.post0
