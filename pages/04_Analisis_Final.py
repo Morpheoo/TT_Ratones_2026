@@ -1,798 +1,892 @@
-"""
-04_Analisis_Final.py  —  Análisis Conductual (YOLO Tracker + SimBA)
-════════════════════════════════════════════════════════════════════════════════
-Módulo rápido (~5 min). Requiere:
-  ✅ Keypoints extraídos por DLC (Módulo 02)
-  ✅ Zonas configuradas (Módulo 03)
-
-Ejecuta:
-  1. YOLO Tracker (tracking del centroid de la rata)
-  2. SimBA Classifiers (Grooming + Thigmotaxis)
-  3. Renderizado del HUD Multimodal sobre el video original
-  4. Guardado de métricas en la Base de Datos
-
-Output:
-  • videos/<nombre>_STREAMLIT_MULTIMODAL.mp4   ← video con HUD
-  • videos/<nombre>_STREAMLIT_MULTIMODAL_trajectory.csv
-════════════════════════════════════════════════════════════════════════════════
-"""
-import streamlit as st
-import os
-import sys
-import subprocess
-import time
-import glob
 import json
-import math
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
 import pandas as pd
+import streamlit as st
+from sqlalchemy import text
 
+# ================= 0. SETUP & PERSISTENCE =================
+sys.path.append(os.getcwd())
+sys.path.append(os.path.join(os.getcwd(), "src"))
 
-def _python_has_module(python_exe: str, module_name: str) -> bool:
-    """Verifica si un interprete concreto puede importar un modulo."""
-    if not python_exe or not os.path.exists(python_exe):
-        return False
-
-    probe_cmd = [
-        python_exe,
-        "-c",
-        (
-            "import importlib.util, sys; "
-            f"sys.exit(0 if importlib.util.find_spec('{module_name}') else 1)"
-        ),
-    ]
-    try:
-        probe = subprocess.run(
-            probe_cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        return probe.returncode == 0
-    except Exception:
-        return False
-
-
-def _resolve_runtime_pythons() -> tuple[str | None, str | None]:
-    """
-    Resuelve interpretes separados para etapas incompatibles:
-    - SimBA vive en venv_310
-    - Ultralytics vive en venv_311
-    """
-    candidates: list[str] = []
-    for rel_path in (
-        os.path.join("venv_310", "Scripts", "python.exe"),
-        os.path.join("venv_311", "Scripts", "python.exe"),
-    ):
-        python_exe = os.path.abspath(rel_path)
-        if os.path.exists(python_exe):
-            candidates.append(python_exe)
-
-    if sys.executable not in candidates:
-        candidates.append(sys.executable)
-
-    simba_python = next((py for py in candidates if _python_has_module(py, "simba")), None)
-    yolo_python = next((py for py in candidates if _python_has_module(py, "ultralytics")), None)
-    return simba_python, yolo_python
-
-
-def _resolve_pose_source_csv(
-    work_dir: str,
-    simba_input_dir: str,
-    base_name: str,
-    video_name_simba: str,
-    fallback_feature_csvs: list[str],
-) -> str:
-    """
-    Prioridad:
-    1. CSV convertido del full pipeline (<video>_full_dlc.csv)
-    2. CSV DLC crudo en videos_data
-    3. CSV aplanado en SimBA input_csv
-    4. features_extracted del proyecto previo como fallback de compatibilidad
-    """
-    candidates = [
-        os.path.join(work_dir, f"{video_name_simba}_dlc.csv"),
-    ]
-    candidates.extend(sorted(glob.glob(os.path.join(work_dir, f"*{base_name}*DLC*.csv"))))
-    candidates.append(os.path.join(simba_input_dir, f"{video_name_simba}.csv"))
-    candidates.extend(fallback_feature_csvs)
-
-    seen: set[str] = set()
-    for candidate in candidates:
-        normalized = os.path.abspath(candidate)
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        if os.path.isfile(normalized):
-            return normalized
-    return ""
-
-
-def _resolve_preferred_simba_model(candidate_paths: list[str]) -> tuple[str, str]:
-    seen: set[str] = set()
-    for candidate_path in candidate_paths:
-        normalized = os.path.abspath(candidate_path)
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        if os.path.exists(normalized):
-            return normalized, os.path.basename(normalized)
-    return "", ""
-
-# ── Path setup ────────────────────────────────────────────────────────────────
-if os.getcwd() not in sys.path:
-    sys.path.append(os.getcwd())
-if os.path.join(os.getcwd(), "src") not in sys.path:
-    sys.path.append(os.path.join(os.getcwd(), "src"))
-
-# ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Análisis Final (EPM)",
-    page_icon="🔬",
-    layout="wide",
-)
-
-# ── Sesión y login ─────────────────────────────────────────────────────────────
 from session_utils import load_session, save_session
-load_session()
-from db.connection import get_db_engine
-from db.experiment_history import (
-    fetch_recent_experiments_with_zones,
-    load_experiment_zones,
-    persist_zones_for_video,
-    replace_experiment_rois,
-)
+from ui_components import run_page_splash
+import importlib
+import ui_theme
 
-if not st.session_state.get("logged_in"):
-    st.warning("⚠️ Debes iniciar sesión en 🔐 Login primero.")
-    st.stop()
-
-from auth import check_admin_access
-if check_admin_access(st.session_state.get("role")):
-    st.warning("⛔ Los administradores no pueden ejecutar análisis.")
-    st.stop()
-
-# ── Tema ───────────────────────────────────────────────────────────────────────
-from ui_theme import use_theme
-use_theme()
-
-# ── Componentes compartidos ────────────────────────────────────────────────────
+importlib.reload(ui_theme)
+from ui_theme import render_topbar, use_theme
 from video_context_banner import render_video_banner
+from config import GROOMING_MODEL, SIMBA_BASE, SIMBA_PROJECT_DIR, THIGMOTAXIS_MODEL
 
-# ════════════════════════════════════════════════════════════════════════════════
-# CSS LOCAL
-# ════════════════════════════════════════════════════════════════════════════════
-st.markdown("""
-<style>
-.af-title {
-    font-family: 'Inter', sans-serif;
-    font-weight: 800;
-    font-size: 1.9rem;
-    color: var(--text-main);
-    letter-spacing: 0.04em;
-    margin-bottom: 0.2rem;
-}
-.af-subtitle {
-    font-size: 0.95rem;
-    color: var(--text-main);
-    opacity: 0.85;
-    margin-bottom: 1rem;
-}
-.af-card {
-    background-color: var(--card-bg);
-    border-radius: 0.5rem;
-    padding: 1.2rem 1.4rem;
-    box-shadow: 0 4px 15px var(--shadow);
-    border: 1px solid var(--card-border);
-    border-top: 3px solid var(--primary);
-    margin-bottom: 1.2rem;
-    color: var(--text-main);
-}
-.req-ok   { color: #48bb78; font-weight: 700; }
-.req-miss { color: #fc8181; font-weight: 700; }
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Analisis Final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
-# ════════════════════════════════════════════════════════════════════════════════
-# CABECERA
-# ════════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="af-title">🔬 Análisis Final (YOLO + SimBA)</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="af-subtitle">Pipeline rápido (~5 min). Utiliza los keypoints de DLC '
-    'y las zonas configuradas para clasificar comportamientos y generar el video HUD multimodal.</div>',
-    unsafe_allow_html=True,
+load_session()
+colors = use_theme()
+
+# ================= 1. VERIFICAR LOGIN ==================
+if not st.session_state.get("logged_in"):
+    st.warning("Debes iniciar sesion antes de usar el sistema.")
+    st.stop()
+
+run_page_splash(
+    "page_analysis_final",
+    [
+        "Inicializando pipeline multimodal...",
+        "Verificando modelos y recursos activos...",
+        "Preparando ejecucion conductual...",
+    ],
+    subtitle="TT 2026 - Cargando analisis final...",
 )
 
 
-def _format_history_label(experiment_row: dict) -> str:
-    date_label = experiment_row.get("experiment_date") or "Sin fecha"
-    rat_label = experiment_row.get("rat_id") or "Sin sujeto"
-    treatment_label = experiment_row.get("treatment") or "Sin tratamiento"
-    return f"#{experiment_row['id']} · {rat_label} · {treatment_label} · {date_label}"
+def format_mm_ss(total_seconds):
+    total_seconds = max(0, int(total_seconds or 0))
+    return f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
 
 
-db_engine = get_db_engine()
+def ensure_logs_dir():
+    log_dir = os.path.join("logs", "analysis")
+    os.makedirs(log_dir, exist_ok=True)
+    return log_dir
 
-# Backfill suave: si ya hay video y zonas activas en sesión, se persisten para
-# que el historial reutilizable pueda recuperarlas después.
-current_video_path = st.session_state.get("ruta_video_actual")
-current_zones = st.session_state.get("zonas_configuradas", [])
-if db_engine and current_video_path and current_zones:
-    try:
-        sync_key = json.dumps(
-            {"video": current_video_path, "zonas": current_zones},
-            ensure_ascii=False,
-            sort_keys=True,
+
+def read_log_lines(log_path):
+    if not os.path.exists(log_path):
+        return []
+    with open(log_path, "r", encoding="utf-8", errors="ignore") as file_handle:
+        return [line.rstrip() for line in file_handle.readlines()]
+
+
+def trim_log_text(lines, max_lines=180):
+    if not lines:
+        return "[INFO] Aun no hay logs del pipeline."
+    return "\n".join(lines[-max_lines:])
+
+
+def collect_output_markers(lines):
+    outputs = {}
+    for line in lines:
+        if not line.startswith("[OUTPUT] "):
+            continue
+        payload = line[len("[OUTPUT] ") :]
+        if "=" not in payload:
+            continue
+        key, value = payload.split("=", 1)
+        outputs[key.strip().lower()] = value.strip()
+    return outputs
+
+
+def parse_pipeline_progress(lines, current_progress):
+    progress = max(current_progress, 0.02)
+    status = "Preparando pipeline multimodal..."
+
+    for line in lines:
+        if "[STEP] BOOT" in line:
+            progress = max(progress, 0.05)
+            status = "Preparando pipeline multimodal..."
+        elif "[STEP] DLC" in line:
+            progress = max(progress, 0.14)
+            status = "Extrayendo keypoints con DeepLabCut..."
+        elif "[STEP] BBOX" in line:
+            progress = max(progress, 0.46)
+            status = "Aplicando filtro anatomico bbox..."
+        elif "[STEP] SIMBA_FEATURES" in line:
+            progress = max(progress, 0.68)
+            status = "Importando pose al proyecto SimBA..."
+        elif "[STEP] FINAL_VIDEO" in line:
+            progress = max(progress, 0.82)
+            status = "Renderizando video multimodal final..."
+        elif "[STEP] ERROR" in line or line.startswith("[ERROR]"):
+            status = "El pipeline termino con error."
+
+    for line in reversed(lines):
+        trim_match = re.search(r"\[TRIM\]\s+(\d+)/(\d+)", line)
+        if trim_match:
+            current = int(trim_match.group(1))
+            total = max(int(trim_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.14 + (0.08 * ratio))
+            status = f"Recortando video... {int(ratio * 100)}%"
+            break
+
+        inference_match = re.search(r"\[HEARTBEAT\]\s+inference\s+elapsed=(\d+)s", line)
+        if inference_match:
+            elapsed = int(inference_match.group(1))
+            progress = min(max(progress + 0.015, 0.24), 0.42)
+            status = f"Extrayendo keypoints... {format_mm_ss(elapsed)} transcurridos"
+            break
+
+        import_match = re.search(r"\[HEARTBEAT\]\s+import_dlc\s+elapsed=(\d+)s", line)
+        if import_match:
+            elapsed = int(import_match.group(1))
+            progress = min(max(progress + 0.01, 0.18), 0.28)
+            status = f"Cargando DeepLabCut... {format_mm_ss(elapsed)} transcurridos"
+            break
+
+        bbox_match = re.search(r"\[BBOX\]\s+(\d+)/(\d+)", line)
+        if bbox_match:
+            current = int(bbox_match.group(1))
+            total = max(int(bbox_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.48 + (0.10 * ratio))
+            status = f"Detectando bbox YOLO... {int(ratio * 100)}%"
+            break
+
+        bbox_render_match = re.search(r"\[RENDER\]\s+(\d+)/(\d+)", line)
+        if bbox_render_match:
+            current = int(bbox_render_match.group(1))
+            total = max(int(bbox_render_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.58 + (0.08 * ratio))
+            status = f"Renderizando validacion bbox... {int(ratio * 100)}%"
+            break
+
+        final_render_match = re.search(r"Renderizados\s+(\d+)/(\d+)\s+frames", line)
+        if final_render_match:
+            current = int(final_render_match.group(1))
+            total = max(int(final_render_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.84 + (0.14 * ratio))
+            status = f"Renderizando HUD multimodal... {int(ratio * 100)}%"
+            break
+
+    if any("SUCCESS: Full behavior pipeline complete." in line for line in lines) or any(
+        line.startswith("[OUTPUT] FINAL_VIDEO=") for line in lines
+    ):
+        progress = 1.0
+        status = "Pipeline multimodal completado."
+
+    return progress, status, collect_output_markers(lines)
+
+
+def run_logged_process(command, log_path, parser, success_status, error_status):
+    progress_placeholder = st.empty()
+    status_placeholder = st.empty()
+    log_placeholder = st.empty()
+
+    progress = 0.02
+    status = "Inicializando proceso..."
+    outputs = {}
+
+    no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    with open(log_path, "w", encoding="utf-8") as log_handle:
+        process = subprocess.Popen(
+            command,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            cwd=os.getcwd(),
+            creationflags=no_window,
         )
-        if st.session_state.get("_analysis_history_sync_key") != sync_key:
-            current_base_name = os.path.splitext(os.path.basename(current_video_path))[0]
-            persist_zones_for_video(
-                db_engine,
-                video_path=current_video_path,
-                zonas=current_zones,
-                rat_id=st.session_state.get("id_raton_actual", current_base_name),
-                treatment=(
-                    st.session_state.get("treatment")
-                    or st.session_state.get("treatment_id")
-                    or "Sin tratamiento"
-                ),
-                responsible=st.session_state.get("user_name", "Investigador"),
-                username=st.session_state.get("user"),
-                scale_factor=1.0,
-            )
-            st.session_state["_analysis_history_sync_key"] = sync_key
-    except Exception:
-        pass
 
-history_rows = []
-history_error = None
-if db_engine:
+        while process.poll() is None:
+            lines = read_log_lines(log_path)
+            progress, status, outputs = parser(lines, progress)
+            progress_placeholder.progress(min(max(progress, 0.0), 0.99), text=status)
+            status_placeholder.info(status)
+            log_placeholder.code(trim_log_text(lines), language="bash")
+            time.sleep(1)
+
+    return_code = process.wait()
+    lines = read_log_lines(log_path)
+    progress, status, outputs = parser(lines, progress)
+
+    if return_code == 0:
+        progress_placeholder.progress(1.0, text=success_status)
+        status_placeholder.success(success_status)
+        final_status = success_status
+        final_progress = 1.0
+    else:
+        final_progress = min(max(progress, 0.1), 0.95)
+        progress_placeholder.progress(final_progress, text=error_status)
+        status_placeholder.error(error_status)
+        final_status = error_status
+
+    log_placeholder.code(trim_log_text(lines), language="bash")
+    st.session_state["analysis_last_logs"] = trim_log_text(lines, max_lines=220)
+    st.session_state["analysis_last_status"] = final_status
+    st.session_state["analysis_last_progress"] = final_progress
+
+    return return_code, lines, outputs
+
+
+def find_pose_file(video_path):
+    if not video_path:
+        return None
+
+    video_dir = os.path.dirname(video_path)
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    patterns = [
+        f"{base_name}*filtered*.h5",
+        f"{base_name}*_bbox_constrained.h5",
+        f"{base_name}*DLC*.h5",
+        f"{base_name}*filtered*.csv",
+        f"{base_name}*_bbox_constrained.csv",
+        f"{base_name}*DLC*.csv",
+    ]
+    for pattern in patterns:
+        matches = sorted(Path(video_dir).glob(pattern))
+        if matches:
+            return str(matches[-1].resolve())
+    return None
+
+
+def find_feature_file(video_path):
+    if not video_path:
+        return None
+    candidate = Path(SIMBA_PROJECT_DIR) / "csv" / "features_extracted" / f"{Path(video_path).stem}.csv"
+    return str(candidate.resolve()) if candidate.exists() else None
+
+
+def write_zones_temp_file():
+    zones = st.session_state.get("zonas_configuradas") or []
+    if not zones:
+        return None
+    log_dir = ensure_logs_dir()
+    zones_path = os.path.join(log_dir, "zonas_activas.json")
+    with open(zones_path, "w", encoding="utf-8") as file_handle:
+        json.dump(zones, file_handle, indent=2, ensure_ascii=False)
+    return zones_path
+
+
+def infer_trim_window(record):
+    candidates = [
+        record.get("trajectory_path"),
+        record.get("video_path"),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        match = re.search(r"_trimmed_(\d+)_(\d+)", os.path.basename(str(candidate)))
+        if match:
+            return int(match.group(1)), int(match.group(2))
+
+    duration_seconds = record.get("duration_seconds")
+    if duration_seconds not in (None, "", 0):
+        try:
+            return 0, int(float(duration_seconds))
+        except (TypeError, ValueError):
+            pass
+    return 0, None
+
+
+def reset_analysis_runtime_state():
+    for key in [
+        "ultimo_video_analizado",
+        "ultimo_pose_file",
+        "ultimo_pose_filtrado",
+        "ultimo_bbox_video",
+        "ultimo_feature_file",
+        "ultimo_multimodal_video",
+        "ultimo_trajectory_file",
+        "ultimo_grooming_timelog",
+        "ultimo_thigmotaxis_timelog",
+        "analysis_db_notice",
+        "analysis_last_logs",
+        "analysis_last_status",
+        "analysis_last_progress",
+    ]:
+        st.session_state.pop(key, None)
+
+
+def fetch_reprocessable_experiments(limit=25):
     try:
-        history_rows = fetch_recent_experiments_with_zones(db_engine, limit=20)
-    except Exception as error:
-        history_error = error
+        from db.connection import get_db_engine
+    except Exception:
+        return []
 
-st.markdown('<div class="af-card">', unsafe_allow_html=True)
-st.markdown("#### 🕘 Historial Reutilizable")
+    engine = get_db_engine()
+    if not engine:
+        return []
+
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS trajectory_path TEXT"))
+        conn.commit()
+        rows = conn.execute(
+            text(
+                """
+                SELECT
+                    e.id,
+                    e.rat_id,
+                    e.treatment,
+                    e.experiment_date,
+                    e.responsible,
+                    e.video_path,
+                    e.duration_seconds,
+                    e.created_at,
+                    COALESCE(ar.trajectory_path, '') AS trajectory_path,
+                    COUNT(r.id) AS zone_count
+                FROM experiments e
+                LEFT JOIN (
+                    SELECT DISTINCT ON (experiment_id)
+                        experiment_id,
+                        trajectory_path,
+                        timestamp,
+                        id
+                    FROM analysis_results
+                    ORDER BY experiment_id, timestamp DESC, id DESC
+                ) ar
+                    ON ar.experiment_id = e.id
+                LEFT JOIN roi_configurations r
+                    ON r.experiment_id = e.id
+                GROUP BY
+                    e.id,
+                    e.rat_id,
+                    e.treatment,
+                    e.experiment_date,
+                    e.responsible,
+                    e.video_path,
+                    e.duration_seconds,
+                    e.created_at,
+                    ar.trajectory_path
+                ORDER BY e.created_at DESC
+                LIMIT :limit
+                """
+            ),
+            {"limit": limit},
+        ).mappings().all()
+
+    records = []
+    for row in rows:
+        record = dict(row)
+        video_path = record.get("video_path")
+        if not video_path or not os.path.exists(video_path):
+            continue
+        records.append(record)
+    return records
+
+
+def load_previous_experiment_context(record):
+    try:
+        from db.connection import get_db_engine
+        from db.experiment_history import load_experiment_zones
+    except Exception as error:
+        return False, f"No se pudo cargar la capa de historial: {error}"
+
+    engine = get_db_engine()
+    if not engine:
+        return False, "No se encontro conexion a PostgreSQL para recuperar zonas historicas."
+
+    experiment_id = int(record["id"])
+    zones = load_experiment_zones(engine, experiment_id)
+    start_seconds, end_seconds = infer_trim_window(record)
+
+    st.session_state["ruta_video_actual"] = record["video_path"]
+    st.session_state["id_raton_actual"] = record.get("rat_id") or Path(record["video_path"]).stem
+    st.session_state["treatment"] = record.get("treatment") or "Control"
+    st.session_state["ingesta_responsable_actual"] = record.get("responsible") or st.session_state.get("user_name", "Investigador")
+    st.session_state["inicio_recorte"] = int(start_seconds or 0)
+    st.session_state["fin_recorte"] = None if end_seconds is None else int(end_seconds)
+    st.session_state["zonas_configuradas"] = zones
+    st.session_state["analysis_selected_experiment_id"] = experiment_id
+    reset_analysis_runtime_state()
+    save_session()
+
+    return True, (
+        f"Se cargo el registro previo #{experiment_id} para reprocesarlo con el pipeline actual. "
+        f"Recorte inferido: {format_mm_ss(start_seconds)} -> "
+        f"{format_mm_ss(end_seconds) if end_seconds is not None else 'fin del video'}."
+    )
+
+
+def build_pipeline_command(batch_size, device_option, zones_file):
+    runner_script = os.path.abspath(os.path.join("src", "scripts", "run_behavior_pipeline.py"))
+    video_path = os.path.abspath(st.session_state["ruta_video_actual"])
+    start_seconds = int(st.session_state.get("inicio_recorte", 0) or 0)
+    end_seconds = st.session_state.get("fin_recorte")
+
+    command = [
+        sys.executable,
+        runner_script,
+        "--video",
+        video_path,
+        "--project-root",
+        str(Path(SIMBA_BASE).resolve()),
+        "--batch-size",
+        str(int(batch_size)),
+        "--start-seconds",
+        str(start_seconds),
+    ]
+    if end_seconds is not None:
+        command.extend(["--end-seconds", str(int(end_seconds))])
+    if zones_file:
+        command.extend(["--zones-file", zones_file])
+    if device_option == "CPU (Forzar)":
+        command.append("--force-cpu")
+    return command
+
+
+def collect_generated_files():
+    files = []
+    for key in [
+        "ultimo_pose_file",
+        "ultimo_pose_filtrado",
+        "ultimo_bbox_video",
+        "ultimo_feature_file",
+        "ultimo_multimodal_video",
+        "ultimo_trajectory_file",
+        "ultimo_grooming_timelog",
+        "ultimo_thigmotaxis_timelog",
+    ]:
+        candidate = st.session_state.get(key)
+        if candidate and os.path.exists(candidate) and candidate not in files:
+            files.append(candidate)
+    return files
+
+
+def build_summary_from_trajectory(trajectory_path):
+    if not trajectory_path or not os.path.exists(trajectory_path):
+        return None
+
+    df = pd.read_csv(trajectory_path)
+    if df.empty:
+        return None
+
+    time_series = pd.to_numeric(df.get("Tiempo (s)"), errors="coerce")
+    step_seconds = time_series.diff().dropna()
+    step_seconds = step_seconds[step_seconds > 0]
+    frame_seconds = float(step_seconds.median()) if not step_seconds.empty else (1.0 / 30.0)
+
+    zone_series = df.get("Zona", pd.Series(["Outside"] * len(df))).astype(str)
+    open_time = float(zone_series.str.contains("abierto", case=False, na=False).sum() * frame_seconds)
+    closed_time = float(zone_series.str.contains("cerrado", case=False, na=False).sum() * frame_seconds)
+    center_time = float(zone_series.str.contains("centro", case=False, na=False).sum() * frame_seconds)
+    grooming_series = df["Grooming"] if "Grooming" in df.columns else pd.Series([0] * len(df))
+    thigmotaxis_series = df["Thigmotaxis"] if "Thigmotaxis" in df.columns else pd.Series([0] * len(df))
+    grooming_duration = float(pd.to_numeric(grooming_series, errors="coerce").fillna(0).sum() * frame_seconds)
+    thigmotaxis_duration = float(pd.to_numeric(thigmotaxis_series, errors="coerce").fillna(0).sum() * frame_seconds)
+    total_duration = float(len(df) * frame_seconds)
+
+    return {
+        "total_duration": total_duration,
+        "time_open_arms": open_time,
+        "time_closed_arms": closed_time,
+        "time_center": center_time,
+        "grooming_duration": grooming_duration,
+        "thigmotaxis_duration": thigmotaxis_duration,
+        "trajectory_path": trajectory_path,
+    }
+
+
+def persist_summary_to_db(summary):
+    try:
+        try:
+            from db.connection import get_db_engine
+            from sqlalchemy import text
+        except Exception as error:
+            return f"No se pudo cargar la capa DB: {error}"
+
+        engine = get_db_engine()
+        if not engine:
+            return "No se encontro una conexion activa a PostgreSQL."
+
+        video_path = st.session_state.get("ruta_video_actual")
+        if not video_path:
+            return "No hay video activo para registrar en BD."
+
+        rat_id = st.session_state.get("id_raton_actual") or Path(video_path).stem
+        treatment = st.session_state.get("treatment") or "Control"
+        responsible = st.session_state.get("ingesta_responsable_actual") or st.session_state.get("user_name", "Investigador")
+        username = st.session_state.get("user")
+
+        with engine.connect() as conn:
+            user_row = conn.execute(
+                text("SELECT id FROM users WHERE username = :username LIMIT 1"),
+                {"username": username},
+            ).fetchone()
+            user_id = int(user_row[0]) if user_row else None
+
+            existing = conn.execute(
+                text("SELECT id FROM experiments WHERE video_path = :video_path ORDER BY created_at DESC LIMIT 1"),
+                {"video_path": video_path},
+            ).fetchone()
+
+            if existing:
+                experiment_id = int(existing[0])
+                conn.execute(
+                    text(
+                        """
+                        UPDATE experiments
+                        SET treatment = :treatment,
+                            experiment_date = CURRENT_DATE,
+                            responsible = :responsible,
+                            duration_seconds = :duration_seconds,
+                            created_by = COALESCE(:created_by, created_by),
+                            processed = TRUE
+                        WHERE id = :experiment_id
+                        """
+                    ),
+                    {
+                        "treatment": treatment,
+                        "responsible": responsible,
+                        "duration_seconds": summary["total_duration"],
+                        "created_by": user_id,
+                        "experiment_id": experiment_id,
+                    },
+                )
+            else:
+                created = conn.execute(
+                    text(
+                        """
+                        INSERT INTO experiments (
+                            rat_id,
+                            treatment,
+                            experiment_date,
+                            responsible,
+                            video_path,
+                            duration_seconds,
+                            created_by,
+                            processed
+                        )
+                        VALUES (
+                            :rat_id,
+                            :treatment,
+                            CURRENT_DATE,
+                            :responsible,
+                            :video_path,
+                            :duration_seconds,
+                            :created_by,
+                            TRUE
+                        )
+                        RETURNING id
+                        """
+                    ),
+                    {
+                        "rat_id": rat_id,
+                        "treatment": treatment,
+                        "responsible": responsible,
+                        "video_path": video_path,
+                        "duration_seconds": summary["total_duration"],
+                        "created_by": user_id,
+                    },
+                ).fetchone()
+                experiment_id = int(created[0])
+
+            conn.execute(text("ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS trajectory_path TEXT"))
+            conn.execute(
+                text("DELETE FROM analysis_results WHERE experiment_id = :experiment_id"),
+                {"experiment_id": experiment_id},
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO analysis_results (
+                        experiment_id,
+                        total_distance,
+                        time_open_arms,
+                        time_closed_arms,
+                        time_center,
+                        grooming_duration,
+                        thigmotaxis_duration,
+                        status,
+                        trajectory_path
+                    )
+                    VALUES (
+                        :experiment_id,
+                        0,
+                        :time_open_arms,
+                        :time_closed_arms,
+                        :time_center,
+                        :grooming_duration,
+                        :thigmotaxis_duration,
+                        'completed',
+                        :trajectory_path
+                    )
+                    """
+                ),
+                {
+                    "experiment_id": experiment_id,
+                    "time_open_arms": summary["time_open_arms"],
+                    "time_closed_arms": summary["time_closed_arms"],
+                    "time_center": summary["time_center"],
+                    "grooming_duration": summary["grooming_duration"],
+                    "thigmotaxis_duration": summary["thigmotaxis_duration"],
+                    "trajectory_path": summary["trajectory_path"],
+                },
+            )
+            conn.commit()
+
+        return f"Resumen persistido en BD para el experimento #{experiment_id}."
+    except Exception as error:
+        return f"Pipeline listo, pero no se pudo persistir el resumen en BD: {error}"
+
+
+def render_status_panel():
+    st.markdown("#### Estado y Logs")
+    last_progress = float(st.session_state.get("analysis_last_progress", 0.0) or 0.0)
+    last_status = st.session_state.get("analysis_last_status", "Aun no se ejecuta el pipeline final.")
+    last_logs = st.session_state.get("analysis_last_logs", "[INFO] Aun no hay logs del pipeline.")
+
+    st.progress(min(max(last_progress, 0.0), 1.0), text=last_status)
+    st.code(last_logs, language="bash")
+
+
+def render_output_panel():
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    st.markdown("#### Salidas generadas")
+
+    final_video = st.session_state.get("ultimo_multimodal_video")
+    if final_video and os.path.exists(final_video):
+        st.video(final_video)
+    else:
+        st.info("Aun no existe un video multimodal final para este registro.")
+
+    generated_files = collect_generated_files()
+    if generated_files:
+        st.markdown("##### Archivos detectados")
+        for file_path in generated_files:
+            st.write(f"- `{os.path.basename(file_path)}`")
+
+    summary = build_summary_from_trajectory(st.session_state.get("ultimo_trajectory_file"))
+    if summary:
+        st.markdown("---")
+        st.markdown("##### Resumen rapido")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Abiertos", f"{summary['time_open_arms']:.1f}s")
+        m2.metric("Cerrados", f"{summary['time_closed_arms']:.1f}s")
+        m3.metric("Grooming", f"{summary['grooming_duration']:.1f}s")
+        m4.metric("Thigmotaxis", f"{summary['thigmotaxis_duration']:.1f}s")
+
+    db_notice = st.session_state.get("analysis_db_notice")
+    if db_notice:
+        st.caption(db_notice)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def resolve_status_flags():
+    active_video = st.session_state.get("ruta_video_actual")
+    analyzed_video = st.session_state.get("ultimo_video_analizado") or active_video
+    pose_candidate = st.session_state.get("ultimo_pose_file") or find_pose_file(analyzed_video)
+    feature_candidate = st.session_state.get("ultimo_feature_file") or find_feature_file(analyzed_video)
+    final_video = st.session_state.get("ultimo_multimodal_video")
+
+    return {
+        "has_video": bool(active_video and os.path.exists(active_video)),
+        "has_zonas": bool(st.session_state.get("zonas_configuradas")),
+        "has_models": GROOMING_MODEL.exists() and THIGMOTAXIS_MODEL.exists(),
+        "has_pose": bool(pose_candidate and os.path.exists(pose_candidate)),
+        "has_features": bool(feature_candidate and os.path.exists(feature_candidate)),
+        "has_final_video": bool(final_video and os.path.exists(final_video)),
+    }
+
+
+# ================= 2. CABECERA =================
+render_topbar()
+st.markdown("### Modulo 04: Analisis Final Conductual")
+st.markdown(
+    """
+    Ejecuta el flujo operativo completo del proyecto activo:
+    recorte temporal, DeepLabCut, filtro bbox, importacion a SimBA y render multimodal final.
+    """
+)
 st.caption(
-    "Recarga un experimento previo con sus zonas guardadas para volver a ejecutar "
-    "el análisis final sin redibujar las ROIs."
+    "Recomendacion operativa: primero agrega y etiqueta videos nuevos en SimBA, luego reentrena los modelos, "
+    "y por ultimo vuelve a correr aqui los videos historicos que quieras reprocesar con el modelo mejorado."
 )
 
-if history_rows:
-    history_df = pd.DataFrame(
-        [
-            {
-                "ID": row["id"],
-                "Sujeto / Video": row.get("rat_id", ""),
-                "Tratamiento": row.get("treatment", ""),
-                "Fecha": str(row.get("experiment_date") or ""),
-                "Investigador": row.get("responsible", ""),
-                "Zonas": int(row.get("zone_count") or 0),
-            }
-            for row in history_rows
-        ]
-    )
-    st.dataframe(history_df, use_container_width=True, hide_index=True, height=180)
+st.divider()
 
+# ================= 3. VIDEO CHECK =================
+video_ok = render_video_banner("Video de Analisis Activo")
+
+history_records = fetch_reprocessable_experiments()
+selected_history_record = None
+
+st.markdown('<div class="content-card">', unsafe_allow_html=True)
+st.markdown("#### Reprocesar videos anteriores")
+if history_records:
     history_options = {
-        _format_history_label(row): row
-        for row in history_rows
+        (
+            f"#{record['id']} | {record.get('rat_id', 'Sin ID')} | "
+            f"{record.get('experiment_date', 'Sin fecha')} | "
+            f"{os.path.basename(record.get('video_path', ''))}"
+        ): record
+        for record in history_records
     }
     selected_history_label = st.selectbox(
-        "Selecciona un experimento para recargar:",
-        options=list(history_options.keys()),
-        index=0,
+        "Carga un experimento previo para volver a correrlo con los modelos y el pipeline actuales",
+        list(history_options.keys()),
+        key="analysis_previous_experiment_select",
     )
-    selected_history = history_options[selected_history_label]
-    selected_history_zones = load_experiment_zones(db_engine, int(selected_history["id"]))
-    if selected_history_zones:
-        zone_names = [
-            zone.get("Nombre Zona", zone.get("id", "Zona"))
-            for zone in selected_history_zones
-        ]
-        st.caption(f"Zonas guardadas: {', '.join(zone_names)}")
-    st.caption(f"Ruta fuente: `{selected_history['video_path']}`")
-
-    if st.button("📥 Cargar experimento y zonas en esta sesión", use_container_width=True):
-        st.session_state["ruta_video_actual"] = selected_history["video_path"]
-        st.session_state["zonas_configuradas"] = selected_history_zones
-        st.session_state["id_raton_actual"] = selected_history.get("rat_id")
-        st.session_state["treatment"] = selected_history.get("treatment")
-        st.session_state["treatment_id"] = selected_history.get("treatment")
-        st.session_state["inicio_recorte"] = 0
-        st.session_state["fin_recorte"] = 0
-        save_session()
-        st.success("Contexto histórico cargado. Recargando la página...")
-        st.rerun()
-elif history_error:
-    st.warning(f"No se pudo cargar el historial reutilizable: {history_error}")
+    selected_history_record = history_options[selected_history_label]
+    history_cols = st.columns([1.4, 1])
+    with history_cols[0]:
+        inferred_start, inferred_end = infer_trim_window(selected_history_record)
+        st.caption(
+            f"Video: `{selected_history_record['video_path']}` | "
+            f"Zonas guardadas: `{selected_history_record.get('zone_count', 0)}` | "
+            f"Recorte inferido: `{format_mm_ss(inferred_start)}` -> "
+            f"`{format_mm_ss(inferred_end) if inferred_end is not None else 'fin del video'}`"
+        )
+    with history_cols[1]:
+        if st.button("CARGAR REGISTRO PREVIO", use_container_width=True, key="btn_load_previous_analysis_record"):
+            ok, message = load_previous_experiment_context(selected_history_record)
+            if ok:
+                st.success(message)
+                st.rerun()
+            else:
+                st.error(message)
 else:
-    st.info(
-        "Todavía no hay experimentos con zonas persistidas en PostgreSQL. "
-        "Guarda zonas o ejecuta un análisis final nuevo."
-    )
-
+    st.info("Aun no hay experimentos previos disponibles con video recuperable desde la BD.")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ── Banner de video activo ─────────────────────────────────────────────────────
-video_ok = render_video_banner("Video a analizar (Análisis Final)")
-
 if not video_ok:
-    st.error(
-        "⚠️ Selecciona un video en **01 · Ingesta de Video** o cárgalo desde el "
-        "**Historial Reutilizable** antes de continuar."
+    st.warning("No hay video activo en esta sesion. Puedes cargar uno desde Ingesta o usar el selector de registros previos de arriba.")
+
+status_flags = resolve_status_flags()
+device_option = st.session_state.get("dlc_device_opt", "Auto (Recomendado)")
+batch_size = int(st.session_state.get("dlc_batch_size", 16) or 16)
+zones_ready = bool(st.session_state.get("zonas_configuradas"))
+
+# ================= 4. PREREQUISITES PANEL =================
+st.markdown('<div class="content-card">', unsafe_allow_html=True)
+st.markdown("#### Validacion de Prerrequisitos")
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    st.markdown(
+        f'<div style="text-align:center;"><div style="color: {"#1E8E3E" if status_flags["has_video"] else "#D93025"}; font-weight: 700;">'
+        f'{"OK Video Activo" if status_flags["has_video"] else "Sin Video Activo"}</div>'
+        f'<div style="font-size:0.8rem; margin-top:8px;">Registro experimental</div></div>',
+        unsafe_allow_html=True,
     )
-    st.stop()
-
-ruta_video = st.session_state["ruta_video_actual"]
-base_name  = os.path.splitext(os.path.basename(ruta_video))[0]
-
-# ════════════════════════════════════════════════════════════════════════════════
-# VERIFICACIÓN DE PRE-REQUISITOS
-# ════════════════════════════════════════════════════════════════════════════════
-WORK_DIR     = os.path.abspath("videos_data")
-SIMBA_PROJECT = os.path.abspath(os.path.join(
-    "data", "simba_projects", "New folder", "thigmotaxis_optimizado", "project_folder"
-))
-LEGACY_SIMBA_PROJECT = os.path.abspath(os.path.join(
-    "data", "simba_projects", "SimBA_EPM_Analysis", "project_folder"
-))
-FEATURES_DIR = os.path.join(SIMBA_PROJECT, "csv", "features_extracted")
-SIMBA_INPUT_DIR = os.path.join(SIMBA_PROJECT, "csv", "input_csv")
-LEGACY_FEATURES_DIR = os.path.join(LEGACY_SIMBA_PROJECT, "csv", "features_extracted")
-
-# VIDEO_NAME en SimBA: full_pipeline.py añade sufijo "_full" al base_name del video
-# Ej: ruta_video = 'videos_data/mike_prueba1_Ctrl.mp4' -> base_name = 'mike_prueba1_Ctrl'
-#      VIDEO_NAME en full_pipeline = 'mike_prueba1_Ctrl_full'
-video_name_simba = f"{base_name}_full"
-
-# 1. ¿Hay keypoints (H5 o CSV de features)?
-h5_existentes  = glob.glob(os.path.join(WORK_DIR, f"*{base_name}*DLC*.h5"))
-csv_features = glob.glob(os.path.join(FEATURES_DIR, f"{video_name_simba}.csv"))
-csv_features.extend(glob.glob(os.path.join(LEGACY_FEATURES_DIR, f"{video_name_simba}.csv")))
-source_pose_csv_path = _resolve_pose_source_csv(
-    WORK_DIR,
-    SIMBA_INPUT_DIR,
-    base_name,
-    video_name_simba,
-    csv_features,
-)
-tiene_pose_source = bool(source_pose_csv_path)
-tiene_keypoints = bool(h5_existentes or tiene_pose_source)
-tiene_features  = bool(csv_features)
-
-# 2. ¿Hay zonas configuradas?
-zonas = st.session_state.get("zonas_configuradas", [])
-tiene_zonas = bool(zonas)
-
-# 3. ¿Modelos SimBA disponibles?
-MODEL_ROOT_DIR = os.path.join(
-    "data", "simba_projects", "New folder", "thigmotaxis_optimizado", "models"
-)
-MODEL_GENERATED_DIR = os.path.join(MODEL_ROOT_DIR, "generated_models")
-MODEL_VALIDATIONS_DIR = os.path.join(MODEL_ROOT_DIR, "validations")
-MODEL_THIGMO, MODEL_THIGMO_NAME = _resolve_preferred_simba_model([
-    os.path.join(MODEL_GENERATED_DIR, "Thigmotaxis.sav"),
-    os.path.join(MODEL_VALIDATIONS_DIR, "Thigmotaxis_3.sav"),
-    os.path.join(MODEL_VALIDATIONS_DIR, "Thigmotaxis_0.sav"),
-    os.path.join(MODEL_VALIDATIONS_DIR, "Thigmotaxis_2.sav"),
-])
-MODEL_GROOMING, MODEL_GROOMING_NAME = _resolve_preferred_simba_model([
-    os.path.join(MODEL_GENERATED_DIR, "Grooming.sav"),
-    os.path.join(MODEL_VALIDATIONS_DIR, "Grooming_0.sav"),
-    os.path.join(MODEL_VALIDATIONS_DIR, "Grooming_1.sav"),
-    os.path.join(MODEL_VALIDATIONS_DIR, "Grooming_2.sav"),
-])
-tiene_modelos = os.path.exists(MODEL_THIGMO) and os.path.exists(MODEL_GROOMING)
-
-with st.expander("📋 Verificación de Prerrequisitos", expanded=not (tiene_features and tiene_zonas)):
-    req1, req2, req3 = st.columns(3)
-    with req1:
-        with st.container(border=True):
-            if tiene_pose_source:
-                st.markdown('<span class="req-ok">✅ Datos de pose listos</span>', unsafe_allow_html=True)
-                st.caption(f"`{os.path.basename(source_pose_csv_path)}`")
-            elif tiene_keypoints:
-                st.markdown('<span class="req-miss">⚠️ Solo H5 (sin CSV base)</span>', unsafe_allow_html=True)
-                st.caption("Falta el CSV plano de pose para SimBA. Completa el pipeline desde **02 · Keypoints**.")
-            else:
-                st.markdown('<span class="req-miss">❌ Sin Keypoints</span>', unsafe_allow_html=True)
-                st.caption("Ve a **02 · Keypoints** para extraer los datos DLC primero.")
-    with req2:
-        with st.container(border=True):
-            if tiene_zonas:
-                nombres = [z.get("id", z.get("Nombre Zona", "?")) for z in zonas]
-                st.markdown('<span class="req-ok">✅ Zonas Cargadas</span>', unsafe_allow_html=True)
-                st.caption(", ".join(nombres[:4]) + ("..." if len(nombres) > 4 else ""))
-            else:
-                st.markdown('<span class="req-miss">❌ Sin Zonas</span>', unsafe_allow_html=True)
-                st.caption("Ve a **03 · Configuración de Zonas** para definir los brazos.")
-    with req3:
-        with st.container(border=True):
-            if tiene_modelos:
-                st.markdown('<span class="req-ok">✅ Modelos SimBA</span>', unsafe_allow_html=True)
-                st.caption(f"`{MODEL_THIGMO_NAME}` | `{MODEL_GROOMING_NAME}`")
-            else:
-                st.markdown('<span class="req-miss">❌ Modelos no encontrados</span>', unsafe_allow_html=True)
-                st.caption("Revisa la ruta de los `.sav` en el proyecto SimBA.")
-
-# ── Bloquear si no hay fuente CSV utilizable ─────────────────────────────────
-if not tiene_pose_source:
-    st.error(
-        "🔴 **No hay un CSV de pose utilizable para este video.** "
-        "Ve a **02 · Keypoints** para extraer o completar el pipeline primero."
+with c2:
+    st.markdown(
+        f'<div style="text-align:center;"><div style="color: {"#1E8E3E" if status_flags["has_zonas"] else "#D93025"}; font-weight: 700;">'
+        f'{"ROIs Configuradas" if status_flags["has_zonas"] else "Faltan ROIs"}</div>'
+        f'<div style="font-size:0.8rem; margin-top:8px;">Zonas normalizadas</div></div>',
+        unsafe_allow_html=True,
     )
-    st.stop()
+with c3:
+    st.markdown(
+        f'<div style="text-align:center;"><div style="color: {"#1E8E3E" if status_flags["has_models"] else "#D93025"}; font-weight: 700;">'
+        f'{"Modelos SimBA OK" if status_flags["has_models"] else "Modelos no hallados"}</div>'
+        f'<div style="font-size:0.8rem; margin-top:8px;">Generated models</div></div>',
+        unsafe_allow_html=True,
+    )
+with c4:
+    state_label = "Pose DLC lista" if status_flags["has_pose"] else "Se generara pose nueva"
+    state_color = "#1E8E3E" if status_flags["has_pose"] else "#B26A00"
+    st.markdown(
+        f'<div style="text-align:center;"><div style="color: {state_color}; font-weight: 700;">{state_label}</div>'
+        f'<div style="font-size:0.8rem; margin-top:8px;">Reuso inteligente</div></div>',
+        unsafe_allow_html=True,
+    )
+st.markdown("</div>", unsafe_allow_html=True)
 
-if not tiene_zonas:
-    st.warning("⚠️ No hay zonas configuradas. El análisis se ejecutará sin asignación de zona. "
-               "Ve a **03 · Configuración de Zonas** para mayor precisión.")
+# ================= 5. MAIN LAYOUT =================
+action = None
+left_col, right_col = st.columns([1, 1.35])
 
-# ════════════════════════════════════════════════════════════════════════════════
-# PANEL DE CONFIGURACIÓN Y ACCIÓN
-# ════════════════════════════════════════════════════════════════════════════════
-features_csv_path = source_pose_csv_path
+with left_col:
+    st.markdown('<div class="content-card" style="border-top: 4px solid #6F1D46;">', unsafe_allow_html=True)
+    st.markdown("#### Ejecucion del Pipeline")
+    st.caption(
+        f"Rango activo: `{format_mm_ss(st.session_state.get('inicio_recorte', 0))}` -> "
+        f"`{format_mm_ss(st.session_state.get('fin_recorte')) if st.session_state.get('fin_recorte') is not None else 'fin del video'}`"
+    )
 
-col_cfg, col_preview = st.columns([1, 2])
-
-with col_cfg:
-    st.markdown('<div class="af-card">', unsafe_allow_html=True)
-    st.markdown("#### ⚙️ Configuración del Análisis Final")
-
-    if tiene_pose_source:
-        st.success("✅ Datos de pose listos — análisis en ~5 min")
-        st.caption(f"Fuente detectada: `{os.path.basename(source_pose_csv_path)}`")
-        iniciar_analisis = st.button(
-            "⚡ EJECUTAR ANÁLISIS FINAL",
-            type="primary",
-            use_container_width=True,
+    with st.expander("Parametros de Ejecucion", expanded=True):
+        batch_size = st.slider(
+            "Batch Size DLC",
+            min_value=4,
+            max_value=32,
+            value=int(st.session_state.get("dlc_batch_size", 16) or 16),
+            step=4,
+            help="Se mantiene capado a 32 para no castigar la GPU. 16 suele ser el punto mas estable.",
         )
-    else:
-        st.error(
-            "🔴 **No hay un CSV base de pose para este video.**\n\n"
-            "Completa **02 · Keypoints** hasta generar el CSV DLC/SimBA y luego vuelve aquí."
+        device_option = st.selectbox(
+            "Dispositivo Hardware",
+            ["Auto (Recomendado)", "CPU (Forzar)"],
+            index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
         )
-        iniciar_analisis = False  # Bloquear — no se puede ejecutar sin features
+        st.caption("El pipeline reutiliza pose, filtro bbox y video final si ya existen y siguen vigentes.")
 
-    st.markdown("---")
-    st.caption("📦 **Output:** Video Multimodal MP4 + CSV de trayectoria")
-    st.caption("🔬 **Clasificadores:** Thigmotaxis RF + Grooming RF (SimBA)")
-    st.caption("🎯 **Tracker:** YOLO ByteTrack (centroid y bounding box)")
+    can_run = status_flags["has_video"] and status_flags["has_zonas"] and status_flags["has_models"]
+    if not status_flags["has_zonas"]:
+        st.error("Necesitas guardar primero las ROIs en el Modulo 03.")
+    if not status_flags["has_models"]:
+        st.error("No se encontraron los modelos activos de SimBA en generated_models.")
+
+    if st.button(
+        "INICIAR PIPELINE MULTIMODAL",
+        type="primary",
+        use_container_width=True,
+        disabled=not can_run,
+        key="btn_run_behavior_pipeline",
+    ):
+        action = "run"
     st.markdown("</div>", unsafe_allow_html=True)
 
-with col_preview:
-    st.markdown('<div class="af-card">', unsafe_allow_html=True)
-    st.markdown("#### 🗺️ Vista Previa de Zonas")
+with right_col:
+    render_output_panel()
 
-    if zonas and ruta_video:
-        import cv2
-        try:
-            cap = cv2.VideoCapture(ruta_video)
-            ret, frame = cap.read()
-            cap.release()
-            if ret:
-                import numpy as np
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                overlay   = frame_rgb.copy()
+# ================= 6. ESTADO Y LOGS =================
+st.markdown("<br>", unsafe_allow_html=True)
 
-                for z in zonas:
-                    tipo = z.get("type", "rect")
-                    name = z.get("id", z.get("Nombre Zona", "Zona"))
-                    n_l  = name.lower()
-                    if tipo == "line" or "muro" in n_l: continue
-                    color = (200,200,200)
-                    if "abierto" in n_l: color = (240,120,120)
-                    elif "cerrado" in n_l: color = (0,250,255)
-                    elif "centro" in n_l: color = (255,165,0)
-                    x = int(z.get("x", z.get("left", 0)))
-                    y = int(z.get("y", z.get("top", 0)))
-                    w = int(z.get("w", z.get("width", 0)))
-                    h = int(z.get("h", z.get("height", 0)))
-                    cv2.rectangle(overlay, (x,y), (x+w,y+h), color, -1)
+if action == "run":
+    st.session_state["dlc_batch_size"] = int(batch_size)
+    st.session_state["dlc_device_opt"] = device_option
+    zones_file = write_zones_temp_file()
+    save_session()
 
-                cv2.addWeighted(overlay, 0.35, frame_rgb, 0.65, 0, frame_rgb)
-
-                for z in zonas:
-                    tipo = z.get("type", "rect")
-                    name = z.get("id", z.get("Nombre Zona", "Zona"))
-                    n_l  = name.lower()
-                    color = (200,200,200)
-                    if "abierto" in n_l: color = (240,120,120)
-                    elif "cerrado" in n_l: color = (0,250,255)
-                    elif "centro" in n_l: color = (255,165,0)
-                    if tipo == "line" or "muro" in n_l:
-                        cv2.line(frame_rgb,
-                                 (int(z.get("x1",0)), int(z.get("y1",0))),
-                                 (int(z.get("x2",0)), int(z.get("y2",0))),
-                                 (0,255,255), 3)
-                    else:
-                        x,y = int(z.get("x",z.get("left",0))), int(z.get("y",z.get("top",0)))
-                        w,h = int(z.get("w",z.get("width",0))), int(z.get("h",z.get("height",0)))
-                        cv2.rectangle(frame_rgb, (x,y), (x+w,y+h), color, 2)
-                        cv2.putText(frame_rgb, name, (x,max(0,y-8)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-
-                st.image(frame_rgb, use_container_width=True,
-                         caption=f"Vista previa: {len(zonas)} zonas · {base_name}")
-        except Exception:
-            st.info("No se pudo renderizar la vista previa.")
-    else:
-        st.info("Define las zonas en **03 · Configuración de Zonas** para ver la vista previa.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ════════════════════════════════════════════════════════════════════════════════
-# EJECUCIÓN DEL ANÁLISIS FINAL (Re-Análisis Acelerado)
-# ════════════════════════════════════════════════════════════════════════════════
-if iniciar_analisis:
-    # Guardia final antes de lanzar el subproceso
-    if not features_csv_path or not os.path.isfile(features_csv_path):
-        st.error(
-            f"⚠️ **No se puede ejecutar el análisis:** la ruta base de pose es inválida o no existe.\n\n"
-            f"`{features_csv_path or '(vacío)'}`\n\n"
-            "Ve a **02 · Keypoints** para extraer o regenerar el CSV DLC/SimBA."
-        )
-        st.stop()
-
-    st.toast("⚡ Iniciando Análisis Final...")
-    status_container = st.status(
-        "Reconstruyendo video multimodal (~5 min)...", expanded=True
+    analysis_log_path = os.path.join(ensure_logs_dir(), "analysis_pipeline.log")
+    return_code, lines, outputs = run_logged_process(
+        command=build_pipeline_command(batch_size, device_option, zones_file),
+        log_path=analysis_log_path,
+        parser=parse_pipeline_progress,
+        success_status="Pipeline multimodal completado.",
+        error_status="El pipeline multimodal termino con error.",
     )
 
-    with status_container:
-        st.markdown("#### ⏱️ Progreso Inteligente")
-        smart_status = st.info("Inicializando motores...")
-        progress_bar = st.progress(0, text="Calculando...")
-        estado_actual = "Inicializando..."
+    if return_code == 0:
+        output_map = {
+            "analyzed_video": "ultimo_video_analizado",
+            "raw_pose_file": "ultimo_pose_file",
+            "filtered_pose": "ultimo_pose_filtrado",
+            "filtered_pose_file": "ultimo_pose_filtrado",
+            "bbox_video": "ultimo_bbox_video",
+            "bbox_validation_video": "ultimo_bbox_video",
+            "feature_csv": "ultimo_feature_file",
+            "final_feature_csv": "ultimo_feature_file",
+            "multimodal_video": "ultimo_multimodal_video",
+            "final_video": "ultimo_multimodal_video",
+            "trajectory_file": "ultimo_trajectory_file",
+            "final_trajectory": "ultimo_trajectory_file",
+            "grooming_timelog": "ultimo_grooming_timelog",
+            "final_grooming_timelog": "ultimo_grooming_timelog",
+            "thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
+            "final_thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
+        }
+        for output_key, session_key in output_map.items():
+            candidate = outputs.get(output_key)
+            if candidate and os.path.exists(candidate):
+                st.session_state[session_key] = candidate
 
-    with st.expander("🖥️ Terminal Interna (Logs Técnicos)", expanded=True):
-        log_area = st.empty()
+        if st.session_state.get("ultimo_pose_filtrado"):
+            st.session_state["ultimo_pose_file"] = st.session_state["ultimo_pose_filtrado"]
 
-    try:
-        # Extraer parámetros de recorte de la sesión
-        trim_start = st.session_state.get("inicio_recorte", 0)
-        trim_end = st.session_state.get("fin_recorte", 0)
-        
-        video_a_procesar = ruta_video
-        
-        simba_python, yolo_python = _resolve_runtime_pythons()
-        if not simba_python:
-            raise RuntimeError(
-                "No se encontro un interprete con SimBA. Revisa venv_310 o instala 'simba' en el entorno actual."
-            )
-        if not yolo_python:
-            raise RuntimeError(
-                "No se encontro un interprete con ultralytics. Revisa venv_311 o instala 'ultralytics' en el entorno actual."
-            )
+        summary = build_summary_from_trajectory(st.session_state.get("ultimo_trajectory_file"))
+        if summary:
+            st.session_state["analysis_db_notice"] = persist_summary_to_db(summary)
 
-        log_area.code(f"[ENV] SimBA -> {simba_python}")
-        log_area.code(f"[ENV] YOLO  -> {yolo_python}")
+        save_session()
+        st.rerun()
 
-        _NO_WINDOW      = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        
-        # Recortar video original ANTES de pasarlo a la IA si hay recorte configurado
-        if trim_end > 0 and trim_end > trim_start:
-            smart_status.info(f"✂️ Recortando video origen ({int(trim_start)}s a {int(trim_end)}s)...")
-            trimmed_temp = os.path.join(WORK_DIR, f"{base_name}_temp_trimmed.mp4")
-            
-            trim_cmd = [
-                "ffmpeg", "-y", "-i", ruta_video,
-                "-ss", str(trim_start), "-to", str(trim_end),
-                "-c:v", "copy", "-c:a", "copy",
-                trimmed_temp
-            ]
-            
-            subprocess.run(trim_cmd, creationflags=_NO_WINDOW, check=False)
-            
-            if os.path.exists(trimmed_temp):
-                video_a_procesar = trimmed_temp
-                log_area.code(f"[FFMPEG] Video temporal creado: {trimmed_temp}")
+render_status_panel()
 
-        # --- PASO EXTRA: CALCULAR FEATURES SIMBA PARA EL MODELO ---
-        smart_status.info("🔬 Calculando 242 características SimBA (Cuerpo, Velocidad, Hull)...")
-        log_area.code("[ENGINE] Generando bridge de características...")
-        log_area.code(f"[ENGINE] Fuente de pose detectada: {features_csv_path}")
-        
-        # Ruta de salida para las features enriquecidas
-        features_242_path = os.path.abspath(os.path.join(WORK_DIR, f"{base_name}_features_242.csv"))
-        project_optimizado = os.path.join("data", "simba_projects", "New folder", "thigmotaxis_optimizado")
-        
-        # Guardar zonas a un archivo temporal para el bridge
-        zonas_json_path = os.path.abspath(os.path.join(WORK_DIR, f"{base_name}_zonas_temp.json"))
-        with open(zonas_json_path, "w") as f_z:
-            json.dump(zonas, f_z)
-            
-        feat_script = os.path.abspath(os.path.join("src", "scripts", "compute_simba_features.py"))
-        feat_cmd = [
-            simba_python, feat_script,
-            "--input",   features_csv_path,
-            "--output",  features_242_path,
-            "--project", os.path.abspath(project_optimizado),
-            "--zonas",   zonas_json_path,
-            "--video",   ruta_video,
-            "--video_name", video_name_simba,
-        ]
-        
-        ret_feat = subprocess.run(
-            feat_cmd,
-            creationflags=_NO_WINDOW,
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        
-        if ret_feat.returncode != 0 or not os.path.isfile(features_242_path):
-            feat_logs = "\n".join(
-                part.strip() for part in (ret_feat.stdout, ret_feat.stderr) if part and part.strip()
-            )
-            if feat_logs:
-                log_area.code(feat_logs[-4000:], language="bash")
-            if ret_feat.returncode == 0:
-                log_area.code(
-                    f"[ENGINE] El extractor terminó sin error, pero no generó el archivo esperado: {features_242_path}",
-                    language="bash",
-                )
-            raise RuntimeError(
-                "No se pudieron generar las 242 características de SimBA para este video. "
-                "Se canceló el render final para evitar predicciones inválidas."
-            )
-        else:
-            features_csv_path = features_242_path
-            log_area.code(f"[ENGINE] Características enriquecidas generadas: {features_242_path}")
-
-        # --- GENERAR VIDEO ---
-        smart_status.info("🎥 Renderizando video multimodal con HUD...")
-        script_path = os.path.abspath(os.path.join("src", "scripts", "generar_video_prediccion.py"))
-        zonas_json_str = json.dumps(zonas)
-        output_name    = f"{base_name}_STREAMLIT_MULTIMODAL.mp4"
-        output_path    = os.path.abspath(os.path.join("videos", output_name))
-        os.makedirs("videos", exist_ok=True)
-
-        cmd = [
-            yolo_python, script_path,
-            "--video",          video_a_procesar,
-            "--features",       features_csv_path,
-            "--model_thigmo",   MODEL_THIGMO,
-            "--model_grooming", MODEL_GROOMING,
-            "--output",         output_path,
-            "--zonas_json",     zonas_json_str,
-        ]
-
-        _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-            creationflags=_NO_WINDOW,
-        )
-        assert process.stdout is not None
-
-        import re
-        logs: list = []
-        for line in iter(process.stdout.readline, ""):
-            clean = line.strip()
-            logs.append(clean)
-            log_area.code("\n".join(logs[-12:]), language="bash")
-
-            # Interpretar estado
-            if "Parallel" in clean or "Using backend" in clean:
-                estado_actual = "📊 Ejecutando Inferencia SimBA..."
-                smart_status.info(estado_actual)
-            elif "YOLO" in clean or "Fusing" in clean or "model" in clean.lower():
-                estado_actual = "👁️ Inicializando Motores IA..."
-                smart_status.info(estado_actual)
-                progress_bar.progress(0.10, text="Cargando modelos...")
-            elif "Renderizados" in clean:
-                estado_actual = "🎞️ Renderizando HUD Multimodal..."
-                smart_status.info(estado_actual)
-                m = re.search(r"Renderizados (\d+)/(\d+)", clean)
-                if m:
-                    pct = min(1.0, int(m.group(1)) / int(m.group(2)))
-                    progress_bar.progress(pct, text=f"Frame {m.group(1)} de {m.group(2)} ({int(pct*100)}%)")
-
-        process.stdout.close()
-        return_code = process.wait()
-
-        if return_code == 0:
-            status_container.update(label="✅ Análisis Final completado!", state="complete")
-            st.success("🎉 ¡Video Multimodal generado con éxito!")
-
-            # Cargar trayectoria para estadísticas
-            traj_path = output_path.replace(".mp4", "_trajectory.csv")
-            if os.path.exists(traj_path):
-                import pandas as pd
-                df_trayectoria = pd.read_csv(traj_path)
-                st.session_state["resultados_analisis"] = df_trayectoria
-                st.info("📊 Datos enviados a **05 · Resultados y Estadísticas**.")
-
-                # --- Guardar en BD ---
-                try:
-                    from sqlalchemy import text as sql_text
-                    engine = get_db_engine()
-                    if engine:
-                        with engine.connect() as conn:
-                            tratamiento_sesion = st.session_state.get("treatment_id", "Sin tratamiento")
-                            q_exp = sql_text("""
-                                INSERT INTO experiments (rat_id, treatment, experiment_date, responsible, video_path)
-                                VALUES (:rid, :trt, CURRENT_DATE, :resp, :vpath)
-                                RETURNING id
-                            """)
-                            ex_res = conn.execute(q_exp, {
-                                "rid":  base_name,
-                                "trt":  tratamiento_sesion,
-                                "resp": st.session_state.get("user_name", "Investigador"),
-                                "vpath": output_path,
-                            }).fetchone()
-
-                            if ex_res:
-                                new_id = ex_res[0]
-                                replace_experiment_rois(
-                                    conn,
-                                    new_id,
-                                    zonas,
-                                    scale_factor=1.0,
-                                )
-                                conn.commit()
-
-                                res_z    = df_trayectoria.groupby("Zona")["Tiempo (s)"].count() * 0.1
-                                open_t   = float(res_z.filter(like="Abierto").sum())
-                                closed_t = float(res_z.filter(like="Cerrado").sum())
-                                center_t = float(res_z.filter(like="Centro").sum())
-                                groom_t  = float(df_trayectoria["Grooming"].sum() * 0.1 if "Grooming" in df_trayectoria.columns else 0)
-                                thigmo_t = float(df_trayectoria["Thigmotaxis"].sum() * 0.1 if "Thigmotaxis" in df_trayectoria.columns else 0)
-
-                                try:
-                                    conn.execute(sql_text("ALTER TABLE analysis_results ADD COLUMN trajectory_path TEXT;"))
-                                    conn.commit()
-                                except Exception:
-                                    conn.rollback()
-
-                                q_an = sql_text("""
-                                    INSERT INTO analysis_results
-                                    (experiment_id, time_open_arms, time_closed_arms, time_center,
-                                     grooming_duration, thigmotaxis_duration, status, trajectory_path)
-                                    VALUES (:eid,:to,:tc,:tcen,:tg,:tt,'completed',:tp)
-                                """)
-                                conn.execute(q_an, {
-                                    "eid": new_id, "to": open_t, "tc": closed_t,
-                                    "tcen": center_t, "tg": groom_t, "tt": thigmo_t,
-                                    "tp": traj_path,
-                                })
-                                conn.commit()
-                                st.toast(f"✅ Guardado en BD (ID: #{new_id})")
-                except Exception as db_err:
-                    st.warning(f"No se pudo guardar en BD: {db_err}")
-
-            st.video(output_path)
-            with open(output_path, "rb") as f:
-                st.download_button(
-                    "⬇️ Descargar Video Multimodal",
-                    data=f,
-                    file_name=output_name,
-                    mime="video/mp4",
-                    type="primary",
-                )
-        else:
-            status_container.update(label="❌ El análisis falló", state="error")
-            st.error("El proceso terminó con errores. Revisa los logs.")
-
-    except Exception as e:
-        status_container.update(label="❌ Error Crítico", state="error")
-        st.error(f"Excepción: {e}")
-
-# ════════════════════════════════════════════════════════════════════════════════
-# NAVEGACIÓN SUGERIDA
-# ════════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
-n1, n2 = st.columns(2)
-with n1:
-    st.info("**02 · Keypoints** — Volver a extraer keypoints desde cero (Prueba de Fuego)")
-with n2:
-    st.info("**05 · Resultados** — Ver el dashboard completo con etograma y mapas de calor")
+# Footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
+        Identidad Institucional IPN &bull; ESCOM &bull; TT 2026
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

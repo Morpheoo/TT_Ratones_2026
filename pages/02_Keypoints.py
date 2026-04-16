@@ -1,604 +1,934 @@
-"""
-02_Keypoints.py  —  Módulo de Extracción de Keypoints
-════════════════════════════════════════════════════════════════════════════════
-Motor de pose estimation. Responsabilidad ÚNICA: extraer los keypoints del
-espécimen frame a frame y guardar el resultado como .h5 / .csv.
-
-Motores soportados:
-  • DeepLabCut SuperAnimal TopViewMouse  (actual, lento pero muy preciso)
-  • YOLO Pose Estimation                 (futuro — botón visible, "próximamente")
-
-Output generado:
-  • videos_data/<nombre_video>DLC_*.h5     ← coords crudas
-  • videos_data/<nombre_video>DLC_*.csv    ← coords planas (para SimBA)
-
-Al terminar, el usuario puede ir a:
-  03 · Configuración de Zonas  →  define ROIs
-  04 · Análisis Final           →  YOLO Tracker + SimBA + métricas
-════════════════════════════════════════════════════════════════════════════════
-"""
-import streamlit as st
-import os
-import sys
-import subprocess
-import time
 import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import time
 
-# ── Path setup ───────────────────────────────────────────────────────────────
-if os.getcwd() not in sys.path:
-    sys.path.append(os.getcwd())
-if os.path.join(os.getcwd(), "src") not in sys.path:
-    sys.path.append(os.path.join(os.getcwd(), "src"))
+import streamlit as st
 
-# ── Page config (PRIMERO, antes de cualquier st.*) ───────────────────────────
-st.set_page_config(
-    page_title="Extracción de Keypoints",
-    page_icon="🦴",
-    layout="wide",
-)
+# ================= 0. SETUP & PERSISTENCE =================
+sys.path.append(os.getcwd())
+sys.path.append(os.path.join(os.getcwd(), "src"))
 
-# ── Sesión y login ────────────────────────────────────────────────────────────
 from session_utils import load_session, save_session
+from ui_components import run_page_splash
+import importlib
+import ui_theme
+
+importlib.reload(ui_theme)
+from ui_theme import render_topbar, use_theme
+from video_context_banner import render_video_banner
+
+st.set_page_config(page_title="Keypoints | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+
 load_session()
+colors = use_theme()
 
+# ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
-    st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login primero.")
+    st.warning("Debes iniciar sesion antes de usar el sistema.")
     st.stop()
 
-from auth import check_admin_access
-if check_admin_access(st.session_state.get("role")):
-    st.warning("⛔ Los administradores no pueden ejecutar análisis.")
-    st.stop()
-
-# ── Tema ─────────────────────────────────────────────────────────────────────
-from ui_theme import use_theme
-use_theme()
-
-# ── Banner y componente de video ──────────────────────────────────────────────
-from video_context_banner import render_video_banner, render_video_banner_mini
-
-# ════════════════════════════════════════════════════════════════════════════════
-# CSS local del módulo
-# ════════════════════════════════════════════════════════════════════════════════
-st.markdown("""
-<style>
-.kp-title {
-    font-family: 'Inter', sans-serif;
-    font-weight: 800;
-    font-size: 1.9rem;
-    color: var(--text-main);
-    letter-spacing: 0.04em;
-    margin-bottom: 0.2rem;
-}
-.kp-subtitle {
-    font-size: 0.95rem;
-    color: var(--text-main);
-    opacity: 0.85;
-    margin-bottom: 1rem;
-}
-.kp-card {
-    background-color: var(--card-bg);
-    border-radius: 0.5rem;
-    padding: 1.2rem 1.4rem;
-    box-shadow: 0 4px 15px var(--shadow);
-    border: 1px solid var(--card-border);
-    border-top: 3px solid var(--primary);
-    margin-bottom: 1.2rem;
-    color: var(--text-main);
-}
-.kp-engine-badge {
-    display: inline-block;
-    padding: 0.25rem 0.8rem;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    margin-right: 0.5rem;
-}
-.badge-dlc  { background: rgba(72,187,120,0.18); color: #48bb78; border: 1px solid rgba(72,187,120,0.4); }
-.badge-yolo { background: rgba(237,137,54,0.18);  color: #ed8936; border: 1px solid rgba(237,137,54,0.4); }
-.badge-soon { background: rgba(160,174,192,0.18); color: #a0aec0; border: 1px solid rgba(160,174,192,0.4); }
-</style>
-""", unsafe_allow_html=True)
-
-# ════════════════════════════════════════════════════════════════════════════════
-# CABECERA
-# ════════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="kp-title">🦴 Extracción de Keypoints</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="kp-subtitle">Detecta y extrae las coordenadas corporales de la rata '
-    'frame por frame. Este paso es el más largo del pipeline (~40 min). '
-    'Puedes navegar a otras pestañas sin interrumpir el proceso.</div>',
-    unsafe_allow_html=True,
+run_page_splash(
+    "page_keypoints",
+    [
+        "Inicializando motor de keypoints...",
+        "Validando contexto de video...",
+        "Preparando panel de inferencia...",
+    ],
+    subtitle="TT 2026 - Cargando extraccion de keypoints...",
 )
 
-# ── Banner de video activo ────────────────────────────────────────────────────
-video_ok = render_video_banner("Video a procesar (Keypoints)")
 
-if not video_ok:
-    st.error("⚠️ Selecciona un video en **01 · Ingesta de Video** antes de continuar.")
-    st.stop()
+def format_mm_ss(total_seconds):
+    total_seconds = max(0, int(total_seconds or 0))
+    return f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
 
-ruta_video = st.session_state["ruta_video_actual"]
 
-# Guardia extra: la ruta debe ser válida en disco (por si la sesión tiene basura)
-if not ruta_video or not os.path.exists(ruta_video):
-    st.error(
-        f"⚠️ La ruta del video no es válida o ya no existe en disco: `{ruta_video or '(vacío)'}`.\n\n"
-        "Ve a **01 · Ingesta de Video** y vuelve a confirmar el recorte."
-    )
-    st.stop()
+def get_trim_summary():
+    start_seconds = int(st.session_state.get("inicio_recorte", 0) or 0)
+    end_seconds = st.session_state.get("fin_recorte")
+    if end_seconds is None:
+        return f"{format_mm_ss(start_seconds)} -> fin del video"
+    return f"{format_mm_ss(start_seconds)} -> {format_mm_ss(end_seconds)}"
 
-base_name  = os.path.splitext(os.path.basename(ruta_video))[0]
 
-# ════════════════════════════════════════════════════════════════════════════════
-# ESTADO DEL PIPELINE (¿ya hay keypoints para este video?)
-# ════════════════════════════════════════════════════════════════════════════════
-WORK_DIR     = os.path.abspath("videos_data")
-PIPELINE_LOG  = os.path.abspath("logs/pipeline_dlc.log")
-PIPELINE_PID  = os.path.abspath("logs/pipeline_dlc.pid")
-PIPELINE_DONE = os.path.abspath("logs/pipeline_dlc.done")
+def ensure_logs_dir():
+    log_dir = os.path.join("logs", "keypoints")
+    os.makedirs(log_dir, exist_ok=True)
+    return log_dir
 
-def _pipeline_is_running() -> bool:
-    if not os.path.exists(PIPELINE_PID):
-        return False
+
+def get_extract_log_path():
+    return os.path.abspath(os.path.join(ensure_logs_dir(), "keypoints_extract.log"))
+
+
+def get_render_log_path():
+    return os.path.abspath(os.path.join(ensure_logs_dir(), "keypoints_overlay.log"))
+
+
+def get_extract_process_state_path():
+    return os.path.abspath(os.path.join(ensure_logs_dir(), "keypoints_extract.process.json"))
+
+
+def read_log_lines(log_path):
+    if not os.path.exists(log_path):
+        return []
+    with open(log_path, "r", encoding="utf-8", errors="ignore") as file_handle:
+        return [line.rstrip() for line in file_handle.readlines()]
+
+
+def trim_log_text(lines, max_lines=120):
+    if not lines:
+        return "[INFO] Aun no hay logs de ejecucion."
+    return "\n".join(lines[-max_lines:])
+
+
+def collect_output_markers(lines):
+    outputs = {}
+    for line in lines:
+        if not line.startswith("[OUTPUT] "):
+            continue
+        payload = line[len("[OUTPUT] ") :]
+        if "=" not in payload:
+            continue
+        key, value = payload.split("=", 1)
+        outputs[key.strip().lower()] = value.strip()
+    return outputs
+
+
+def path_if_exists(candidate):
+    if candidate and os.path.exists(candidate):
+        return os.path.abspath(candidate)
+    return None
+
+
+def append_log_line(log_path, message):
+    with open(log_path, "a", encoding="utf-8") as file_handle:
+        file_handle.write(message.rstrip() + "\n")
+
+
+def load_process_meta():
+    state_path = get_extract_process_state_path()
+    if not os.path.exists(state_path):
+        return None
     try:
-        pid_text = open(PIPELINE_PID).read().strip()
-        if not pid_text: return False
-        pid = int(pid_text)
-        # En Windows, pulsamos el proceso para ver si responde
-        import subprocess
-        output = subprocess.check_output(["tasklist", "/FI", f"PID eq {pid}"], encoding="utf-8")
-        return str(pid) in output
+        with open(state_path, "r", encoding="utf-8") as file_handle:
+            return json.load(file_handle)
+    except Exception:
+        return None
+
+
+def save_process_meta(meta):
+    state_path = get_extract_process_state_path()
+    with open(state_path, "w", encoding="utf-8") as file_handle:
+        json.dump(meta, file_handle, indent=2, ensure_ascii=False)
+
+
+def is_pid_alive(pid):
+    try:
+        pid = int(pid)
     except Exception:
         return False
 
-def _force_cleanup():
-    """Borra todos los archivos de control de forma manual."""
-    for f in [PIPELINE_PID, PIPELINE_DONE, PIPELINE_LOG]:
-        if os.path.exists(f): 
-            try: os.remove(f)
-            except: pass
-    st.session_state["pipeline_dlc_activo"] = False
+    try:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        return False
+    return str(pid) in (result.stdout or "")
 
 
-def _resolve_dlc_source_video(pose_path: str, fallback_video: str) -> str:
+def infer_extract_outcome(lines):
+    for line in reversed(lines):
+        if "[STEP] COMPLETE" in line:
+            return "completed"
+        if "[STEP] CANCELLED" in line:
+            return "cancelled"
+        if "[STEP] ERROR" in line or line.startswith("[ERROR]"):
+            return "error"
+    return "stopped"
+
+
+def parse_extract_progress(lines, current_progress):
+    progress = max(current_progress, 0.02)
+    status = "Preparando extraccion y postproceso..."
+
+    for line in lines:
+        if "[STEP] DLC" in line:
+            progress = max(progress, 0.05)
+            status = "Preparando entorno DLC..."
+        elif "[STEP] BOOT" in line:
+            progress = max(progress, 0.08)
+            status = "Preparando entorno DLC..."
+        elif "[STEP] TRIM" in line:
+            progress = max(progress, 0.12)
+            status = "Aplicando recorte seleccionado..."
+        elif "[STEP] IMPORT_DLC" in line:
+            progress = max(progress, 0.18)
+            status = "Cargando DeepLabCut y TensorFlow..."
+        elif "[STEP] INFERENCE" in line:
+            progress = max(progress, 0.36)
+            status = "Extrayendo keypoints con SuperAnimal..."
+        elif "[STEP] BBOX" in line:
+            progress = max(progress, 0.62)
+            status = "Aplicando filtro bbox a los keypoints..."
+        elif "[STEP] SIMBA_FEATURES" in line:
+            progress = max(progress, 0.82)
+            status = "Sincronizando pose y features en SimBA..."
+        elif "[STEP] ERROR" in line or line.startswith("[ERROR]"):
+            status = "La extraccion termino con error."
+
+    for line in reversed(lines):
+        trim_match = re.search(r"\[TRIM\]\s+(\d+)/(\d+)", line)
+        if trim_match:
+            current = int(trim_match.group(1))
+            total = max(int(trim_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.12 + (0.18 * ratio))
+            status = f"Recortando video... {int(ratio * 100)}%"
+            break
+
+        heartbeat_match = re.search(r"\[HEARTBEAT\]\s+inference\s+elapsed=(\d+)s", line)
+        if heartbeat_match:
+            elapsed = int(heartbeat_match.group(1))
+            progress = min(max(progress + 0.02, 0.42), 0.88)
+            status = f"Extrayendo keypoints... {format_mm_ss(elapsed)} transcurridos"
+            break
+
+        import_match = re.search(r"\[HEARTBEAT\]\s+import_dlc\s+elapsed=(\d+)s", line)
+        if import_match:
+            elapsed = int(import_match.group(1))
+            progress = min(max(progress + 0.015, 0.18), 0.32)
+            status = f"Importando DeepLabCut... {format_mm_ss(elapsed)} transcurridos"
+            break
+
+        bbox_match = re.search(r"\[BBOX\]\s+(\d+)/(\d+)", line)
+        if bbox_match:
+            current = int(bbox_match.group(1))
+            total = max(int(bbox_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.62 + (0.12 * ratio))
+            status = f"Aplicando filtro bbox... {int(ratio * 100)}%"
+            break
+
+        bbox_render_match = re.search(r"\[RENDER\]\s+(\d+)/(\d+)", line)
+        if bbox_render_match:
+            current = int(bbox_render_match.group(1))
+            total = max(int(bbox_render_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.74 + (0.08 * ratio))
+            status = f"Renderizando validacion bbox... {int(ratio * 100)}%"
+            break
+
+        if "[ENGINE] EXITO: metricas generadas" in line or "[OUTPUT] FEATURE_CSV=" in line:
+            progress = max(progress, 0.94)
+            status = "Bridge SimBA listo."
+            break
+
+    if any("SUCCESS: Keypoints prep pipeline complete." in line for line in lines) or any(
+        line.startswith("[OUTPUT] FINAL_FEATURE_CSV=") for line in lines
+    ):
+        progress = 1.0
+        status = "Keypoints, filtro bbox y bridge SimBA listos."
+
+    return progress, status, collect_output_markers(lines)
+
+
+def parse_render_progress(lines, current_progress):
+    progress = max(current_progress, 0.05)
+    status = "Preparando render del overlay..."
+
+    total_frames = None
+    for line in lines:
+        if "[RENDER] Frames to render:" in line:
+            try:
+                total_frames = max(int(line.rsplit(":", 1)[-1].strip()), 1)
+            except ValueError:
+                total_frames = None
+        if "[RENDER] Done" in line:
+            progress = 1.0
+            status = "Overlay de keypoints completado."
+        elif line.startswith("[OUTPUT] OVERLAY_VIDEO="):
+            progress = max(progress, 0.96)
+            status = "Finalizando archivo de vista previa..."
+
+    for line in reversed(lines):
+        render_match = re.search(r"\[RENDER\]\s+(\d+)/(\d+)", line)
+        if render_match:
+            current = int(render_match.group(1))
+            total = max(int(render_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.10 + (0.85 * ratio))
+            status = f"Renderizando overlay... {int(ratio * 100)}%"
+            break
+
+    return progress, status, collect_output_markers(lines)
+
+
+def run_logged_process(command, log_path, parser, success_status, error_status):
+    progress_placeholder = st.empty()
+    status_placeholder = st.empty()
+    log_placeholder = st.empty()
+
+    progress = 0.02
+    status = "Inicializando proceso..."
+    outputs = {}
+
+    no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    with open(log_path, "w", encoding="utf-8") as log_handle:
+        process = subprocess.Popen(
+            command,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            cwd=os.getcwd(),
+            creationflags=no_window,
+        )
+
+        while process.poll() is None:
+            lines = read_log_lines(log_path)
+            progress, status, outputs = parser(lines, progress)
+            progress_placeholder.progress(min(max(progress, 0.0), 0.99), text=status)
+            status_placeholder.info(status)
+            log_placeholder.code(trim_log_text(lines), language="bash")
+            time.sleep(1)
+
+    return_code = process.wait()
+    lines = read_log_lines(log_path)
+    progress, status, outputs = parser(lines, progress)
+
+    if return_code == 0:
+        progress_placeholder.progress(1.0, text=success_status)
+        status_placeholder.success(success_status)
+        final_status = success_status
+        final_progress = 1.0
+    else:
+        final_progress = min(max(progress, 0.1), 0.95)
+        progress_placeholder.progress(final_progress, text=error_status)
+        status_placeholder.error(error_status)
+        final_status = error_status
+
+    log_placeholder.code(trim_log_text(lines), language="bash")
+    st.session_state["keypoints_last_logs"] = trim_log_text(lines, max_lines=160)
+    st.session_state["keypoints_last_status"] = final_status
+    st.session_state["keypoints_last_progress"] = final_progress
+
+    return return_code, lines, outputs
+
+
+def sync_extract_outputs(outputs):
+    output_map = {
+        "analyzed_video": "ultimo_video_analizado",
+        "filtered_pose": "ultimo_pose_filtrado",
+        "filtered_pose_file": "ultimo_pose_filtrado",
+        "filtered_csv": "ultimo_pose_filtrado_csv",
+        "bbox_video": "ultimo_bbox_video",
+        "bbox_validation_video": "ultimo_bbox_video",
+        "feature_csv": "ultimo_feature_file",
+        "final_feature_csv": "ultimo_feature_file",
+    }
+    for output_key, session_key in output_map.items():
+        candidate = outputs.get(output_key)
+        if candidate and os.path.exists(candidate):
+            st.session_state[session_key] = candidate
+
+    raw_pose_candidate = outputs.get("raw_pose_file") or outputs.get("pose_file")
+    if raw_pose_candidate and os.path.exists(raw_pose_candidate):
+        st.session_state["ultimo_pose_crudo_file"] = raw_pose_candidate
+
+    analyzed_video = (
+        st.session_state.get("ultimo_video_analizado")
+        or outputs.get("analyzed_video")
+        or st.session_state.get("ruta_video_actual")
+    )
+    pose_file = (
+        st.session_state.get("ultimo_pose_filtrado")
+        or st.session_state.get("ultimo_pose_file")
+        or outputs.get("pose_file")
+        or outputs.get("raw_pose_file")
+        or find_pose_file(analyzed_video)
+    )
+
+    if analyzed_video and os.path.exists(analyzed_video):
+        st.session_state["ultimo_video_analizado"] = analyzed_video
+    if pose_file and os.path.exists(pose_file):
+        st.session_state["ultimo_pose_file"] = pose_file
+    save_session()
+
+
+def launch_log_viewer_console(log_path, title):
+    powershell = os.path.join(
+        os.environ.get("SystemRoot", r"C:\Windows"),
+        "System32",
+        "WindowsPowerShell",
+        "v1.0",
+        "powershell.exe",
+    )
+    safe_log_path = os.path.abspath(log_path).replace("'", "''")
+    safe_title = title.replace("'", "''")
+
+    if not os.path.exists(log_path):
+        with open(log_path, "w", encoding="utf-8") as file_handle:
+            file_handle.write("[INFO] Esperando logs...\n")
+
+    command = (
+        f"$host.UI.RawUI.WindowTitle = '{safe_title}'; "
+        f"Write-Host 'Monitoreando: {safe_log_path}'; "
+        f"Get-Content -Path '{safe_log_path}' -Wait -Tail 40"
+    )
+    subprocess.Popen(
+        [powershell, "-NoExit", "-Command", command],
+        cwd=os.getcwd(),
+        creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+    )
+
+
+def launch_background_extract(command):
+    log_path = get_extract_log_path()
+    wrapper_script = os.path.abspath(os.path.join("src", "scripts", "run_with_live_log.py"))
+
+    with open(log_path, "w", encoding="utf-8") as file_handle:
+        file_handle.write("[INFO] Lanzando extraccion de keypoints en segundo plano...\n")
+
+    wrapper_command = [
+        sys.executable,
+        wrapper_script,
+        "--log",
+        log_path,
+        "--label",
+        "TT 2026 - DLC Keypoints",
+        "--",
+    ] + command
+
+    process = subprocess.Popen(
+        wrapper_command,
+        cwd=os.getcwd(),
+        creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+    )
+
+    meta = {
+        "pid": process.pid,
+        "status": "running",
+        "log_path": log_path,
+        "started_at": time.time(),
+        "video_path": st.session_state.get("ruta_video_actual"),
+        "outputs_imported": False,
+        "completion_handled": False,
+        "command": wrapper_command,
+    }
+    save_process_meta(meta)
+    st.session_state["keypoints_show_completion_toast"] = False
+    st.session_state["keypoints_last_status"] = "Extraccion y preparacion bbox/SimBA lanzadas en segundo plano."
+    st.session_state["keypoints_last_progress"] = 0.03
+    st.session_state["keypoints_last_logs"] = trim_log_text(read_log_lines(log_path))
+    st.session_state["ultimo_overlay_path"] = None
+    save_session()
+
+
+def cancel_background_extract(meta):
+    if not meta:
+        return
+
+    log_path = meta.get("log_path") or get_extract_log_path()
+    append_log_line(log_path, "[STEP] CANCELLED")
+    append_log_line(log_path, "[INFO] Cancellation requested from Streamlit.")
+
+    pid = meta.get("pid")
+    if pid:
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    meta["status"] = "cancelled"
+    meta["completed_at"] = time.time()
+    meta["completion_handled"] = False
+    save_process_meta(meta)
+    st.session_state["keypoints_last_status"] = "Extraccion cancelada por el usuario."
+    st.session_state["keypoints_last_progress"] = 0.12
+    st.session_state["keypoints_last_logs"] = trim_log_text(read_log_lines(log_path), max_lines=160)
+    save_session()
+
+
+def get_extract_snapshot():
+    meta = load_process_meta()
+    log_path = meta.get("log_path") if meta else get_extract_log_path()
+    lines = read_log_lines(log_path)
+    starting_progress = (
+        float(meta.get("last_progress", 0.0) or 0.0)
+        if meta
+        else float(st.session_state.get("keypoints_last_progress", 0.0) or 0.0)
+    )
+    progress, status, outputs = parse_extract_progress(lines, starting_progress)
+    needs_rerun = False
+
+    if meta:
+        is_running = bool(meta.get("pid") and is_pid_alive(meta.get("pid")) and meta.get("status") == "running")
+        if is_running:
+            meta["last_progress"] = progress
+            meta["last_status"] = status
+            save_process_meta(meta)
+        else:
+            outcome = meta.get("status") if meta.get("status") != "running" else infer_extract_outcome(lines)
+            meta["status"] = outcome
+            meta["completed_at"] = meta.get("completed_at") or time.time()
+
+            if outcome == "completed":
+                progress = 1.0
+                status = "Keypoints, filtro bbox y bridge SimBA listos."
+                if not meta.get("outputs_imported"):
+                    sync_extract_outputs(outputs)
+                    meta["outputs_imported"] = True
+                if not meta.get("completion_handled"):
+                    st.session_state["keypoints_show_completion_toast"] = True
+            elif outcome == "cancelled":
+                progress = min(max(progress, 0.1), 0.95)
+                status = "Extraccion cancelada por el usuario."
+            else:
+                progress = min(max(progress, 0.1), 0.95)
+                status = "La extraccion de keypoints termino con error."
+
+            meta["last_progress"] = progress
+            meta["last_status"] = status
+            if not meta.get("completion_handled"):
+                meta["completion_handled"] = True
+                needs_rerun = True
+            save_process_meta(meta)
+    else:
+        is_running = False
+        if lines:
+            inferred_outcome = infer_extract_outcome(lines)
+            if inferred_outcome == "completed":
+                progress = 1.0
+                status = "Keypoints, filtro bbox y bridge SimBA listos."
+            elif inferred_outcome == "cancelled":
+                progress = min(max(progress, 0.1), 0.95)
+                status = "Extraccion cancelada por el usuario."
+            elif inferred_outcome in {"error", "stopped"}:
+                progress = min(max(progress, 0.1), 0.95)
+                status = "La extraccion de keypoints termino con error."
+
+    st.session_state["keypoints_last_logs"] = trim_log_text(lines, max_lines=160)
+    st.session_state["keypoints_last_status"] = status
+    st.session_state["keypoints_last_progress"] = progress
+
+    return {
+        "meta": meta,
+        "is_running": is_running,
+        "progress": progress,
+        "status": status,
+        "lines": lines,
+        "outputs": outputs,
+        "log_path": log_path,
+        "needs_rerun": needs_rerun,
+    }
+
+
+def find_pose_file(video_path):
+    if not video_path:
+        return None
+
+    video_dir = os.path.dirname(video_path)
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    patterns = [
+        f"{base_name}*filtered*.csv",
+        f"{base_name}*filtered*.h5",
+        f"{base_name}*_bbox_constrained.csv",
+        f"{base_name}*_bbox_constrained.h5",
+        f"{base_name}*DLC*.csv",
+        f"{base_name}*DLC*.h5",
+    ]
+    for pattern in patterns:
+        matches = sorted(glob.glob(os.path.join(video_dir, pattern)))
+        if matches:
+            return os.path.abspath(matches[-1])
+    return None
+
+
+def collect_generated_files():
+    files = []
+    for key in [
+        "ultimo_pose_file",
+        "ultimo_pose_filtrado",
+        "ultimo_overlay_path",
+        "ultimo_bbox_video",
+        "ultimo_feature_file",
+        "ultimo_video_analizado",
+    ]:
+        candidate = st.session_state.get(key)
+        if candidate and os.path.exists(candidate) and candidate not in files:
+            files.append(candidate)
+
+    analyzed_video = st.session_state.get("ultimo_video_analizado") or st.session_state.get("ruta_video_actual")
+    if analyzed_video:
+        video_dir = os.path.dirname(analyzed_video)
+        base_name = os.path.splitext(os.path.basename(analyzed_video))[0]
+        patterns = [
+            f"{base_name}*filtered*.csv",
+            f"{base_name}*filtered*.h5",
+            f"{base_name}*_bbox_constrained.csv",
+            f"{base_name}*_bbox_constrained.h5",
+            f"{base_name}*_bbox_constraint.mp4",
+            f"{base_name}*DLC*.csv",
+            f"{base_name}*DLC*.h5",
+            f"{base_name}*_dlc_overlay.mp4",
+            f"{base_name}*labeled*.mp4",
+        ]
+        for pattern in patterns:
+            for match in sorted(glob.glob(os.path.join(video_dir, pattern))):
+                abs_match = os.path.abspath(match)
+                if abs_match not in files:
+                    files.append(abs_match)
+
+    return files
+
+
+def build_keypoints_main_outputs():
+    candidates = [
+        ("Video analizado", st.session_state.get("ultimo_video_analizado")),
+        ("Pose DLC cruda (H5)", st.session_state.get("ultimo_pose_crudo_file")),
+        ("Pose filtrada bbox (H5)", st.session_state.get("ultimo_pose_filtrado")),
+        ("CSV filtrado bbox", st.session_state.get("ultimo_pose_filtrado_csv")),
+        ("Video de validacion bbox", st.session_state.get("ultimo_bbox_video")),
+        ("Features SimBA (CSV)", st.session_state.get("ultimo_feature_file")),
+        ("Vista previa HUD", st.session_state.get("ultimo_overlay_path")),
+    ]
+
+    outputs = []
+    for label, candidate in candidates:
+        resolved = path_if_exists(candidate)
+        if resolved:
+            outputs.append((label, resolved))
+    return outputs
+
+
+def is_extract_completed(snapshot=None):
+    if snapshot:
+        if snapshot.get("is_running"):
+            return False
+        meta = snapshot.get("meta") or {}
+        if meta.get("status") == "completed":
+            return True
+        status = str(snapshot.get("status", ""))
+        return status == "Keypoints, filtro bbox y bridge SimBA listos."
+
+    return st.session_state.get("keypoints_last_status") == "Keypoints, filtro bbox y bridge SimBA listos."
+
+
+def render_output_panel(snapshot=None):
+    generated_files = collect_generated_files()
+    main_outputs = build_keypoints_main_outputs()
+    overlay_path = st.session_state.get("ultimo_overlay_path")
+    if overlay_path and not os.path.exists(overlay_path):
+        overlay_path = None
+
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    st.markdown("#### Resumen de salida")
+    st.caption(
+        "Este modulo deja lista la pose cruda, aplica el filtro bbox y sincroniza el bridge hacia SimBA. "
+        "La vista previa HUD es un overlay de control de calidad y prioriza la pose filtrada si ya existe. "
+        "El video multimodal final sigue viviendo en el Modulo 04."
+    )
+
+    if is_extract_completed(snapshot) and main_outputs:
+        st.success(
+            "Proceso completado correctamente. Los keypoints, el filtro bbox y la sincronizacion hacia SimBA ya estan listos."
+        )
+        st.markdown("##### Archivos principales")
+        st.caption("Estas son las rutas utiles para encontrar rapidamente los resultados del proceso.")
+        for label, file_path in main_outputs:
+            st.markdown(f"**{label}**")
+            st.code(file_path, language=None)
+    elif generated_files:
+        st.markdown("##### Archivos detectados")
+        for file_path in generated_files:
+            st.write(f"- `{os.path.basename(file_path)}`")
+    else:
+        st.info("Todavia no hay archivos de keypoints generados para este video.")
+
+    if generated_files:
+        with st.expander("Ver todos los archivos detectados", expanded=False):
+            for file_path in generated_files:
+                st.code(file_path, language=None)
+
+    if overlay_path:
+        st.markdown("---")
+        st.markdown("##### Vista previa disponible")
+        st.video(overlay_path)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_log_panel(snapshot=None):
+    st.markdown("#### Estado y Logs")
+    if snapshot:
+        last_progress = float(snapshot.get("progress", 0.0) or 0.0)
+        last_status = snapshot.get("status", "Aun no se inicia una ejecucion real de keypoints.")
+        last_logs = trim_log_text(snapshot.get("lines", []), max_lines=160)
+    else:
+        last_progress = float(st.session_state.get("keypoints_last_progress", 0.0) or 0.0)
+        last_status = st.session_state.get("keypoints_last_status", "Aun no se inicia una ejecucion real de keypoints.")
+        last_logs = st.session_state.get("keypoints_last_logs", "[INFO] Aun no hay logs de ejecucion.")
+
+    st.progress(min(max(last_progress, 0.0), 1.0), text=last_status)
+    st.code(last_logs, language="bash")
+
+
+def build_extract_command(batch_size, device_option):
+    script_path = os.path.abspath(os.path.join("src", "scripts", "run_behavior_pipeline.py"))
+    video_path = os.path.abspath(st.session_state["ruta_video_actual"])
+    start_seconds = int(st.session_state.get("inicio_recorte", 0) or 0)
+    end_seconds = st.session_state.get("fin_recorte")
+    zones = st.session_state.get("zonas_configuradas") or []
+
+    command = [
+        sys.executable,
+        script_path,
+        "--video",
+        video_path,
+        "--batch-size",
+        str(int(batch_size)),
+        "--start-seconds",
+        str(start_seconds),
+        "--skip-final-video",
+    ]
+    if end_seconds is not None:
+        command.extend(["--end-seconds", str(int(end_seconds))])
+    if device_option == "CPU (Forzar)":
+        command.append("--force-cpu")
+    if zones:
+        zones_path = os.path.join(ensure_logs_dir(), "keypoints_zonas_activas.json")
+        with open(zones_path, "w", encoding="utf-8") as file_handle:
+            json.dump(zones, file_handle, indent=2, ensure_ascii=False)
+        command.extend(["--zones-file", os.path.abspath(zones_path)])
+    return command
+
+
+def build_render_command():
+    pose_path = st.session_state.get("ultimo_pose_file") or find_pose_file(
+        st.session_state.get("ultimo_video_analizado") or st.session_state.get("ruta_video_actual")
+    )
     if not pose_path:
-        return fallback_video
+        raise FileNotFoundError("No se encontro un archivo de pose DLC para renderizar.")
 
-    pose_stem = os.path.splitext(os.path.basename(pose_path))[0]
-    pose_prefix = pose_stem.split("DLC", 1)[0]
-    for extension in (".mp4", ".avi", ".mov"):
-        candidate = os.path.join(WORK_DIR, f"{pose_prefix}{extension}")
-        if os.path.exists(candidate):
-            return candidate
-    return fallback_video
+    analysis_video = st.session_state.get("ultimo_video_analizado") or st.session_state.get("ruta_video_actual")
+    output_path = os.path.splitext(os.path.abspath(analysis_video))[0] + "_dlc_overlay.mp4"
+    render_script = os.path.abspath(os.path.join("src", "scripts", "render_dlc_keypoints_video.py"))
+    command = [
+        sys.executable,
+        render_script,
+        "--video",
+        os.path.abspath(analysis_video),
+        "--pose",
+        os.path.abspath(pose_path),
+        "--output",
+        output_path,
+    ]
+    return command, output_path, pose_path
 
-def _launch_detached_pipeline(cmd: list) -> int:
-    os.makedirs("logs", exist_ok=True)
-    for f in [PIPELINE_LOG, PIPELINE_PID, PIPELINE_DONE]:
-        if os.path.exists(f): os.remove(f)
 
-    log_file = open(PIPELINE_LOG, "w", encoding="utf-8", buffering=1)
-    _DETACHED  = 0x00000008
-    _NEW_PG    = 0x00000200
-    _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+# ================= 2. CABECERA =================
+render_topbar()
+st.markdown("### Modulo 02: Extraccion de Keypoints")
+st.markdown(
+    """
+    Proceso de vision computacional para la extraccion de coordenadas anatomicas.
+    Utilice DeepLabCut SuperAnimal para procesar el video y generar una vista previa del overlay.
+    """
+)
 
-    proc = subprocess.Popen(
-        cmd,
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        close_fds=True,
-        creationflags=_DETACHED | _NEW_PG | _NO_WINDOW,
-    )
-    with open(PIPELINE_PID, "w") as f:
-        f.write(str(proc.pid))
-    return proc.pid
+st.divider()
 
-# ── Detección de keypoints existentes ────────────────────────────────────────
-os.makedirs(WORK_DIR, exist_ok=True)
-h5_existentes  = glob.glob(os.path.join(WORK_DIR, f"*{base_name}*DLC*.h5"))
-csv_existentes = glob.glob(os.path.join(WORK_DIR, f"*{base_name}*DLC*.csv"))
-tiene_keypoints = bool(h5_existentes or csv_existentes)
-pose_render_source = h5_existentes[0] if h5_existentes else (csv_existentes[0] if csv_existentes else "")
-dlc_video_source = _resolve_dlc_source_video(pose_render_source, ruta_video)
-dlc_overlay_output = os.path.splitext(dlc_video_source)[0] + "_dlc_overlay.mp4"
-tiene_dlc_overlay = os.path.exists(dlc_overlay_output)
-bbox_pose_h5 = os.path.join(WORK_DIR, f"{base_name}_bbox_constrained.h5")
-bbox_pose_csv = os.path.join(WORK_DIR, f"{base_name}_bbox_constrained.csv")
-bbox_overlay_output = os.path.join(WORK_DIR, f"{base_name}_bbox_constraint.mp4")
-tiene_bbox_pose = os.path.exists(bbox_pose_h5) or os.path.exists(bbox_pose_csv)
-tiene_bbox_overlay = os.path.exists(bbox_overlay_output)
+# ================= 3. VIDEO CHECK =================
+video_ok = render_video_banner("Sesion de Keypoints Activa")
+if not video_ok:
+    st.error("No hay video activo. Seleccionalo primero en Ingesta de Video.")
+    st.stop()
 
-# ── Detección de features SimBA (paso posterior al H5) ───────────────────────
-# full_pipeline añade sufijo "_full" al base_name del video
-SIMBA_PROJECT  = os.path.abspath(os.path.join(
-    "data", "simba_projects", "New folder", "thigmotaxis_optimizado", "project_folder"
-))
-FEATURES_DIR   = os.path.join(SIMBA_PROJECT, "csv", "features_extracted")
-video_name_simba = f"{base_name}_full"
-features_csv   = glob.glob(os.path.join(FEATURES_DIR, f"{video_name_simba}.csv"))
-tiene_features = bool(features_csv)
+active_video = st.session_state.get("ruta_video_actual")
+pose_candidate = st.session_state.get("ultimo_pose_file") or find_pose_file(
+    st.session_state.get("ultimo_video_analizado") or active_video
+)
+if pose_candidate:
+    st.session_state["ultimo_pose_file"] = pose_candidate
 
-# ════════════════════════════════════════════════════════════════════════════════
-# LAYOUT: Selección de motor + Estado
-# ════════════════════════════════════════════════════════════════════════════════
-col_cfg, col_status = st.columns([1, 2])
+dlc_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
+dlc_available = os.path.exists(dlc_python)
+log_dir = ensure_logs_dir()
+extract_snapshot = get_extract_snapshot()
+if extract_snapshot["needs_rerun"]:
+    st.rerun()
+if st.session_state.pop("keypoints_show_completion_toast", False):
+    st.toast("Extraccion completada. Revisa el panel de salida para ubicar los archivos generados.")
 
-with col_cfg:
-    st.markdown('<div class="kp-card">', unsafe_allow_html=True)
-    st.markdown("#### 🔬 Motor de Análisis de Pose")
+# ================= 4. MAIN LAYOUT =================
+action = None
+batch_size = int(st.session_state.get("dlc_batch_size", 16) or 16)
+device_option = st.session_state.get("dlc_device_opt", "Auto (Recomendado)")
 
-    motor_kp = st.radio(
-        "Selecciona el motor",
-        [
-            "🧬 DeepLabCut SuperAnimal (Activo)",
-            "⚡ YOLO Pose Estimation (Próximamente)",
-        ],
+col_left, col_right = st.columns([1, 1.35])
+
+with col_left:
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    st.markdown("#### Configuracion del Motor")
+    motor = st.radio(
+        "Motor de Inferencia",
+        ["DeepLabCut SuperAnimal", "YOLO Pose (Experimental)"],
         index=0,
-        help="DeepLabCut extrae 27 keypoints usando el modelo SuperAnimal TopViewMouse."
+        key="keypoints_motor",
     )
+    if motor != "DeepLabCut SuperAnimal":
+        st.warning("La ruta operativa de este modulo hoy esta conectada a DeepLabCut SuperAnimal.")
 
     st.markdown("---")
+    st.caption(f"Rango activo a analizar: `{get_trim_summary()}`")
 
-    if "DeepLabCut" in motor_kp:
-        st.markdown(
-            '<span class="kp-engine-badge badge-dlc">DLC v2.3+</span>'
-            '<span class="kp-engine-badge badge-dlc">GPU</span>',
-            unsafe_allow_html=True,
+    with st.expander("Parametros de Analisis", expanded=True):
+        batch_size = st.slider(
+            "Batch Size",
+            min_value=4,
+            max_value=32,
+            value=int(st.session_state.get("dlc_batch_size", 16) or 16),
+            step=4,
+            help="Capado a 32 para no castigar demasiado la GPU. En laptop, 16 suele ser el punto mas estable.",
         )
-        st.caption("⏱ Tiempo estimado: **25–50 min** por video de 5 min en RTX 5070 Ti")
-        st.caption("📦 Output: `.h5` + `.csv` de 27 keypoints por frame")
-        st.caption("🧠 Modelo: `superanimal_topviewmouse`")
-        st.caption("🛡️ Post-proceso automático: YOLO BBox Constraint antes de importar a SimBA")
-        st.caption("🎞️ Desde cero, DLC analiza el clip en resolución original. Ya no hay downscale.")
-
-        # Opciones avanzadas
-        with st.expander("⚙️ Opciones Avanzadas"):
-            # Mapeo de Batch Size a consumo de VRAM estimado
-            vram_info = {
-                8:  "~4GB VRAM (Seguro / GPUs antiguas)",
-                16: "~6GB VRAM (Recomendado para RTX 3060/4060)",
-                32: "~9GB VRAM (Máximo recomendado para 12GB VRAM)"
-            }
-
-            batch_size = st.select_slider(
-                "Batch Size (frames/pasada)",
-                options=[8, 16, 32],
-                value=32,
-                help="Mayor batch size = más velocidad, pero requiere más memoria de video (VRAM)."
-            )
-            st.caption(f"💡 **Consumo estimado:** {vram_info[batch_size]}")
-
-            skip_video_adapt = st.toggle(
-                "Saltar Video Adaptation",
-                value=True,
-                help="Desactivar acelera 2x pero puede reducir precisión en videos con iluminación muy irregular."
-            )
-            
-            device_opt = st.selectbox(
-                "Dispositivo de Procesamiento",
-                ["GPU (RTX 5070 Ti) - Máxima Velocidad", "CPU (Solo RAM) - ⚠️ Muy Lento"],
-                index=0,
-            )
-            
-            if "CPU" in device_opt:
-                st.warning("⚠️ **Alerta:** En CPU el análisis tomará HORAS o DÍAS en lugar de minutos. Solo úsalo si tu GPU no es compatible.")
-                st.session_state["dlc_device_opt"] = "CPU"
-            else:
-                st.session_state["dlc_device_opt"] = "GPU"
-
-    else:  # YOLO Pose
-        st.markdown(
-            '<span class="kp-engine-badge badge-soon">PRÓXIMAMENTE</span>',
-            unsafe_allow_html=True,
+        device_option = st.selectbox(
+            "Dispositivo Hardware",
+            ["Auto (Recomendado)", "CPU (Forzar)"],
+            index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
         )
-        st.info("🔜 YOLO Pose reducirá el tiempo de extracción a **< 5 minutos** por video. "
-                "Actualmente en fase de entrenamiento personalizado con datos de ratas.")
-        st.stop()
+        st.caption("Mi recomendacion: deja 32 como tope, pero usa 16 por default y sube a 24/32 solo si la GPU se mantiene estable.")
+        st.caption("Al terminar DLC, este flujo aplica bbox y deja sincronizado el bridge hacia SimBA en automatico.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    extraction_running = extract_snapshot["is_running"]
+    extraction_disabled = motor != "DeepLabCut SuperAnimal" or not dlc_available or extraction_running
+    if not dlc_available:
+        st.error(f"No se encontro el interprete GPU esperado en `{dlc_python}`.")
 
-# ── Columna de estado y acciones ─────────────────────────────────────────────
-with col_status:
-    st.markdown('<div class="kp-card">', unsafe_allow_html=True)
-
-    if tiene_keypoints:
-        st.success("✅ **Keypoints detectados para este video**")
-        if h5_existentes:
-            st.caption(f"📄 H5: `{os.path.basename(h5_existentes[0])}`")
-        if csv_existentes:
-            st.caption(f"📄 CSV DLC: `{os.path.basename(csv_existentes[0])}`")
-
-        st.markdown("---")
-        st.markdown("#### 🎬 Inspección Visual DLC")
-        st.caption(
-            "Renderiza un MP4 con el overlay de puntos y esqueleto sobre el video "
-            f"realmente analizado por DLC: `{os.path.basename(dlc_video_source)}`."
+    st.markdown("<br>", unsafe_allow_html=True)
+    if extraction_running:
+        st.info(
+            "La preparacion completa sigue corriendo en segundo plano. Puedes moverte entre modulos y volver; "
+            "esta pagina reconstruye el progreso leyendo el log del proceso."
         )
-
-        render_cols = st.columns([1, 1])
-        with render_cols[0]:
+        c_action_1, c_action_2 = st.columns(2)
+        with c_action_1:
             if st.button(
-                "🎥 Renderizar video con keypoints DLC",
+                "DETENER EXTRACCION",
                 use_container_width=True,
-                disabled=_pipeline_is_running(),
-                help="Genera un MP4 de inspección visual usando el H5/CSV actual.",
+                key="btn_stop_keypoints",
             ):
-                renderer_script = os.path.abspath(os.path.join("src", "scripts", "render_dlc_keypoints_video.py"))
-                venv_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
-                render_cmd = [
-                    venv_python,
-                    renderer_script,
-                    "--video", dlc_video_source,
-                    "--pose", pose_render_source,
-                    "--output", dlc_overlay_output,
-                ]
-
-                with st.spinner("Renderizando overlay DLC..."):
-                    render_run = subprocess.run(
-                        render_cmd,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                    )
-
-                if render_run.returncode == 0 and os.path.exists(dlc_overlay_output):
-                    st.success("✅ Video de keypoints DLC generado correctamente.")
-                    st.rerun()
-                else:
-                    render_log = (render_run.stdout or "") + "\n" + (render_run.stderr or "")
-                    st.error("❌ No se pudo generar el video con keypoints DLC.")
-                    if render_log.strip():
-                        with st.expander("Ver log del renderer DLC"):
-                            st.code(render_log[-4000:], language="bash")
-
-        with render_cols[1]:
-            if tiene_dlc_overlay:
-                st.success("✅ Overlay DLC disponible")
-                st.caption(f"📄 `{os.path.basename(dlc_overlay_output)}`")
-            else:
-                st.info("Aún no se ha generado el overlay visual de DLC para este video.")
-
-        if tiene_dlc_overlay:
-            st.video(dlc_overlay_output)
-
-        st.markdown("---")
-        st.markdown("#### 🛡️ Inspección Visual Filtrada")
-        st.caption(
-            "El pipeline aplica automáticamente `BBox Constraint` después de DLC y antes de SimBA. "
-            "Aquí se muestra el MP4 final de validación para que el investigador confirme que los "
-            "keypoints permanecen pegados al ratón."
-        )
-
-        filtered_cols = st.columns([1, 1])
-        with filtered_cols[0]:
-            if tiene_bbox_overlay:
-                st.success("✅ Video filtrado YOLO/DLC disponible")
-                st.caption(f"📄 `{os.path.basename(bbox_overlay_output)}`")
-                st.caption("📍 Ruta exacta del MP4 filtrado:")
-                st.code(bbox_overlay_output, language="text")
-            elif tiene_bbox_pose:
-                st.info(
-                    "La pose corregida ya existe, pero todavía no está el MP4 de validación. "
-                    "Vuelve a completar el pipeline para regenerarlo."
-                )
-            else:
-                st.info(
-                    "El video filtrado aparecerá automáticamente cuando termine el paso "
-                    "de corrección YOLO BBox Constraint."
-                )
-
-        with filtered_cols[1]:
-            if tiene_bbox_pose:
-                bbox_name = os.path.basename(bbox_pose_h5 if os.path.exists(bbox_pose_h5) else bbox_pose_csv)
-                st.caption(f"🧬 Pose corregida: `{bbox_name}`")
-                st.caption("➡️ Esta es la pose que se convierte y se manda a SimBA.")
-                bbox_pose_path = bbox_pose_h5 if os.path.exists(bbox_pose_h5) else bbox_pose_csv
-                st.caption("📍 Ruta exacta de la pose corregida:")
-                st.code(bbox_pose_path, language="text")
-
-        if tiene_bbox_overlay:
-            st.video(bbox_overlay_output)
-
-        st.markdown("---")
-
-        # ── Sub-estado: ¿Ya hay features SimBA? ─────────────────────
-        if tiene_features:
-            st.success("✅ **Features SimBA listas** — puedes proceder al Análisis Final")
-            st.caption(f"📄 Features: `{os.path.basename(features_csv[0])}`")
-            st.markdown(
-                "> ➡️ Ahora ve a **04 · Análisis Final** para generar el video multimodal.",
-                unsafe_allow_html=False,
-            )
-        else:
-            st.warning(
-                "⚡ **H5 de keypoints listo, pero faltan las features de SimBA.**\n\n"
-                "Este paso toma aproximadamente **5 min** y produce el archivo necesario "
-                "para que **04 · Análisis Final** pueda clasificar comportamientos."
-            )
-
-            completar_pipeline = st.button(
-                "▶️ COMPLETAR PIPELINE SIMBA (Pasos 4–6, ~5 min)",
-                type="primary",
+                action = "cancel_extract"
+        with c_action_2:
+            if st.button(
+                "ABRIR CONSOLA DE LOGS",
                 use_container_width=True,
-                disabled=_pipeline_is_running(),
-                help="Ejecuta import → feature extraction → inference. NO re-corre DLC (H5 ya existe).",
-            )
-
-            if completar_pipeline:
-                script_path = os.path.abspath(os.path.join("src", "scripts", "full_pipeline.py"))
-                venv_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
-
-                if not os.path.exists(venv_python):
-                    st.error("❌ No se encontró `venv_310`. Verifica que el entorno DLC esté instalado.")
-                    st.stop()
-
-                # full_pipeline.py auto-salta los pasos ya hechos (DLC, Convert H5, etc.)
-                # Solo correrá los pasos que falten (4: Import, 5: Features, 6: Inference)
-                cmd = [
-                    venv_python, script_path,
-                    "--video", ruta_video,
-                ]
-                
-                # Pasar trims si los hay
-                trim_inicio = st.session_state.get("inicio_recorte", 0.0)
-                trim_fin    = st.session_state.get("fin_recorte", 0.0)
-                if trim_fin > 0 and trim_fin > trim_inicio:
-                    cmd.extend(["--trim_start", str(trim_inicio), "--trim_end", str(trim_fin)])
-                    
-                pid = _launch_detached_pipeline(cmd)
-                st.session_state["pipeline_dlc_activo"] = True
-                st.toast(f"🚀 Pipeline SimBA iniciado (PID {pid}) — los pasos DLC se saltarán automáticamente")
-                st.rerun()
-
-        with st.expander("🔁 Re-extraer desde cero (borra el H5 existente)"):
-            st.warning("⚠️ Esto eliminará el H5 actual y relanzará DLC desde el frame 0. "
-                       "Úsalo para la **Prueba de Fuego** del Dr. Sandino.")
-            if st.button("🗑️ Borrar Keypoints y Re-analizar", type="secondary"):
-                for f in h5_existentes + csv_existentes:
-                    os.remove(f)
-                if os.path.exists(PIPELINE_DONE): os.remove(PIPELINE_DONE)
-                st.session_state["pipeline_dlc_activo"] = False
-                st.rerun()
+                key="btn_open_keypoints_console",
+            ):
+                action = "open_console"
+        if extract_snapshot["meta"]:
+            st.caption(f"PID activo: `{extract_snapshot['meta'].get('pid')}`")
     else:
-        st.warning("⏳ **No hay keypoints para este video.**")
-        st.write("El análisis DLC procesará el video frame a frame y generará los archivos de coordenadas corporales.")
-
-        iniciar_keypoints = st.button(
-            "▶️ INICIAR EXTRACCIÓN DE KEYPOINTS",
+        if st.button(
+            "INICIAR EXTRACCION",
             type="primary",
             use_container_width=True,
-            disabled=_pipeline_is_running(),
-        )
-
-        if iniciar_keypoints:
-            script_path = os.path.abspath(os.path.join("src", "scripts", "full_pipeline.py"))
-            venv_python = os.path.abspath(os.path.join("venv_310", "Scripts", "python.exe"))
-
-            if not os.path.exists(venv_python):
-                st.error("❌ No se encontró `venv_310`. Verifica que el entorno DLC esté instalado.")
-                st.stop()
-
-            cmd = [
-                venv_python, script_path,
-                "--video",     ruta_video,
-                "--batchsize", str(batch_size),  # desde el slider de la UI
-            ]
-            
-            # Pasar trims para que full_pipeline prepare el clip de trabajo
-            trim_inicio = st.session_state.get("inicio_recorte", 0.0)
-            trim_fin    = st.session_state.get("fin_recorte", 0.0)
-            if trim_fin > 0 and trim_fin > trim_inicio:
-                cmd.extend(["--trim_start", str(trim_inicio), "--trim_end", str(trim_fin)])
-                
-            if not skip_video_adapt:
-                # El flag --video_adapt activa la adaptación (por defecto está OFF = más rápido)
-                cmd.append("--video_adapt")
-
-            pid = _launch_detached_pipeline(cmd)
-            st.session_state["pipeline_dlc_activo"] = True
-            st.toast(f"🚀 Extracción iniciada (PID {pid}) · batchsize={batch_size} · video_adapt={not skip_video_adapt}")
-            st.rerun()
-
+            disabled=extraction_disabled,
+            key="btn_start_keypoints",
+        ):
+            action = "extract"
+        if os.path.exists(extract_snapshot["log_path"]):
+            if st.button(
+                "ABRIR ULTIMA CONSOLA DE LOGS",
+                use_container_width=True,
+                key="btn_open_keypoints_console_idle",
+            ):
+                action = "open_console"
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ════════════════════════════════════════════════════════════════════════════════
-# PANEL DE MONITOREO (si el pipeline está corriendo o terminó recientemente)
-# ════════════════════════════════════════════════════════════════════════════════
-if st.session_state.get("pipeline_dlc_activo") or _pipeline_is_running() or os.path.exists(PIPELINE_DONE):
+with col_right:
+    render_output_panel(extract_snapshot)
+    hud_disabled = pose_candidate is None or extract_snapshot["is_running"]
+    if st.button(
+        "RENDERIZAR VISTA PREVIA (HUD)",
+        use_container_width=True,
+        disabled=hud_disabled,
+        key="btn_render_hud",
+    ):
+        action = "render"
+    if hud_disabled:
+        st.caption("Primero extrae los keypoints para poder generar el overlay de inspeccion.")
 
-    corriendo = _pipeline_is_running()
-    terminado = os.path.exists(PIPELINE_DONE) and not corriendo
+# ================= 5. ESTADO Y LOGS =================
+st.markdown("<br>", unsafe_allow_html=True)
 
-    if corriendo:
-        st.session_state["pipeline_dlc_activo"] = True
-        st.info(f"🔄 **DLC corriendo en segundo plano** para `{base_name}` — puedes navegar libremente")
-    elif terminado:
-        st.session_state["pipeline_dlc_activo"] = False
-        status_code = open(PIPELINE_DONE).read().strip()
-        
-        # 🟢 CAMBIO: Si existen keypoints, el mensaje es verde por defecto
-        if tiene_keypoints:
-            st.success("✅ **Keypoints extraídos correctamente.**")
-            st.info("Ya puedes proceder a la **Configuración de Zonas** y posteriormente al análisis de **YOLO + SimBA**.")
-            if tiene_bbox_overlay:
-                st.success("✅ **También se generó el MP4 filtrado con YOLO BBox Constraint.**")
-                st.caption("📍 Ruta exacta del video filtrado:")
-                st.code(bbox_overlay_output, language="text")
-            elif tiene_bbox_pose:
-                st.info("La pose corregida ya existe, pero todavía no se detecta el MP4 filtrado en esta recarga.")
-            
-            if status_code != "0":
-                with st.expander("ℹ️ Detalle de finalización (Error menor detectado)"):
-                    st.warning("El pipeline principal terminó los keypoints pero tuvo un detalle al cerrar los logs de SimBA. No afecta tu análisis.")
-                    if os.path.exists(PIPELINE_LOG):
-                        try:
-                            with open(PIPELINE_LOG, "r", encoding="utf-8", errors="replace") as f:
-                                last_line = f.readlines()[-1]
-                                st.code(last_line, language="bash")
-                        except: pass
-        
-        elif status_code == "0":
-            # Caso ideal (todo en orden)
-            st.success("✅ **Keypoints extraídos.** Procede a la configuración de zonas y posteriormente al análisis de YOLO + SimBA.")
-        
-        else:
-            # Caso de falla real (sin keypoints)
-            st.error("❌ **Error en la extracción:** No se pudieron generar los keypoints.")
-            if os.path.exists(PIPELINE_LOG):
-                with st.expander("🔍 Ver detalle del error técnico"):
-                    try:
-                        lineas = open(PIPELINE_LOG, encoding="utf-8", errors="replace").readlines()
-                        st.code("".join(lineas[-20:]), language="bash")
-                    except: st.write("No se pudo leer el log.")
+if action == "extract":
+    st.session_state["dlc_batch_size"] = int(batch_size)
+    st.session_state["dlc_device_opt"] = device_option
+    save_session()
 
-    with st.expander("📋 Terminal DLC (Log en Vivo)", expanded=corriendo):
-        if os.path.exists(PIPELINE_LOG):
-            try:
-                lineas = open(PIPELINE_LOG, encoding="utf-8", errors="replace").readlines()
-                st.code("".join(lineas[-35:]), language="bash")
-            except Exception:
-                st.warning("Leyendo log...")
+    launch_background_extract(build_extract_command(batch_size, device_option))
+    st.rerun()
 
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        if corriendo and st.button("🔁 Refrescar Log", use_container_width=True):
+elif action == "cancel_extract":
+    cancel_background_extract(extract_snapshot["meta"])
+    st.rerun()
+
+elif action == "open_console":
+    launch_log_viewer_console(extract_snapshot["log_path"], "TT 2026 - Logs Keypoints")
+    st.toast("Se abrio una consola adicional para monitorear los logs.")
+
+elif action == "render":
+    try:
+        command, output_path, pose_path = build_render_command()
+    except Exception as error:
+        st.session_state["keypoints_last_status"] = f"No se pudo iniciar el render: {error}"
+        st.session_state["keypoints_last_progress"] = 0.0
+        st.session_state["keypoints_last_logs"] = f"[ERROR] {error}"
+    else:
+        render_log_path = get_render_log_path()
+        return_code, lines, outputs = run_logged_process(
+            command=command,
+            log_path=render_log_path,
+            parser=parse_render_progress,
+            success_status="Vista previa HUD generada correctamente.",
+            error_status="La generacion del overlay termino con error.",
+        )
+        if return_code == 0:
+            overlay_path = outputs.get("overlay_video") or output_path
+            st.session_state["ultimo_overlay_path"] = overlay_path
+            st.session_state["ultimo_pose_file"] = pose_path
+            save_session()
             st.rerun()
-    with col_m2:
-        if corriendo:
-            if st.button("⛔ Cancelar Extracción", use_container_width=True, type="secondary"):
-                try:
-                    pid = int(open(PIPELINE_PID).read().strip())
-                    import subprocess
-                    # Usar taskkill /F /T para matar todo el árbol de procesos en Windows
-                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
-                    _force_cleanup()
-                    st.toast("Proceso detenido y archivos de control limpiados.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al cancelar: {e}. Prueba 'Limpiar Estado Manual'.")
-        else:
-            # Si no está corriendo pero hay basura en los logs, permitir limpiar
-            if st.button("🧹 Limpiar Estado Manual", use_container_width=True, help="Usa esto si el botón de cancelar falla o el log se quedó trabado"):
-                _force_cleanup()
-                st.success("Estado limpiado correctamente.")
-                st.rerun()
 
-    if corriendo:
-        time.sleep(5)
+
+@st.fragment(run_every="2s" if extract_snapshot["is_running"] else None)
+def render_runtime_monitor():
+    snapshot = get_extract_snapshot()
+    if snapshot["is_running"]:
+        render_log_panel(snapshot)
+    else:
+        render_log_panel()
+    if snapshot["needs_rerun"]:
         st.rerun()
 
-# ════════════════════════════════════════════════════════════════════════════════
-# NAVEGACIÓN SUGERIDA
-# ════════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
-st.markdown("### ¿Qué sigue?")
-n1, n2, n3 = st.columns(3)
-with n1:
-    st.info("**03 · Configuración de Zonas**\nDefine los brazos, centro y paredes del laberinto. Puedes hacerlo mientras DLC corre.")
-with n2:
-    st.info("**04 · Análisis Final**\nCuando DLC termine, ven aquí para correr YOLO Tracker + SimBA y obtener las métricas conductuales.")
-with n3:
-    st.info("**05 · Resultados**\nVisualiza el dashboard completo con etograma, heatmap y estadísticas.")
+
+render_runtime_monitor()
+
+# Footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
+        Identidad Institucional IPN &bull; ESCOM &bull; TT 2026
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

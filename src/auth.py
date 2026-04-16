@@ -33,15 +33,15 @@ def authenticate(email, password):
         with engine.connect() as conn:
             # Buscar usuario por email (username en el schema es el email)
             # El schema usa 'username' pero el login pide email. Asumimos username = email.
-            query = text("SELECT id, username, password_hash, role FROM users WHERE username = :email")
+            query = text("SELECT id, username, password_hash, role, full_name FROM users WHERE username = :email")
             result = conn.execute(query, {"email": email}).fetchone()
             
             if result:
-                # result: (id, username, password_hash, role)
+                # result: (id, username, password_hash, role, full_name)
                 stored_hash = result[2]
                 role = result[3]
-                # En el futuro, podríamos tener una columna 'name' real. Por ahora usamos el username/email.
-                name = result[1] 
+                # Usar full_name si existe, si no, el username (que es el email)
+                name = result[4] if result[4] else result[1] 
                 
                 if check_password(password, stored_hash):
                     # Verificar si la cuenta está activa (SUSPENSIÓN)
@@ -112,9 +112,13 @@ def check_admin_access(role: str) -> bool:
     """Verifica si el rol tiene acceso de administrador."""
     return role == "admin"
 
-def register_user(email, password, role, name):
-    """Register a new user in the PostgreSQL database with pending verification."""
+def register_user(email, password, role="investigador", full_name=None, boleta=None, carrera=None, escuela=None, accepted_terms=False):
+    """Register a new user in the PostgreSQL database with full profile data and pending verification."""
     
+    # 0. Validar Términos
+    if not accepted_terms:
+        return False, "⚠️ Debes aceptar los Términos y Condiciones para registrarte."
+
     # 1. Validar Dominio IPN
     if not validate_ipn_domain(email):
         log_security_event(
@@ -130,7 +134,7 @@ def register_user(email, password, role, name):
 
     log_security_event(
         "REGISTER_ATTEMPT", user=email,
-        message=f"Intento de registro. Rol solicitado: {role}",
+        message=f"Intento de registro. Rol solicitado: {role}. Boleta: {boleta}",
         level="INFO", success=True
     )
 
@@ -151,23 +155,32 @@ def register_user(email, password, role, name):
             
             # Start transaction explicitly
             with conn.begin(): 
-                # 4. Insertar como No Verificado con Timestamp
+                # 4. Insertar con campos extendidos
                 insert = text("""
-                    INSERT INTO users (username, password_hash, role, is_verified, verification_code, verification_code_created_at) 
-                    VALUES (:email, :pwd, :role, FALSE, :otp, CURRENT_TIMESTAMP)
+                    INSERT INTO users (
+                        username, password_hash, role, 
+                        is_verified, verification_code, verification_code_created_at,
+                        full_name, boleta, carrera, escuela, accepted_terms
+                    ) 
+                    VALUES (
+                        :email, :pwd, :role, 
+                        FALSE, :otp, CURRENT_TIMESTAMP,
+                        :fname, :boleta, :carrera, :escuela, :accepted
+                    )
                 """)
                 
                 conn.execute(insert, {
                     "email": email,
                     "pwd": hash_password(password),
                     "role": role,
-                    "otp": otp_code
+                    "otp": otp_code,
+                    "fname": full_name or email,
+                    "boleta": boleta,
+                    "carrera": carrera,
+                    "escuela": escuela,
+                    "accepted": accepted_terms
                 })
-                # No commit yet - handled by context manager if no exception raised
-                # But we want to send email BEFORE committing? 
-                # Actually, best practice: Insert (Commit) -> Send Email -> If Fail, Delete or Mark Error.
-                # However, to simulate "Rollback on Email Fail" as requested:
-                
+
                 # 5. Enviar Correo
                 sent, msg = send_verification_email(email, otp_code)
                 
@@ -177,10 +190,7 @@ def register_user(email, password, role, name):
                         message=f"Fallo en envío de correo OTP: {msg} — transacción revertida",
                         level="ERROR", success=False
                     )
-                    # Raise exception to trigger rollback of the transaction context
                     raise Exception(f"Fallo envío de correo: {msg}")
-                
-                # If we get here, transaction commits automatically on exit of with block
             
             log_security_event(
                 "REGISTER_SUCCESS", user=email,
@@ -348,3 +358,16 @@ def reset_password(email, otp, new_password):
             level="ERROR", success=False
         )
         return False, f"Error BD: {e}"
+
+def update_user_profile(email: str, full_name: str):
+    """Actualiza el nombre completo (preferred name) del usuario en la base de datos."""
+    engine = get_db_engine()
+    try:
+        with engine.connect() as conn:
+            update = text("UPDATE users SET full_name = :fname WHERE username = :email")
+            conn.execute(update, {"fname": full_name, "email": email})
+            conn.commit()
+            return True, "✅ Perfil actualizado exitosamente."
+    except Exception as e:
+        return False, f"Error al actualizar perfil en BD: {e}"
+

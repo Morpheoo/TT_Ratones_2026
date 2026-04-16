@@ -1,2 +1,22 @@
 [server]
 maxUploadSize = 4500
+address = "0.0.0.0"
+baseUrlPath = ""
+
+[theme]
+base = "light"
+primaryColor = "#6A1B3F"
+backgroundColor = "#F6F4F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1F1F1F"
+font = "sans serif"
+
+
+[client]
+showSidebarNavigation = true
+toolbarMode = "minimal"
+
+[browser]
+serverAddress = "localhost"
+serverPort = 8501
+gatherUsageStats = false

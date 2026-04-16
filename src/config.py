@@ -36,10 +36,11 @@ for directory in [DATA_DIR, VIDEOS_DIR, MODELS_DIR, LOGS_DIR]:
 SIMBA_BASE = DATA_DIR / "simba_projects" / "New folder" / "thigmotaxis_optimizado"
 SIMBA_PROJECT_DIR = SIMBA_BASE / "project_folder"
 SIMBA_MODELS_DIR = SIMBA_BASE / "models"
+SIMBA_GENERATED_MODELS_DIR = SIMBA_MODELS_DIR / "generated_models"
 
 # Modelos SimBA
-GROOMING_MODEL = SIMBA_MODELS_DIR / "generated_models" / "Grooming.sav"
-THIGMOTAXIS_MODEL = SIMBA_MODELS_DIR / "Thigmotaxis.sav"
+GROOMING_MODEL = SIMBA_GENERATED_MODELS_DIR / "Grooming.sav"
+THIGMOTAXIS_MODEL = SIMBA_GENERATED_MODELS_DIR / "Thigmotaxis.sav"
 
 # Directorios SimBA
 SIMBA_INPUT_CSV = SIMBA_PROJECT_DIR / "csv" / "input_csv"

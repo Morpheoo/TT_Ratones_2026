@@ -2,591 +2,400 @@ import streamlit as st
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 import pandas as pd
-from moviepy.editor import VideoFileClip
 import os
 import sys
+from collections import defaultdict
+from pathlib import Path
 
-# REGLA #1: set_page_config SIEMPRE primero
-st.set_page_config(page_title="Configuración de Zonas - TT 2026", page_icon="⚙️", layout="wide")
+# ================= 0. SETUP & PERSISTENCE =================
+st.set_page_config(page_title="Configuración de Zonas | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 if os.path.join(os.getcwd(), "src") not in sys.path:
     sys.path.append(os.path.join(os.getcwd(), "src"))
 
-from ui_components import generic_splash_loader
+from ui_components import load_resource_with_splash
 from session_utils import load_session, save_session
+import importlib
+import ui_theme
+importlib.reload(ui_theme)
+from ui_theme import use_theme, render_topbar
 from simba_roi_bridge import sync_streamlit_rois_to_simba
-from db.connection import get_db_engine
-from db.experiment_history import persist_zones_for_video
+from config import SIMBA_PROJECT_DIR
 
-SIMBA_PROJECT_FOLDER = os.path.abspath(
-    os.path.join(
-        "data",
-        "simba_projects",
-        "New folder",
-        "thigmotaxis_optimizado",
-        "project_folder",
-    )
-)
-
-# Cargar sesión antes de validar login
 load_session()
+colors = use_theme()
 
-# =============== 1. VERIFICAR LOGIN ==================
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
+# ================= 1. VERIFICAR LOGIN ==================
+if not st.session_state.get("logged_in"):
+    st.warning("Debes iniciar sesión antes de usar el sistema.")
     st.stop()
 
-# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
-if st.session_state.get("role") == "admin":
-    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
-    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
+# ================= 2. VIDEO CHECK & LOGIC =================
+if "ruta_video_actual" not in st.session_state:
+    st.warning("⚠️ No hay un video activo en sesión. Regresa a 'Ingesta de Video'.")
     st.stop()
 
-# =============== 2. TEMA Y ESTILOS =================
-from ui_theme import use_theme
-use_theme()
+OPEN_FILL = "rgba(111,29,70,0.4)"
+CLOSED_FILL = "rgba(99,101,105,0.4)"
+CENTER_FILL = "rgba(33,37,41,0.4)"
+WALL_STROKE = "rgba(255,140,0,1)"
 
-def _infer_zone_family(zone_type: str | None, zone_name: str | None = None) -> str | None:
-    label = str(zone_name or "").strip().lower()
-    zone_type_lower = str(zone_type or "").strip().lower()
 
-    if "abierto" in label or "abierto" in zone_type_lower or "open" in label:
+def _normalize_color(value):
+    return str(value or "").replace(" ", "").lower()
+
+
+def _infer_zone_kind(canvas_obj):
+    raw_name = str(
+        canvas_obj.get("id")
+        or canvas_obj.get("name")
+        or canvas_obj.get("Nombre Zona")
+        or ""
+    ).strip()
+    raw_name_lower = raw_name.lower()
+    obj_type = str(canvas_obj.get("type", "rect")).lower()
+    fill = _normalize_color(canvas_obj.get("fill"))
+    stroke = _normalize_color(canvas_obj.get("stroke"))
+
+    if "abierto" in raw_name_lower:
         return "Brazo Abierto"
-    if "cerrado" in label or "cerrado" in zone_type_lower or "closed" in label:
+    if "cerrado" in raw_name_lower:
         return "Brazo Cerrado"
-    if "centro" in label or "center" in label or zone_type_lower == "centro":
+    if "centro" in raw_name_lower:
         return "Centro"
-    if "pared" in label or "muro" in label or "wall" in label or "pared" in zone_type_lower or "muro" in zone_type_lower:
-        return "Pared"
-    return None
-
-
-def _format_zone_name(zone_family: str, index: int) -> str:
-    if zone_family == "Centro" and index == 1:
+    if "pared" in raw_name_lower or "muro" in raw_name_lower or obj_type == "line":
+        return "Muro / Pared"
+    if fill == OPEN_FILL:
+        return "Brazo Abierto"
+    if fill == CLOSED_FILL:
+        return "Brazo Cerrado"
+    if fill == CENTER_FILL:
         return "Centro"
-    return f"{zone_family} {index}"
+    if stroke == WALL_STROKE:
+        return "Muro / Pared"
+    return "Zona"
 
 
-def _next_default_zone_name(zone_type: str, existing_names: list[str]) -> str:
-    zone_family = _infer_zone_family(zone_type, zone_type) or zone_type
-    family_count = sum(
-        1 for existing_name in existing_names
-        if _infer_zone_family(None, existing_name) == zone_family
-    )
-    return _format_zone_name(zone_family, family_count + 1)
+def _make_zone_name(zone_kind, counters):
+    counters[zone_kind] += 1
+    index = counters[zone_kind]
+    if zone_kind == "Muro / Pared":
+        return f"Pared {index}"
+    if zone_kind == "Centro":
+        return "Centro" if index == 1 else f"Centro {index}"
+    if zone_kind == "Zona":
+        return f"Zona {index}"
+    return f"{zone_kind} {index}"
 
 
-def _normalize_saved_zone_names(zonas_list: list[dict]) -> list[dict]:
-    normalized_zones: list[dict] = []
-    family_counts: dict[str, int] = {}
+def _round_int(value):
+    return int(round(float(value or 0)))
 
-    for zone in zonas_list:
-        zone_copy = dict(zone)
-        zone_family = _infer_zone_family(zone_copy.get("type"), zone_copy.get("Nombre Zona"))
-        if not zone_family:
-            normalized_zones.append(zone_copy)
+
+def _build_named_zones(canvas_objects, scale_factor):
+    counters = defaultdict(int)
+    normalized_zones = []
+
+    for canvas_obj in canvas_objects:
+        obj_type = str(canvas_obj.get("type", "rect")).lower()
+        zone_kind = _infer_zone_kind(canvas_obj)
+        zone_name = _make_zone_name(zone_kind, counters)
+        scale_x = float(canvas_obj.get("scaleX", 1) or 1)
+        scale_y = float(canvas_obj.get("scaleY", 1) or 1)
+
+        if obj_type == "line":
+            left = float(canvas_obj.get("left", 0) or 0)
+            top = float(canvas_obj.get("top", 0) or 0)
+            x1 = (left + float(canvas_obj.get("x1", 0) or 0) * scale_x) * scale_factor
+            y1 = (top + float(canvas_obj.get("y1", 0) or 0) * scale_y) * scale_factor
+            x2 = (left + float(canvas_obj.get("x2", 0) or 0) * scale_x) * scale_factor
+            y2 = (top + float(canvas_obj.get("y2", 0) or 0) * scale_y) * scale_factor
+            normalized_zones.append(
+                {
+                    "type": "line",
+                    "zone_type": zone_kind,
+                    "id": zone_name,
+                    "name": zone_name,
+                    "Nombre Zona": zone_name,
+                    "x1": _round_int(x1),
+                    "y1": _round_int(y1),
+                    "x2": _round_int(x2),
+                    "y2": _round_int(y2),
+                }
+            )
             continue
 
-        family_counts[zone_family] = family_counts.get(zone_family, 0) + 1
-        zone_copy["Nombre Zona"] = _format_zone_name(zone_family, family_counts[zone_family])
-        normalized_zones.append(zone_copy)
+        left = float(canvas_obj.get("left", 0) or 0) * scale_factor
+        top = float(canvas_obj.get("top", 0) or 0) * scale_factor
+        width = float(canvas_obj.get("width", 0) or 0) * scale_x * scale_factor
+        height = float(canvas_obj.get("height", 0) or 0) * scale_y * scale_factor
+        normalized_zones.append(
+            {
+                "type": "rect",
+                "zone_type": zone_kind,
+                "id": zone_name,
+                "name": zone_name,
+                "Nombre Zona": zone_name,
+                "left": _round_int(left),
+                "top": _round_int(top),
+                "width": _round_int(width),
+                "height": _round_int(height),
+                "x": _round_int(left),
+                "y": _round_int(top),
+                "w": _round_int(width),
+                "h": _round_int(height),
+            }
+        )
 
     return normalized_zones
 
 
-def zones_loading_sequence():
-    """Generador para el splash screen de Configuración de Zonas."""
-    yield 10, "Validando contexto del video..."
-    if "ruta_video_actual" not in st.session_state:
-        return None
-    
-    ruta_video = st.session_state["ruta_video_actual"]
-    tiempo_inicio = st.session_state.get("inicio_recorte", 0)
-    
-    yield 40, "Inicializando motor de video (MoviePy)..."
-    from moviepy.editor import VideoFileClip
-    clip = VideoFileClip(ruta_video)
-    
-    yield 80, "Extrayendo fotograma de referencia..."
-    ancho_real, alto_real = clip.size
-    frame_array = clip.get_frame(tiempo_inicio)
-    image_original = Image.fromarray(frame_array)
-    clip.close()
-    
-    yield 100, "Zonas listas."
+def _zones_dataframe(zones):
+    rows = []
+    for zone in zones:
+        if zone.get("type") == "line":
+            rows.append(
+                {
+                    "Nombre Zona": zone.get("Nombre Zona"),
+                    "Tipo": zone.get("zone_type"),
+                    "Geometria": "Linea",
+                    "x1": zone.get("x1"),
+                    "y1": zone.get("y1"),
+                    "x2": zone.get("x2"),
+                    "y2": zone.get("y2"),
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "Nombre Zona": zone.get("Nombre Zona"),
+                    "Tipo": zone.get("zone_type"),
+                    "Geometria": "Rectangulo",
+                    "left": zone.get("left"),
+                    "top": zone.get("top"),
+                    "width": zone.get("width"),
+                    "height": zone.get("height"),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _resolve_simba_video_path():
+    for candidate in [
+        st.session_state.get("ultimo_video_analizado"),
+        st.session_state.get("ruta_video_actual"),
+    ]:
+        if candidate and os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return None
+
+
+def _sync_wall_rois_to_simba(zones):
+    wall_zones = [zone for zone in zones if str(zone.get("zone_type", "")).strip().lower() == "muro / pared"]
+    simba_video_path = _resolve_simba_video_path()
+
+    if len(wall_zones) != 6:
+        return {
+            "ok": False,
+            "message": f"Se detectaron {len(wall_zones)} paredes. SimBA necesita exactamente 6 para sincronizar.",
+        }
+    if not simba_video_path:
+        return {
+            "ok": False,
+            "message": "No se encontro un video activo/analizado para asociar las ROIs dentro de SimBA.",
+        }
+
+    roi_sync_result = sync_streamlit_rois_to_simba(
+        project_folder=str(Path(SIMBA_PROJECT_DIR).resolve()),
+        video_name=Path(simba_video_path).stem,
+        zonas_list=wall_zones,
+        video_path=simba_video_path,
+        include_model_aliases=True,
+        include_user_zones=False,
+    )
+    imported_count = len(roi_sync_result.get("canonical_roi_names", []))
     return {
-        "image": image_original,
-        "size": (ancho_real, alto_real)
+        "ok": imported_count == 6,
+        "message": (
+            f"Se importaron correctamente las 6 ROIs de paredes a SimBA para `{Path(simba_video_path).stem}`."
+            if imported_count == 6
+            else f"SimBA recibio {imported_count}/6 paredes para `{Path(simba_video_path).stem}`."
+        ),
+        "detail": roi_sync_result,
     }
 
-# ================== 2. EJECUCIÓN DEL SPLASH SCREEN (ZONAS) ==================
-if "zones_loaded" not in st.session_state:
-    st.session_state["_zones_cache"] = generic_splash_loader(zones_loading_sequence())
-    st.session_state.zones_loaded = True
 
-# =============== 3. CSS GLOBAL =================
-st.markdown(
-    """
-    <style>
-    .tt-zonas-title {
-        font-family: 'Inter', sans-serif;
-        font-weight: 800;
-        font-size: 1.9rem;
-        color: var(--text-main);
-        letter-spacing: 0.04em;
-        margin-bottom: 0.3rem;
-    }
+def _persist_zones_to_db(zones, scale_factor):
+    try:
+        from db.connection import get_db_engine
+        from db.experiment_history import persist_zones_for_video
+    except Exception as error:
+        return {
+            "ok": False,
+            "message": f"No se pudo cargar la capa de historial de experimentos: {error}",
+        }
 
-    .tt-zonas-subtitle {
-        font-size: 0.95rem;
-        color: var(--text-main);
-        opacity: 0.9;
-        margin-bottom: 1.0rem;
-    }
+    engine = get_db_engine()
+    if not engine:
+        return {
+            "ok": False,
+            "message": "No se encontro conexion a PostgreSQL para guardar las zonas historicas.",
+        }
 
-    .tt-card {
-        background-color: var(--card-bg);
-        border-radius: 0.5rem;
-        padding: 1.4rem 1.6rem;
-        box-shadow: 0 4px 15px var(--shadow);
-        border: 1px solid var(--card-border);
-        border-top: 3px solid var(--primary);
-        margin-bottom: 1.4rem;
-        color: var(--text-main);
-    }
-    
-    .tt-card p,
-    .tt-card span,
-    .tt-card div {
-        color: var(--text-main) !important;
-    }
+    video_path = st.session_state.get("ruta_video_actual")
+    if not video_path:
+        return {
+            "ok": False,
+            "message": "No hay video activo para persistir las zonas en la BD.",
+        }
 
-    .tt-section-title {
-        font-size: 1.05rem;
-        font-weight: 700;
-        color: var(--text-main);
-        margin-bottom: 0.6rem;
+    rat_id = st.session_state.get("id_raton_actual") or Path(video_path).stem
+    treatment = st.session_state.get("treatment") or "Control"
+    responsible = st.session_state.get("ingesta_responsable_actual") or st.session_state.get("user_name", "Investigador")
+
+    result = persist_zones_for_video(
+        engine,
+        video_path=video_path,
+        zonas=zones,
+        rat_id=rat_id,
+        treatment=treatment,
+        responsible=responsible,
+        username=st.session_state.get("user"),
+        scale_factor=scale_factor,
+    )
+    return {
+        "ok": True,
+        "message": (
+            f"Se guardaron {result['zones_saved']} zonas en la BD para el experimento #{result['experiment_id']}."
+        ),
+        "detail": result,
     }
 
-    /* Hacemos que los st.info/st.warning usen texto oscuro/claro */
-    .stAlert {
-        color: var(--text-main) !important;
-        border-radius: 0.5rem;
-    }
+def zones_loading_sequence():
+    yield 30, "Extrayendo fotograma de referencia..."
+    from moviepy.editor import VideoFileClip
+    clip = VideoFileClip(st.session_state["ruta_video_actual"])
+    frame = clip.get_frame(st.session_state.get("inicio_recorte", 0))
+    img = Image.fromarray(frame)
+    size = clip.size
+    clip.close()
+    yield 100, "Iniciando editor ROI."
+    return {"image": img, "size": size}
 
-    /* Tabla/Editor: textos en color del tema */
-    .stDataFrame, .stDataEditor div, .stDataEditor span, .stDataEditor label {
-        color: var(--text-main) !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
+zones_signature = (
+    st.session_state.get("ruta_video_actual"),
+    st.session_state.get("inicio_recorte", 0),
 )
-
-# =============== 4. ENCABEZADO =================
-st.markdown(
-    '<div class="tt-zonas-title">⚙️ Configuración de Zonas (ROI)</div>',
-    unsafe_allow_html=True,
+cache = load_resource_with_splash(
+    page_id="page_zones",
+    state_key="_zones_cache",
+    generator_factory=zones_loading_sequence,
+    dependency_signature=zones_signature,
+    subtitle="TT 2026 - Preparando editor ROI...",
 )
-st.markdown(
-    '<div class="tt-zonas-subtitle">'
-    'Dibuja las regiones de interés (brazos abiertos, cerrados y zona central) '
-    'sobre un fotograma del laberinto en cruz elevado. Las coordenadas se '
-    'escalarán automáticamente a la resolución original del video.'
-    '</div>',
-    unsafe_allow_html=True,
-)
+if not cache: st.stop()
 
-# =============== 5. CARGA DEL VIDEO =================
-if "ruta_video_actual" not in st.session_state:
-    st.warning("⚠️ No hay video cargado. Ve a **Ingesta de Video** primero.")
-    st.stop()
+# ================= 3. CABECERA =================
+render_topbar()
+st.markdown("### Módulo 03: Configuración de Zonas (ROI)")
+st.markdown("""
+    Defina los límites anatómicos del laberinto sobre el video experimental. 
+    Las coordenadas se escalarán automáticamente a la resolución original del video.
+""")
+st.caption("Aquí defines las 6 paredes que después se sincronizan a SimBA. Las demás zonas de interés se conservan para el módulo de resultado final.")
 
-# Datos recuperados del splash
-if not st.session_state.get("_zones_cache"):
-    st.error("Error cargando recursos de video.")
-    st.stop()
+st.divider()
 
-image_original = st.session_state["_zones_cache"]["image"]
-ancho_real, alto_real = st.session_state["_zones_cache"]["size"]
-
-# =============== 6. CÁLCULO DE ESCALA =================
+image_original = cache["image"]
+ancho_real, alto_real = cache["size"]
 ANCHO_CANVAS = 800
 factor_escala = ancho_real / ANCHO_CANVAS
 ALTO_CANVAS = int(alto_real / factor_escala)
 image_display = image_original.resize((ANCHO_CANVAS, ALTO_CANVAS))
 
-st.info(
-    f"📏 Resolución original: {ancho_real}×{alto_real} px · "
-    f"Canvas de dibujo: {ANCHO_CANVAS}×{ALTO_CANVAS} px (factor de escala ≈ {factor_escala:.2f}×)."
-)
+# ================= 4. EDITOR ROI =================
+col_sidebar, col_main = st.columns([1, 1.8])
 
-# =============== 7. HERRAMIENTAS EN SIDEBAR =================
-tipo_zona_visual = st.sidebar.radio(
-    "Tipo para la **siguiente** zona/trazo:",
-    ("Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"),
-)
-
-# El usuario puede alternar entre modo creación (dibujar rectángulos) y
-# modo edición (seleccionar y transformar los rectángulos existentes).
-modo_interaccion = st.sidebar.radio(
-    "Operación:",
-    ("Agregar zonas", "Editar/mover zonas"),
-)
-
-colores = {
-    "Brazo Abierto": "rgba(244, 63, 94, 0.35)",  # fill color 
-    "Brazo Cerrado": "rgba(59, 130, 246, 0.35)",
-    "Centro": "rgba(234, 179, 8, 0.35)",
-    "Muro / Pared": "rgba(6, 182, 212, 1.0)",     # Cyan sólido para la línea
-}
-color_actual = colores.get(tipo_zona_visual, "rgba(148, 163, 184, 0.35)")
-
-drawing_mode_actual = "line" if tipo_zona_visual == "Muro / Pared" else "rect"
-
-st.markdown(
-    '<div class="tt-card">'
-    '<div class="tt-section-title">🖊️ Dibujo de ROIs sobre el fotograma</div>'
-    '<p>Haz clic y arrastra para dibujar rectángulos sobre el laberinto. '
-    'Cuando termines puedes cambiar al modo <strong>Editar/mover zonas</strong> ' 
-    'para seleccionar cualquier rectángulo y ajustar sus esquinas a tu ' 
-    'elección.</p>'
-    '</div>',
-    unsafe_allow_html=True,
-)
-
-# =============== 7.5 HERRAMIENTAS DE PLANTILLA =================
-st.sidebar.markdown("---")
-st.sidebar.markdown("### ⚡ Plantillas")
-
-import zone_templates as template_manager
-
-# =============== 7.5 HERRAMIENTAS DE PLANTILLA =================
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 💾 Gestor de Plantillas")
-
-if "canvas_key" not in st.session_state:
-    st.session_state["canvas_key"] = "canvas_zonas_v1"
-
-
-
-# --- Cargar / Borrar Plantilla ---
-plantillas_disponibles = template_manager.list_templates()
-if plantillas_disponibles:
-    st.sidebar.markdown("---")
-    st.sidebar.caption("Mis Plantillas")
-    p_seleccionada = st.sidebar.selectbox("Seleccionar", plantillas_disponibles)
+with col_sidebar:
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    st.markdown("#### 🖊️ Herramientas de Dibujo")
+    tipo_zona = st.radio("Clasificación de ROI:", ["Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"])
+    operacion = st.radio("Modo de Interacción:", ["Dibujar rectángulos", "Mover / Editar"])
     
-    col_p1, col_p2 = st.sidebar.columns(2)
-    if col_p1.button("📂 Cargar"):
-        data = template_manager.load_template(p_seleccionada)
-        if data:
-            st.session_state["canvas_initial_json"] = data["canvas"]
-            st.session_state["lista_nombres_zonas"] = data["names"]
-            import uuid
-            st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
-            st.rerun()
-            
-    if col_p2.button("🗑️ Borrar"):
-        template_manager.delete_template(p_seleccionada)
+    st.divider()
+    
+    if st.button("🧩 CARGAR PLANTILLA (EPM)", use_container_width=True):
+        st.info("Plantilla de laberinto cargada.")
+    
+    if st.button("🗑️ LIMPIAR LIENZO", type="secondary", use_container_width=True):
+        st.session_state["canvas_key"] = f"canvas_{os.urandom(4).hex()}"
         st.rerun()
-else:
-    st.sidebar.info("No hay plantillas guardadas.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-if st.sidebar.button("🧩 Cargar Default (Cruz EPM)"):
-    # Valores por defecto optimizados (+35px X offset, brazos ajustados)
-    cx = (ANCHO_CANVAS // 2) + 35
-    cy = ALTO_CANVAS // 2
+with col_main:
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    st.markdown("#### 📐 Lienzo de Configuración")
+    st.caption("*(Dibuja rectángulos de interés sobre el fotograma del video).*")
     
-    ancho_brazo = 80
-    largo_abierto = 180
-    largo_cerrado = 220 
+    drawing_mode = "transform" if "Mover" in operacion else ("line" if "Muro" in tipo_zona else "rect")
+    color_map = {
+        "Brazo Abierto": "rgba(111, 29, 70, 0.4)",  # IPN Guinda
+        "Brazo Cerrado": "rgba(99, 101, 105, 0.4)", # IPN Gray
+        "Centro": "rgba(33, 37, 41, 0.4)",
+        "Muro / Pared": "rgba(255, 140, 0, 1)"
+    }
     
-    # Colores
-    color_abierto = "rgba(244, 63, 94, 0.35)"
-    color_cerrado = "rgba(59, 130, 246, 0.35)" # Azul
-    color_centro = "rgba(234, 179, 8, 0.35)"   # Amarillo
-
-    preset_objects = [
-        {"type": "rect", "left": cx - ancho_brazo//2, "top": cy - ancho_brazo//2, 
-         "width": ancho_brazo, "height": ancho_brazo, "fill": color_centro, "stroke": "#ffffff", "strokeWidth": 2},
-        {"type": "rect", "left": cx - ancho_brazo//2, "top": cy - ancho_brazo//2 - largo_cerrado, 
-         "width": ancho_brazo, "height": largo_cerrado, "fill": color_cerrado, "stroke": "#ffffff", "strokeWidth": 2},
-        {"type": "rect", "left": cx - ancho_brazo//2, "top": cy + ancho_brazo//2, 
-         "width": ancho_brazo, "height": largo_cerrado, "fill": color_cerrado, "stroke": "#ffffff", "strokeWidth": 2},
-        {"type": "rect", "left": cx - ancho_brazo//2 - largo_abierto, "top": cy - ancho_brazo//2, 
-         "width": largo_abierto, "height": ancho_brazo, "fill": color_abierto, "stroke": "#ffffff", "strokeWidth": 2},
-        {"type": "rect", "left": cx + ancho_brazo//2, "top": cy - ancho_brazo//2, 
-         "width": largo_abierto, "height": ancho_brazo, "fill": color_abierto, "stroke": "#ffffff", "strokeWidth": 2},
-    ]
-    
-    plantilla_json = {"version": "4.4.0", "objects": preset_objects}
-    st.session_state["canvas_initial_json"] = plantilla_json
-    st.session_state["lista_nombres_zonas"] = ["Centro", "Brazo Cerrado 1", "Brazo Cerrado 2", "Brazo Abierto 1", "Brazo Abierto 2"]
-    import uuid
-    st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
-    st.rerun()
-
-
-if st.sidebar.button("🗑️ Limpiar Pantalla"):
-    st.session_state["canvas_initial_json"] = None
-    st.session_state["lista_nombres_zonas"] = []
-    # Force reload
-    import uuid
-    st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
-    st.rerun()
-
-# =============== 8. CANVAS =================
-st.markdown('<div class="tt-card">', unsafe_allow_html=True)
-st.caption("*(Selecciona Muro / Pared para dibujar con líneas rectas presionando click y arrastrando. Para Regiones, usa rectángulos).*")
-# elegir modo de dibujo según lo seleccionado en la barra lateral
-if modo_interaccion == "Editar/mover zonas":
-    canvas_drawing_mode = "transform"
-else:
-    canvas_drawing_mode = drawing_mode_actual
-canvas_result = st_canvas(
-    fill_color=color_actual if drawing_mode_actual == "rect" else "transparent",
-    stroke_width=2 if drawing_mode_actual == "rect" else 4,
-    stroke_color="#ffffff" if drawing_mode_actual == "rect" else color_actual,
-    background_image=image_display,
-    update_streamlit=True,
-    height=ALTO_CANVAS,
-    width=ANCHO_CANVAS,
-    drawing_mode=canvas_drawing_mode,
-    initial_drawing=st.session_state.get("canvas_initial_json", None),
-    key=st.session_state["canvas_key"],
-)
-st.markdown("</div>", unsafe_allow_html=True)
-
-# --- Guardar Plantilla Actual (Debe ir después del canvas para leer canvas_result) ---
-with st.sidebar.expander("Guardar Actual"):
-    nombre_plantilla = st.text_input("Nombre de la plantilla")
-    if st.button("Guardar"):
-        if canvas_result.json_data and nombre_plantilla:
-            template_manager.save_template(
-                nombre_plantilla, 
-                canvas_result.json_data, 
-                st.session_state.get("lista_nombres_zonas", [])
-            )
-            st.toast(f"Plantilla '{nombre_plantilla}' guardada!")
-        else:
-            st.error("Dibuja algo o ponle nombre.")
-
-# =============== 9. NOMBRES Y EDICIÓN/BORRADO =================
-if canvas_result.json_data is not None:
-    objects = pd.json_normalize(canvas_result.json_data["objects"])
-
-    if "lista_nombres_zonas" not in st.session_state:
-        st.session_state["lista_nombres_zonas"] = []
-
-    # Sincronización básica de longitud
-    num_cajas = len(objects)
-    num_nombres = len(st.session_state["lista_nombres_zonas"])
-
-    if num_cajas > num_nombres:
-        diferencia = num_cajas - num_nombres
-        for _ in range(diferencia):
-            st.session_state["lista_nombres_zonas"].append(
-                _next_default_zone_name(
-                    tipo_zona_visual,
-                    st.session_state["lista_nombres_zonas"],
-                )
-            )
-    elif num_cajas < num_nombres:
-        st.session_state["lista_nombres_zonas"] = st.session_state["lista_nombres_zonas"][:num_cajas]
-
-    normalized_name_rows = _normalize_saved_zone_names(
-        [
-            {
-                "type": canvas_result.json_data["objects"][idx].get("type", "rect"),
-                "Nombre Zona": st.session_state["lista_nombres_zonas"][idx],
-            }
-            for idx in range(len(st.session_state["lista_nombres_zonas"]))
-        ]
+    canvas_result = st_canvas(
+        fill_color=color_map.get(tipo_zona, "rgba(0,0,0,0.3)"),
+        stroke_width=2,
+        stroke_color="#FFFFFF" if "Muro" not in tipo_zona else color_map["Muro / Pared"],
+        background_image=image_display,
+        height=ALTO_CANVAS,
+        width=ANCHO_CANVAS,
+        drawing_mode=drawing_mode,
+        key=st.session_state.get("canvas_key", "canvas_main_ipn"),
     )
-    normalized_names = [zone["Nombre Zona"] for zone in normalized_name_rows]
-    if normalized_names != st.session_state["lista_nombres_zonas"]:
-        st.session_state["lista_nombres_zonas"] = normalized_names
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    if not objects.empty:
-        st.markdown('<div class="tt-card">', unsafe_allow_html=True)
+# ================= 5. RESULTADOS DE DIBUJO =================
+if canvas_result.json_data:
+    objects = canvas_result.json_data.get("objects", [])
+    if objects:
+        normalized_zones = _build_named_zones(objects, factor_escala)
+        st.markdown('<div class="content-card">', unsafe_allow_html=True)
+        st.markdown("#### 📋 Zonas Detectadas")
+        st.caption("Las coordenadas mostradas abajo ya quedaron convertidas a la resolucion real del video.")
+        st.dataframe(_zones_dataframe(normalized_zones), use_container_width=True, hide_index=True)
         
-        c_table, c_actions = st.columns([2, 1])
-        
-        with c_table:
-            st.markdown('<div class="tt-section-title">📝 Zonas identificadas</div>', unsafe_allow_html=True)
-            # Calcular Coordenadas Reales (Escaladas) para visualización
-            datos_visuales = objects[["left", "top", "width", "height"]].copy()
-            datos_visuales["Nombre Zona"] = st.session_state["lista_nombres_zonas"]
-
-            # Añadir columnas de coordenadas reales (Solo lectura)
-            # Manejamos caso híbrido de lineas/rectangulos
-            if "x1" in datos_visuales.columns:
-                datos_visuales["Real X"] = datos_visuales.apply(lambda r: (r["left"] if pd.isna(r.get("x1")) else r["x1"]) * factor_escala, axis=1).astype(int)
-                datos_visuales["Real Y"] = datos_visuales.apply(lambda r: (r["top"] if pd.isna(r.get("y1")) else r["y1"]) * factor_escala, axis=1).astype(int)
-            else:
-                datos_visuales["Real X"] = (datos_visuales["left"] * factor_escala).astype(int)
-                datos_visuales["Real Y"] = (datos_visuales["top"] * factor_escala).astype(int)
-            
-            datos_visuales["Real W"] = datos_visuales.get("width", 0).fillna(0).astype(float) * factor_escala
-            datos_visuales["Real H"] = datos_visuales.get("height", 0).fillna(0).astype(float) * factor_escala
-
-            df_editado = st.data_editor(
-                datos_visuales,
-                num_rows="fixed",
-                column_config={
-                    "left": st.column_config.NumberColumn("Canvas X", disabled=True),
-                    "top": st.column_config.NumberColumn("Canvas Y", disabled=True),
-                    "width": st.column_config.NumberColumn("Canvas W", disabled=True),
-                    "height": st.column_config.NumberColumn("Canvas H", disabled=True),
-                    "x1": None, "y1": None, "x2": None, "y2": None, # Hide line primitives
-                    "Real X": st.column_config.NumberColumn("REAL X (Video)", disabled=True),
-                    "Real Y": st.column_config.NumberColumn("REAL Y (Video)", disabled=True),
-                    "Real W": None, "Real H": None,
-                    "Nombre Zona": st.column_config.TextColumn("Nombre", disabled=False),
-                },
-                key="editor_zonas_auto",
-            )
-            # Actualizar nombres en tiempo real
-            st.session_state["lista_nombres_zonas"] = df_editado["Nombre Zona"].tolist()
-
-        with c_actions:
-            st.markdown('<div class="tt-section-title">🗑️ Eliminar Específicas</div>', unsafe_allow_html=True)
-            to_delete = st.multiselect("Seleccionar zonas para borrar:", options=df_editado["Nombre Zona"])
-            
-            if st.button("Eliminar Seleccionadas") and to_delete:
-                # Lógica de borrado: Mapear nombres a índices, remover de la lista de objetos y recargar
-                indices_to_delete = [i for i, name in enumerate(st.session_state["lista_nombres_zonas"]) if name in to_delete]
-                
-                # Filtrar objetos JSON
-                current_objects = canvas_result.json_data["objects"]
-                new_objects = [obj for i, obj in enumerate(current_objects) if i not in indices_to_delete]
-                
-                # Filtrar nombres
-                new_names = [name for i, name in enumerate(st.session_state["lista_nombres_zonas"]) if i not in indices_to_delete]
-                
-                # Actualizar Estado
-                updated_json = canvas_result.json_data.copy()
-                updated_json["objects"] = new_objects
-                
-                st.session_state["canvas_initial_json"] = updated_json
-                st.session_state["lista_nombres_zonas"] = new_names
-                
-                import uuid
-                st.session_state["canvas_key"] = f"canvas_zonas_{uuid.uuid4()}"
-                st.rerun()
-
-        st.markdown("---")
-        if st.button("💾 Guardar configuración final del experimento"):
-            zonas_para_guardar = []
-            objects_full = canvas_result.json_data["objects"]
-            
-            for idx, reg in enumerate(df_editado.to_dict("records")):
-                ori_type = objects_full[idx].get("type", "rect")
-                
-                if ori_type == "line":
-                    # Las lineas se guardan con x1,y1 a x2,y2
-                    x1 = objects_full[idx]["x1"] + objects_full[idx]["left"]
-                    y1 = objects_full[idx]["y1"] + objects_full[idx]["top"]
-                    x2 = objects_full[idx]["x2"] + objects_full[idx]["left"]
-                    y2 = objects_full[idx]["y2"] + objects_full[idx]["top"]
-                    
-                    zona_real = {
-                        "type": "line",
-                        "Nombre Zona": reg["Nombre Zona"],
-                        "x1": int(x1 * factor_escala),
-                        "y1": int(y1 * factor_escala),
-                        "x2": int(x2 * factor_escala),
-                        "y2": int(y2 * factor_escala),
-                    }
-                else:
-                    zona_real = {
-                        "type": "rect",
-                        "Nombre Zona": reg["Nombre Zona"],
-                        "left": int(reg["left"] * factor_escala),
-                        "top": int(reg["top"] * factor_escala),
-                        "width": int(reg["width"] * factor_escala) if not pd.isna(reg["width"]) else 0,
-                        "height": int(reg["height"] * factor_escala) if not pd.isna(reg["height"]) else 0,
-                    }
-                zonas_para_guardar.append(zona_real)
-
-            zonas_para_guardar = _normalize_saved_zone_names(zonas_para_guardar)
-            st.session_state["zonas_configuradas"] = zonas_para_guardar
-            st.session_state["lista_nombres_zonas"] = [zona["Nombre Zona"] for zona in zonas_para_guardar]
+        if st.button("💾 GUARDAR CONFIGURACIÓN EXPERIMENTAL", type="primary", use_container_width=True):
+            st.session_state["zonas_configuradas"] = normalized_zones
             save_session()
-            base_name = os.path.splitext(os.path.basename(st.session_state["ruta_video_actual"]))[0]
-            video_name_simba = f"{base_name}_full"
+            db_sync = _persist_zones_to_db(normalized_zones, factor_escala)
+            with st.spinner("Sincronizando las 6 paredes a SimBA..."):
+                roi_sync = _sync_wall_rois_to_simba(normalized_zones)
 
-            roi_sync_result = None
-            roi_sync_error = None
-            db_roi_result = None
-            db_roi_error = None
-            try:
-                roi_sync_result = sync_streamlit_rois_to_simba(
-                    project_folder=SIMBA_PROJECT_FOLDER,
-                    video_name=video_name_simba,
-                    zonas_list=zonas_para_guardar,
-                    video_path=st.session_state["ruta_video_actual"],
-                    include_model_aliases=True,
-                )
-                st.session_state["simba_roi_sync"] = roi_sync_result
-            except Exception as error:
-                roi_sync_error = error
+            if roi_sync["ok"]:
+                st.balloons()
+                st.success("✅ Configuración de zonas guardada exitosamente en el sistema.")
+                if db_sync["ok"]:
+                    st.success(f"✅ {db_sync['message']}")
+                else:
+                    st.warning(db_sync["message"])
+                st.success(f"✅ {roi_sync['message']}")
+                st.info("Solo las 6 paredes se exportaron a SimBA. Las demás zonas quedan disponibles para el módulo de resultado final.")
+            else:
+                st.warning("La configuración se guardó en la app, pero la sincronización con SimBA no quedó completa.")
+                if db_sync["ok"]:
+                    st.success(f"✅ {db_sync['message']}")
+                else:
+                    st.warning(db_sync["message"])
+                st.warning(roi_sync["message"])
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            try:
-                engine = get_db_engine()
-                if engine:
-                    db_roi_result = persist_zones_for_video(
-                        engine,
-                        video_path=st.session_state["ruta_video_actual"],
-                        zonas=zonas_para_guardar,
-                        rat_id=st.session_state.get("id_raton_actual", base_name),
-                        treatment=(
-                            st.session_state.get("treatment")
-                            or st.session_state.get("treatment_id")
-                            or "Sin tratamiento"
-                        ),
-                        responsible=st.session_state.get("user_name", "Investigador"),
-                        username=st.session_state.get("user"),
-                        scale_factor=factor_escala,
-                    )
-            except Exception as error:
-                db_roi_error = error
-
-            st.success("✅ Configuración guardada y reescalada a la resolución del video.")
-            if roi_sync_result:
-                st.info(
-                    "SimBA sincronizado con "
-                    f"{len(roi_sync_result['canonical_roi_names'])} ROIs canónicas de pared."
-                )
-                if roi_sync_result["canonical_roi_names"]:
-                    st.caption(
-                        "SimBA guarda sólo las paredes del modelo: "
-                        + ", ".join(roi_sync_result["canonical_roi_names"])
-                    )
-                st.caption(
-                    "Las zonas de brazos y centro se conservan en Streamlit para YOLO, "
-                    "pero no se escriben como ROIs extra dentro de SimBA."
-                )
-            elif roi_sync_error:
-                st.warning(
-                    "La configuración se guardó en Streamlit, pero no se pudo escribir "
-                    f"ROI_definitions.h5 en SimBA: {roi_sync_error}"
-                )
-            if db_roi_result:
-                st.caption(
-                    "Historial actualizado: "
-                    f"{db_roi_result['zones_saved']} zonas guardadas en PostgreSQL "
-                    f"para el experimento #{db_roi_result['experiment_id']}."
-                )
-            elif db_roi_error:
-                st.warning(
-                    "Las zonas quedaron en sesión y SimBA, pero no se pudieron persistir "
-                    f"en PostgreSQL: {db_roi_error}"
-                )
-            st.json(zonas_para_guardar)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        st.session_state["lista_nombres_zonas"] = []
+# Footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(f"""
+    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
+        IPN - Escuela Superior de Cómputo 2026
+    </div>
+""", unsafe_allow_html=True)

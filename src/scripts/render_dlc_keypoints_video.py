@@ -1,6 +1,7 @@
 import argparse
 import glob
 import os
+import subprocess
 
 import cv2
 import numpy as np
@@ -96,6 +97,9 @@ def render_keypoints_video(
     pcutoff: float = DEFAULT_P_CUTOFF,
     dot_radius: int = DEFAULT_DOT_RADIUS,
 ) -> str:
+    output_path = os.path.abspath(output_path)
+    raw_output_path = os.path.splitext(output_path)[0] + "_raw.mp4"
+
     df_pose = _load_pose_dataframe(pose_path)
     bodyparts = _extract_bodyparts(df_pose)
     palette = _build_bodypart_palette(bodyparts)
@@ -111,14 +115,14 @@ def render_keypoints_video(
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     writer = cv2.VideoWriter(
-        output_path,
+        raw_output_path,
         cv2.VideoWriter_fourcc(*"mp4v"),
         fps,
         (width, height),
     )
     if not writer.isOpened():
         capture.release()
-        raise RuntimeError(f"Could not create output video: {output_path}")
+        raise RuntimeError(f"Could not create output video: {raw_output_path}")
 
     total_frames = min(frame_count, len(df_pose)) if frame_count else len(df_pose)
     print(f"[RENDER] Video: {video_path}")
@@ -127,6 +131,7 @@ def render_keypoints_video(
     print(f"[RENDER] Frames to render: {total_frames}")
 
     frame_index = 0
+    progress_step = max(1, total_frames // 20) if total_frames else 1
     while frame_index < total_frames:
         ok, frame = capture.read()
         if not ok:
@@ -178,11 +183,44 @@ def render_keypoints_video(
 
         writer.write(frame)
         frame_index += 1
-        if frame_index % 300 == 0 or frame_index == total_frames:
+        if frame_index % progress_step == 0 or frame_index == total_frames:
             print(f"[RENDER] {frame_index}/{total_frames}")
 
     capture.release()
     writer.release()
+    print("[RENDER] Transcoding overlay to browser-friendly H.264...")
+    ffmpeg_command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        raw_output_path,
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        output_path,
+    ]
+    try:
+        subprocess.run(
+            ffmpeg_command,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if os.path.exists(raw_output_path):
+            os.remove(raw_output_path)
+    except Exception as error:
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        os.replace(raw_output_path, output_path)
+        print(f"[WARN] Browser-friendly transcode failed, using raw MP4 instead: {error}")
+
+    print(f"[OUTPUT] OVERLAY_VIDEO={output_path}")
     print("[RENDER] Done")
     return output_path
 

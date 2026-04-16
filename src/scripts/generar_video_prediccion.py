@@ -644,7 +644,12 @@ if __name__ == "__main__":
     parser.add_argument("--model_grooming", type=str, required=True, help="Ruta al modelo .sav de Grooming.")
     parser.add_argument("--output", type=str, required=True, help="Nombre deseado para el archivo multihud final.")
     parser.add_argument("--zonas_json", type=str, required=False, default="", help="Zonas en formato JSON para evitar prompt interactivo.")
+    parser.add_argument("--zonas_file", type=str, required=False, default="", help="Ruta a un JSON de zonas para evitar pasar el payload completo por CLI.")
     
     args = parser.parse_args()
+    zonas_json_payload = args.zonas_json
+    if args.zonas_file:
+        with open(args.zonas_file, "r", encoding="utf-8") as file_handle:
+            zonas_json_payload = file_handle.read()
     # model_thigmo y model_grooming are passed directly to override geometry
-    generate_video(args.video, args.features, args.output, args.zonas_json, args.model_thigmo, args.model_grooming)
+    generate_video(args.video, args.features, args.output, zonas_json_payload, args.model_thigmo, args.model_grooming)

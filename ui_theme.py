@@ -1,313 +1,615 @@
-# ui_theme.py
 import streamlit as st
+import os
+import base64
+from session_utils import load_session
 
-def _get_theme_name() -> str:
-    # Retiramos el selector de tema y forzamos el oscuro
-    st.session_state["theme_name"] = "Oscuro"
-    return "Oscuro"
+def get_image_base64(path):
+    if not os.path.exists(path):
+        return ""
+    with open(path, "rb") as img_file:
+        encoded = base64.b64encode(img_file.read()).decode()
+    ext = path.split('.')[-1]
+    mime = f"image/{ext}" if ext != "jpg" else "image/jpeg"
+    return f"data:{mime};base64,{encoded}"
 
+def _sidebar_nav_css(colors: dict) -> str:
+    """
+    Genera CSS para mostrar/ocultar ítems del sidebar según el estado de sesión.
+    
+    Orden de páginas Streamlit (auto-detectadas por nombre de archivo):
+     1. Home          (Home.py)
+     2. Login         (00_Login.py)
+     3. Ingesta       (01_*)
+     4. Keypoints     (02_*)
+     5. Zonas         (03_*)
+     6. Análisis      (04_*)
+     7. Resultados    (05_*)
+     8. Perfil        (98_*)
+     9. Admin         (99_*)
+    """
+    logged_in = st.session_state.get("logged_in", False)
+    is_admin  = st.session_state.get("role", "") == "admin"
+
+    if not logged_in:
+        # No autenticado: ocultar TODOS excepto Login (ítem 2)
+        return """
+    /* === MODO NO AUTENTICADO: solo Login visible === */
+    [data-testid="stSidebarNavItems"] li:nth-child(1),
+    [data-testid="stSidebarNavItems"] li:nth-child(3),
+    [data-testid="stSidebarNavItems"] li:nth-child(4),
+    [data-testid="stSidebarNavItems"] li:nth-child(5),
+    [data-testid="stSidebarNavItems"] li:nth-child(6),
+    [data-testid="stSidebarNavItems"] li:nth-child(7),
+    [data-testid="stSidebarNavItems"] li:nth-child(8),
+    [data-testid="stSidebarNavItems"] li:nth-child(9) {
+        display: none !important;
+    }"""
+    elif not is_admin:
+        # Autenticado pero no admin: ocultar Login y Admin Panel
+        return """
+    /* === MODO AUTENTICADO (usuario normal) === */
+    [data-testid="stSidebarNavItems"] li:nth-child(2),
+    [data-testid="stSidebarNavItems"] li:nth-child(9) {
+        display: none !important;
+    }"""
+    else:
+        # Admin: ocultar solo Login
+        return """
+    /* === MODO ADMIN === */
+    [data-testid="stSidebarNavItems"] li:nth-child(2) {
+        display: none !important;
+    }"""
 
 def use_theme():
     """
-    Aplica el CSS global (ahora fijo en Tema Oscuro Institucional)
-    y devuelve el diccionario de colores por si lo quieres usar.
+    Sistema de Diseño Premium Institucional IPN-ESCOM.
+    Basado en requerimientos visuales avanzados (Dashboard Científico).
     """
-    theme_name = _get_theme_name()
-
-    # -- PALETA OFICIAL IPN OBLIGATORIA --
-    # Guinda principal: #6A1B2E
-    # Guinda profundo: #4A1020
-    # Guinda medio: #7A2238
-    # Guinda acento: #8F314A
-    # Guinda suave: #F4E9ED
-    # Blancos: #FFFFFF, #FAF8F9
-    # Grises: #E5E7EB, #9CA3AF, #374151
-    # Carbón: #1F2937, #111827
-
-    # Tema Oscuro Bloqueado
     colors = {
-        "page_bg": "#201318",           # Guinda muy oscuro/carbón base
-        "sidebar_bg": "#14090c",        # Sidebar casi negro-guinda
-        "sidebar_text": "#E5E7EB",      # Gris claro legible
-        "banner_bg": "#4A1020",         # Guinda Profundo
-        "banner_text": "#FAF8F9",       # Blanco Suave
-        "card_bg": "#311A22",           # Superficie Guinda-Carbón
-        "card_border": "#4A1020",       # Borde sutil guinda
-        "primary": "#8F314A",           # Guinda acento (más vibrante para contraste oscuro)
-        "primary_hover": "#6A1B2E",     # Guinda principal
-        "input_bg": "#1F2937",
-        "input_border": "#4A1020",
-        "text_main": "#FAF8F9",
-        "text_sub": "#9CA3AF",
-        "accent": "#C9A227",
-        "shadow": "rgba(0,0,0,0.6)",
-        "sidebar_hover": "rgba(122, 34, 56, 0.4)", # Guinda translúcido
-        "sidebar_active": "#7A2238"      # Fondo select item
+        "primary": "#6A1B3F",       # Guinda principal
+        "primary_dark": "#4E1830",  # Guinda profundo
+        "primary_light": "#963660", # Guinda claro (hovers)
+        "bg_page": "#F6F4F5",       # Fondo general gris muy claro
+        "bg_card": "#FFFFFF",       # Superficie blanca brillante
+        "border": "#E8E1E5",        # Borde suave, casi invisible
+        "text_main": "#1F1F1F",     # Texto oscuro principal (alta legibilidad)
+        "text_sub": "#666666",      # Texto gris secundario
+        "success": "#2E7D32",       # Verde para estados ok
+        "warning": "#B7791F",       # Naranja/Dorado para advertencias
+        "danger": "#D32F2F",        # Rojo suave para errores
+        "accent_bg": "rgba(106, 27, 63, 0.05)",     # Fondo alternativo sutil
     }
-
 
     css = f"""
     <style>
-    /* Variables Globales IPN */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    /* Variables Globales */
     :root {{
-      --page-bg: {colors['page_bg']};
-      --banner-bg: {colors['banner_bg']};
-      --banner-text: {colors['banner_text']};
-      --card-bg: {colors['card_bg']};
-      --card-border: {colors['card_border']};
-      --primary: {colors['primary']};
-      --primary-hover: {colors['primary_hover']};
-      --input-bg: {colors['input_bg']};
-      --input-border: {colors['input_border']};
-      --text-main: {colors['text_main']};
-      --text-sub: {colors['text_sub']};
-      --accent: {colors['accent']};
-      --shadow: {colors['shadow']};
-      --sidebar-bg: {colors['sidebar_bg']};
-      --sidebar-text: {colors['sidebar_text']};
-      --sidebar-hover: {colors['sidebar_hover']};
-      --sidebar-active: {colors['sidebar_active']};
+        --p: {colors['primary']};
+        --pd: {colors['primary_dark']};
+        --pl: {colors['primary_light']};
+        --bg: {colors['bg_page']};
+        --card: {colors['bg_card']};
+        --border: {colors['border']};
+        --text: {colors['text_main']};
+        --text-sub: {colors['text_sub']};
+        --success: {colors['success']};
+        --warning: {colors['warning']};
+        --danger: {colors['danger']};
     }}
 
-    /* Fondo Principal de Streamlit */
+    /* Global App Background */
     .stApp {{
-      background-color: var(--page-bg) !important;
-    }}
-
-    .main {{
-      background-color: var(--page-bg) !important;
-    }}
-
-    /* --- SIDEBAR REFORZADO IPN (APLICA EN AMBOS TEMAS) --- */
-    section[data-testid="stSidebar"] {{
-        background-color: var(--sidebar-bg) !important;
-        border-right: 1px solid rgba(143, 49, 74, 0.4) !important;
-    }}
-
-    /* Textos genéricos en sidebar siempre claros */
-    section[data-testid="stSidebar"] * {{
-        color: var(--sidebar-text) !important;
-    }}
-
-    /* Navegación - Iconos y Labels */
-    [data-testid="stSidebarNav"] span {{
-        color: var(--sidebar-text) !important;
-    }}
-
-    /* Elemento activo en navegación lateral */
-    [data-testid="stSidebarNav"] a[aria-current="page"] {{
-        background-color: var(--sidebar-active) !important;
-        border-radius: 6px !important;
-        margin-bottom: 2px !important;
+        background-color: var(--bg) !important;
+        font-family: 'Inter', sans-serif !important;
     }}
     
-    [data-testid="stSidebarNav"] a[aria-current="page"] span {{
-        font-weight: 700 !important;
-        color: #FFFFFF !important;
-    }}
-
-    /* Hover en navegación */
-    [data-testid="stSidebarNav"] a:hover {{
-        background-color: var(--sidebar-hover) !important;
-        border-radius: 6px !important;
-    }}
-
-    /* Checkbox / Toggle en sidebar */
-    section[data-testid="stSidebar"] .stCheckbox p,
-    section[data-testid="stSidebar"] .stRadio p,
-    section[data-testid="stSidebar"] .stSelectbox label,
-    section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p {{
-         color: var(--sidebar-text) !important;
-         font-weight: 600;
-         opacity: 1 !important;
-    }}
-
-    /* Círculo indicador del Radio Button activo en el selector del sidebar */
-    section[data-testid="stSidebar"] div[role="radiogroup"] div[data-testid="stMarkdownContainer"] p {{
-         color: var(--sidebar-text) !important;
-    }}
-    
-    /* Indicador del radio cuando está prendido se pinta de Guinda vibrante */
-    section[data-testid="stSidebar"] [data-baseweb="radio"] div:first-child {{
-        background-color: rgba(255,255,255,0.1) !important;
-        border-color: rgba(255,255,255,0.4) !important;
-    }}
-    section[data-testid="stSidebar"] [data-baseweb="radio"] [aria-checked="true"] div:first-child {{
-        background-color: var(--sidebar-text) !important;
-        border-color: var(--sidebar-text) !important;
-    }}
-
-    /* Botón Especial de Cerrar Sesión en Sidebar */
-    section[data-testid="stSidebar"] .stButton > button {{
-        background-color: #6A1B2E !important; /* Rojo IPN fuerte siempre para acción salir */
-        color: #FFFFFF !important;
-        border: 1px solid #8F314A !important;
-        font-weight: 700 !important;
-    }}
-    section[data-testid="stSidebar"] .stButton > button:hover {{
-        background-color: #7A2238 !important;
-        border: 1px solid #FFFFFF !important;
-        transform: scale(1.02);
-    }}
-    
-    /* Contenedor principal */
+    /* Eliminar espaciado superior nativo de Streamlit */
     .block-container {{
-      padding-top: 4rem; /* Restaurado a 4rem nativo para evitar solapamiento con header top */
-      padding-bottom: 2.5rem;
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 1400px !important;
     }}
 
-    /* Tipografía Global (Inter / Sans Serif limpios) */
-    html, body {{
-      font-family: 'Inter', 'Segoe UI', sans-serif;
-    }}
-
-    /* Asegurarnos que texto principal (fuera del sidebar) obedezca */
-    .main p, .main span, .main div {{
-      color: var(--text-main);
-    }}
-
-    /* Banda superior del título institucional */
-    .ipn-banner {{
-      background-color: var(--banner-bg);
-      color: var(--banner-text);
-      padding: 1.5rem 1rem;
-      text-align: center;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      font-size: 1.1rem;
-      margin-bottom: 2rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 4px 6px var(--shadow);
-      border-bottom: 3px solid var(--accent);
+    /* === SIDEBAR (Guinda IPN) — SIEMPRE VISIBLE === */
+    section[data-testid="stSidebar"] {{
+        background-color: {colors['primary']} !important;
+        background-image: linear-gradient(180deg, {colors['primary_dark']} 0%, {colors['primary']} 100%) !important;
+        border-right: none !important;
+        box-shadow: 2px 0 15px rgba(0,0,0,0.1);
+        width: 280px !important;
+        min-width: 280px !important;
+        /* Anular cualquier transform de colapso de Streamlit */
+        transform: none !important;
+        translate: none !important;
+        visibility: visible !important;
+        display: block !important;
+        position: relative !important;
     }}
     
-    .ipn-banner-subtitle {{
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 400;
-      margin-top: 0.5rem;
-      color: var(--banner-text);
-      opacity: 0.85;
-    }}
-
-    /* Tarjeta institucional (login, formularios, modulos) */
-    .ipn-card {{
-      background-color: var(--card-bg);
-      border-radius: 0.5rem;
-      padding: 2rem;
-      border: 1px solid var(--card-border);
-      border-top: 4px solid var(--primary); /* Acento institucional extra */
-      box-shadow: 0 4px 15px var(--shadow);
-      margin-bottom: 1.5rem;
-    }}
-
-    .ipn-card-title {{
-      text-align: center;
-      font-weight: 700;
-      color: var(--primary); /* Prioridad visual al guinda */
-      margin-bottom: 1.5rem;
-      font-size: 1.5rem;
-    }}
-
-    /* Botones principales Streamlit en área principal */
-    .main .stButton > button {{
-      background-color: var(--primary) !important;
-      color: #FFFFFF !important;
-      border-radius: 0.35rem !important;
-      border: 1px solid var(--primary) !important;
-      padding: 0.5rem 1.5rem !important;
-      font-weight: 600 !important;
-      transition: all 0.2s ease;
-    }}
-    .main .stButton > button:hover {{
-      background-color: var(--primary-hover) !important;
-      border-color: var(--primary-hover) !important;
-      transform: translateY(-1px);
-    }}
-
-    /* Inputs de texto Streamlit */
-    .stTextInput > div > div > input {{
-      background-color: var(--input-bg) !important;
-      color: var(--text-main) !important;
-      border-radius: 0.35rem !important;
-      border: 1px solid var(--input-border) !important;
+    /* Anular también el div contenedor interno que Streamlit usa para el colapso */
+    section[data-testid="stSidebar"] > div:first-child {{
+        width: 280px !important;
+        transform: none !important;
     }}
     
-    .stTextInput > div > div > input:focus {{
-      border-color: var(--primary) !important;
-      box-shadow: 0 0 0 1px var(--primary) !important;
+    /* Ocultar botones nativos de colapso */
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="collapsedControl"] {{
+        display: none !important;
+    }}
+
+    /* === SIDEBAR MINI MODE (clase aplicada via JS) === */
+    section[data-testid="stSidebar"].sidebar-mini {{
+        width: 52px !important;
+        min-width: 52px !important;
+        overflow: hidden !important;
+    }}
+    section[data-testid="stSidebar"].sidebar-mini > div:first-child {{
+        width: 52px !important;
+    }}
+    /* En modo mini: ocultar textos y el logo/branding */
+    section[data-testid="stSidebar"].sidebar-mini [data-testid="stSidebarNav"] {{
+        display: none !important;
+    }}
+    section[data-testid="stSidebar"].sidebar-mini .sidebar-brand {{
+        display: none !important;
+    }}
+    /* Ajustar contenido principal cuando el sidebar está mini */
+    section[data-testid="stSidebar"].sidebar-mini ~ .main {{
+        margin-left: 52px !important;
+    }}
+
+
+    section[data-testid="stSidebar"] * {{
+        color: rgba(255,255,255,0.9) !important;
+    }}
+
+    /* Nav items en Sidebar */
+    [data-testid="stSidebarNav"] li div a {{
+        border-radius: 8px !important;
+        margin: 0.15rem 1rem !important;
+        transition: all 0.2s ease;
+        padding: 0.5rem 1rem !important;
     }}
     
-    .stNumberInput > div > div > input {{
-      background-color: var(--input-bg) !important;
-      color: var(--text-main) !important;
-      border-radius: 0.35rem !important;
-      border: 1px solid var(--input-border) !important;
+    [data-testid="stSidebarNav"] li div a span {{
+        font-weight: 500 !important;
+        font-size: 0.95rem !important;
     }}
 
-    /* Etiquetas de input */
-    .main .st-af, .main .st-ag {{
-      color: var(--text-main) !important;
-      font-weight: 500;
-      opacity: 0.9;
+    [data-testid="stSidebarNav"] li div a:hover {{
+        background-color: rgba(255,255,255,0.1) !important;
     }}
 
-    /* DataFrames y Tablas */
-    [data-testid="stDataFrame"] {{
-      border: 1px solid var(--primary); /* Guinda border */
-      border-radius: 0.5rem;
-      overflow: hidden;
+    [data-testid="stSidebarNav"] li div a[aria-current="page"] {{
+        background-color: rgba(255,255,255,0.15) !important;
+        border-left: 4px solid white !important;
+        border-radius: 0 8px 8px 0 !important;
+        margin-left: 0 !important;
+        padding-left: 1.5rem !important;
     }}
     
-    /* Pestañas (Tabs) */
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 8px;
-        background-color: transparent;
+    [data-testid="stSidebarNav"] li div a[aria-current="page"] span {{
+        font-weight: 700 !important;
+        color: white !important;
     }}
 
-    .stTabs [data-baseweb="tab"] {{
-        background-color: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 0.35rem 0.35rem 0 0;
-        padding: 10px 20px;
-        color: var(--text-main);
-        transition: all 0.1s;
+    /* Inyección de iconos SVG blancos para el sidebar */
+    /* 1. Home */
+    [data-testid="stSidebarNavItems"] li:nth-child(1) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 2. Login */
+    [data-testid="stSidebarNavItems"] li:nth-child(2) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 3. Ingesta Video */
+    [data-testid="stSidebarNavItems"] li:nth-child(3) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 4. Keypoints */
+    [data-testid="stSidebarNavItems"] li:nth-child(4) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 5. Zonas */
+    [data-testid="stSidebarNavItems"] li:nth-child(5) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 6. Analisis */
+    [data-testid="stSidebarNavItems"] li:nth-child(6) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 7. Resultados */
+    [data-testid="stSidebarNavItems"] li:nth-child(7) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 8. Perfil */
+    [data-testid="stSidebarNavItems"] li:nth-child(8) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
+    }}
+    /* 9. Admin */
+    [data-testid="stSidebarNavItems"] li:nth-child(9) a span:first-child::before {{
+        content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>');
+        display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
     }}
 
-    /* Tab Activo = Mas presencia IPN */
-    .stTabs [aria-selected="true"] {{
-        background-color: var(--primary-hover) !important;
-        color: #FFFFFF !important;
-        border-color: var(--primary-hover) !important;
-        border-bottom: 3px solid var(--accent) !important;
+    /* SVG icons en sidebar nav */
+    [data-testid="stSidebarNav"] svg {{
+        fill: white !important;
+        opacity: 0.8;
+    }}
+    [data-testid="stSidebarNav"] a[aria-current="page"] svg {{
+        opacity: 1;
     }}
 
-    /* Métricas Generales fuera de Sidebar (Acentos guinda) */
-    .main div[data-testid="stMetricValue"], .main div[data-testid="stMetricLabel"] {{
-        color: var(--text-main) !important;
+    {_sidebar_nav_css(colors)}
+    
+    /* Ocultar elementos nativos molestos */
+    #MainMenu, [data-testid="stToolbar"], footer {{ visibility: hidden !important; display: none !important; }}
+    
+    [data-testid="stSidebarNav"] {{
+        padding-bottom: 20px !important; 
+    }}
+    /* Header: transparente */
+    header[data-testid="stHeader"] {{
+        background: transparent !important;
+        box-shadow: none !important;
+        visibility: hidden !important;
     }}
 
-    /* Badges o Toast Streamlit - Fuerza Guinda */
-    [data-testid="stToast"] {{
-         border-left: 4px solid var(--primary) !important;
+    /* Botón para expandir sidebar cuando está colapsado — visible y guinda */
+    [data-testid="collapsedControl"] {{
+        display: flex !important;
+        visibility: visible !important;
+        background-color: {colors['primary']} !important;
+        border-radius: 0 6px 6px 0 !important;
+        width: 20px !important;
+        padding: 8px 4px !important;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.2) !important;
+        position: fixed !important;
+        left: 0 !important;
+        top: 50% !important;
+        z-index: 99999 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+    }}
+    [data-testid="collapsedControl"] svg {{
+        fill: white !important;
+        stroke: white !important;
+        width: 16px !important;
+        height: 16px !important;
+    }}
+
+    /* === TIPOGRAFÍA === */
+    h1, h2, h3, h4, h5, h6 {{
+        color: var(--text) !important;
+        font-family: 'Inter', sans-serif !important;
+        letter-spacing: -0.01em !important;
+    }}
+
+    p, span, div {{
+        color: var(--text);
+    }}
+
+    /* === BOTONES === */
+    .stButton > button {{
+        background-color: transparent !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text) !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        padding: 0.5rem 1rem !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+    }}
+    
+    .stButton > button:hover {{
+        border-color: var(--p) !important;
+        color: var(--p) !important;
+        background-color: rgba(106, 27, 63, 0.03) !important;
+    }}
+
+    /* Primary Button (White Institutional style) */
+    .stButton > button[kind="primary"],
+    .stButton > button[data-baseweb="button"]:has(div:contains("primary")) {{
+        background-color: #FFFFFF !important;
+        color: {colors['primary']} !important;
+        border: 2px solid {colors['primary']} !important;
+        box-shadow: 0 4px 10px rgba(106, 27, 63, 0.1) !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        transition: all 0.2s ease !important;
+    }}
+    
+    .stButton > button[kind="primary"] *,
+    .stButton > button[data-baseweb="button"]:has(div:contains("primary")) * {{
+        color: {colors['primary']} !important;
+    }}
+    
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[data-baseweb="button"]:has(div:contains("primary")):hover {{
+        background-color: {colors['primary']} !important;
+        color: white !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 15px rgba(106, 27, 63, 0.2) !important;
+    }}
+
+    .stButton > button[kind="primary"]:hover *,
+    .stButton > button[data-baseweb="button"]:has(div:contains("primary")):hover * {{
+        color: white !important;
+    }}
+
+    /* Tarjetas tipo Dashboard */
+    .dash-card {{
+        background-color: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }}
+    .dash-card:hover {{
+        box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+        border-color: rgba(106, 27, 63, 0.2);
+    }}
+    .dash-card-header {{
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        margin-bottom: 0.5rem;
+    }}
+    .dash-card-icon {{
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--p);
+    }}
+    .dash-card-icon img {{
+        max-width: 100%;
+        max-height: 100%;
+    }}
+    /* Para iconos SVG embebidos */
+    .dash-card-icon svg {{
+        width: 20px;
+        height: 20px;
+        fill: var(--p);
+    }}
+    .dash-card-title {{
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--text);
+        margin: 0;
+    }}
+    .dash-card-body {{
+        font-size: 0.85rem;
+        color: var(--text-sub);
+        line-height: 1.4;
+        flex-grow: 1;
+        margin-bottom: 1rem;
+    }}
+    
+    /* Topbar superior Custom */
+    .topbar {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.8rem 0;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--border);
+    }}
+    .topbar-left {{
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }}
+    .topbar-right {{
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        font-size: 0.85rem;
+        color: var(--text-sub);
+        font-weight: 500;
+    }}
+    
+    /* KPI Cards Row */
+    .kpi-container {{
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }}
+    .kpi-icon {{
+        width: 40px; height: 40px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; color: var(--p);
+    }}
+    .kpi-icon svg {{ width: 22px; height: 22px; fill: var(--p); }}
+    
+    .kpi-info h4 {{ margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text); }}
+    .kpi-info p {{ margin: 0; font-size: 0.75rem; color: var(--text-sub); margin-top: 2px; line-height: 1.2; }}
+    .status-dot {{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }}
+    .status-ok {{ background-color: var(--success); }}
+    .status-warn {{ background-color: var(--warning); }}
+
+    /* Paneles de Columna Lateral */
+    .side-panel {{
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }}
+    .side-panel-title {{
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--text);
+    }}
+    
+    /* Enlaces Rápidos */
+    .quick-link {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.8rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-decoration: none;
+        transition: background 0.2s;
+        border-radius: 6px;
+    }}
+    .quick-link:last-child {{ border-bottom: none; }}
+    .quick-link:hover {{ background: {colors['accent_bg']}; color: var(--p); }}
+    
+    /* Toggle switch nativo ajuste */
+    .stCheckbox > label {{
+        font-weight: 600 !important;
+        color: var(--text) !important;
     }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
+    
+    # JS: borrar estado colapsado del sidebar en localStorage y forzar apertura
+    st.markdown("""
+<script>
+(function() {
+    function tryExpand() {
+        var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        if (!sidebar) return false;
+        var rect = sidebar.getBoundingClientRect();
+        if (rect.width < 100) {
+            var selectors = ['[data-testid="collapsedControl"]', '[data-testid="collapsedControl"] button', 'button[kind="header"]'];
+            for (var i = 0; i < selectors.length; i++) {
+                var btn = window.parent.document.querySelector(selectors[i]);
+                if (btn) { btn.click(); return true; }
+            }
+        }
+        return rect.width > 100;
+    }
+    var attempts = 0;
+    function keepTrying() {
+        attempts++;
+        if (!tryExpand() && attempts < 10) {
+            setTimeout(keepTrying, 300);
+        }
+    }
+    setTimeout(keepTrying, 200);
+})();
+</script>
+""", unsafe_allow_html=True)
+    
     return colors
 
-
-def render_header():
-    """
-    Muestra la banda superior con el título e identidad IPN.
-    """
-    st.markdown(
-        """
-        <div class="ipn-banner">
-            <div>PROTOTIPO TÉCNICO DE ANÁLISIS AUTOMATIZADO DE COMPORTAMIENTO</div>
-            <span class="ipn-banner-subtitle">INSTITUTO POLITÉCNICO NACIONAL | ESCOM</span>
+def render_topbar(title="Sistema Técnico para Análisis Automatizado de Comportamiento"):
+    """Renderiza la barra superior limpia (Topbar) con logos institucionales reales"""
+    colors = use_theme()
+    
+    user_name_raw = st.session_state.get("user_name", "Usuario")
+    # Format name, remove numbers and capitalize. If specific user, format nicely.
+    user_name = user_name_raw
+    if "@" in user_name_raw:
+        name_part = user_name_raw.split("@")[0]
+        import re
+        name_part = re.sub(r'\\d+', '', name_part)
+        if name_part.lower() == "hportocarrero":
+            user_name = "Habid Portocarrero"
+        else:
+            user_name = name_part.capitalize()
+    
+    role = st.session_state.get("role", "Investigador").capitalize()
+    
+    import datetime
+    meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    now = datetime.datetime.now()
+    date_str = f"{now.day} de {meses[now.month-1]}, {now.year}"
+    
+    logo_ipn_path = os.path.join("assets", "logos", "logo-ipn-guinda.png")
+    logo_escom_path = os.path.join("assets", "logos", "logo-escom.png")
+    
+    ipn_b64 = get_image_base64(logo_ipn_path)
+    escom_b64 = get_image_base64(logo_escom_path)
+    
+    logos_html = ""
+    # El logo del IPN debe ser visiblemente equivalente o muy levemente mayor debido a jerarquía
+    if ipn_b64 and escom_b64:
+        logos_html = (
+            f'<img src="{ipn_b64}" style="height: 100px; margin-right: 12px; opacity: 0.95;">'
+            f'<div style="width: 1px; height: 50px; background: {colors["border"]}; margin: 0 10px;"></div>'
+            f'<img src="{escom_b64}" style="height: 65px; margin-left: 12px; opacity: 0.95;" title="ESCOM">'
+        )
+    else:
+        logos_html = f'<span style="background: {colors["primary"]}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">ESCOM</span> IPN'
+    
+    st.markdown(f"""
+<div class="topbar" style="align-items: center; justify-content: space-between;">
+    <div class="topbar-left" style="align-items: center; flex: 1;">
+        {logos_html}
+        <div style="width: 1px; height: 35px; background: {colors['border']}; margin: 0 20px;"></div>
+        <div style="color: {colors['text_main']}; font-size: 1.25rem; font-weight: 700;">{title}</div>
+    </div>
+    <div class="topbar-right" style="align-items: center; gap: 2rem;">
+        <div style="text-align: right;">
+            <div style="color: {colors['text_main']}; font-weight: 700; line-height: 1.1;">{user_name}</div>
+            <div style="color: {colors['text_sub']}; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">{role}</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        <div style="width: 1px; height: 30px; background: {colors['border']};"></div>
+        <div style="color: {colors['text_sub']}; font-weight: 500; font-size: 0.85rem;">{date_str}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
+def inject_sidebar_profile():
+    """Inyecta el layout HTML para la cabecera, botones mini y logout en el sidebar."""
+    colors = use_theme()
+    # --- 1. CABECERA (TÍTULO) ---
+    st.sidebar.markdown('<div style="text-align:center; font-weight:800; color:white; letter-spacing:1px; padding-top:0.2rem;">SISTEMA EPM</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<hr style="margin: 0.5rem 0; opacity:0.15;">', unsafe_allow_html=True)
+
+    # --- 2. ESPACIO PARA NAVEGACIÓN (Streamlit inserta aquí las páginas) ---
+    
+    # --- 3. BRANDING INSTITUCIONAL (Debajo de Admin Panel) ---
+    st.sidebar.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+    
+    # Centrado usando columnas nativas
+    c1, c2, c3 = st.sidebar.columns([1.4, 2, 1])
+    logo_ria_path = os.path.join("assets", "logos", "logo_ria_desktop.png")
+    with c2:
+        if os.path.exists(logo_ria_path):
+            st.image(logo_ria_path, width=80)
+            
+    st.sidebar.markdown(f"""
+        <div style="text-align:center; opacity:0.5; font-size:0.65rem; color:white; text-transform:uppercase; margin-top: 5px; margin-bottom: 2.2rem;">
+            Versión v3.1 – 2026<br>IPN - ESCOM
+        </div>
+    """, unsafe_allow_html=True)
+
+    # --- 4. CIERRE (ESPACIO FINAL) ---
+    st.sidebar.markdown('<div style="height: 50px;"></div>', unsafe_allow_html=True)

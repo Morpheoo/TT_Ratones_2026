@@ -59,6 +59,42 @@ def run_cmd(cmd: list, description: str = "", cwd=None) -> bool:
         return False
 
 
+def check_env_file() -> bool:
+    """Verifica y autogenera .env si no existe"""
+    log("Verificando archivo .env...", "INFO")
+    env_path = os.path.join(os.getcwd(), ".env")
+    example_path = os.path.join(os.getcwd(), ".env.example")
+    
+    if os.path.exists(env_path):
+        log("Archivo .env encontrado y listo", "OK")
+        return True
+        
+    log("No se encontró .env. Intentando autogenerar...", "WARN")
+    if os.path.exists(example_path):
+        try:
+            import shutil
+            shutil.copy(example_path, env_path)
+            log("Archivo .env autogenerado exitosamente desde .env.example", "OK")
+            return True
+        except Exception as e:
+            log(f"Fallo al copiar .env.example: {e}", "ERROR")
+            return False
+            
+    # Fallback si no hay .env.example
+    try:
+        with open(env_path, "w") as f:
+            f.write("POSTGRES_USER=admin\n")
+            f.write("POSTGRES_PASSWORD=admin_secure_password\n")
+            f.write("POSTGRES_DB=ratones_lab\n")
+            f.write("DB_HOST=127.0.0.1\n")
+            f.write("DB_PORT=5432\n")
+        log("Archivo .env autogenerado con valores por defecto de la BD", "OK")
+        return True
+    except Exception as e:
+        log(f"No se pudo crear archivo .env por defecto: {e}", "ERROR")
+        return False
+
+
 def check_docker_installed() -> bool:
     """Verifica que Docker esté disponible en PATH"""
     log("Verificando Docker CLI...", "INFO")
@@ -178,6 +214,10 @@ def main():
     print("="*60 + "\n")
     
     try:
+        # 0. Verificar y autogenerar .env si es necesario
+        if not check_env_file():
+            raise ServiceStartError("No se pudo configurar el archivo de entorno (.env)")
+            
         # 1. Verificar que Docker está disponible
         if not check_docker_installed():
             raise ServiceStartError("Docker no está instalado")

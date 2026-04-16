@@ -5,11 +5,15 @@ Trains one model at a time by updating the config's 'classifier' field.
 import os
 import sys
 import configparser
+from pathlib import Path
 
-CONFIG_PATH = os.path.abspath(os.path.join(
-    "data", "simba_projects", "SimBA_EPM_Analysis",
-    "project_folder", "project_config.ini"
-))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.config import SIMBA_BASE
+
+CONFIG_PATH = os.path.abspath(SIMBA_BASE / "project_folder" / "project_config.ini")
 
 BEHAVIORS = ["Grooming", "Thigmotaxis"]
 

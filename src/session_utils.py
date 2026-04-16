@@ -10,8 +10,12 @@ def save_session():
     keys_to_save = [
         "logged_in", "user", "role", "user_name", 
         "ruta_video_actual", "inicio_recorte", "fin_recorte", 
-        "dlc_device_opt", "theme_mode", "zonas_configuradas",
-        "video_en_edicion", "id_raton_actual"
+        "dlc_device_opt", "dlc_batch_size", "theme_mode", "zonas_configuradas",
+        "video_en_edicion", "id_raton_actual", "ultimo_video_analizado",
+        "ultimo_pose_file", "ultimo_overlay_path", "ultimo_pose_filtrado",
+        "ultimo_bbox_video", "ultimo_feature_file", "ultimo_multimodal_video",
+        "ultimo_trajectory_file", "ultimo_grooming_timelog", "ultimo_thigmotaxis_timelog",
+        "analysis_db_notice"
     ]
     
     data = {}

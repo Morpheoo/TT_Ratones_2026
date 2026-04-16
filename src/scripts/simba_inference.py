@@ -5,16 +5,16 @@ Fixes config paths and thresholds, then runs InferenceBatch.
 import os
 import sys
 import configparser
+from pathlib import Path
 
-CONFIG_PATH = os.path.abspath(os.path.join(
-    "data", "simba_projects", "SimBA_EPM_Analysis",
-    "project_folder", "project_config.ini"
-))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-MODELS_DIR = os.path.abspath(os.path.join(
-    "data", "simba_projects", "SimBA_EPM_Analysis",
-    "models", "generated_models"
-))
+from src.config import GROOMING_MODEL, SIMBA_BASE, THIGMOTAXIS_MODEL
+
+CONFIG_PATH = os.path.abspath(SIMBA_BASE / "project_folder" / "project_config.ini")
+MODELS_DIR = os.path.abspath(SIMBA_BASE / "models" / "generated_models")
 
 def fix_config():
     """Update config to point to correct model paths and set thresholds."""
@@ -22,8 +22,8 @@ def fix_config():
     config.read(CONFIG_PATH)
     
     # Fix model paths to point to generated_models directory
-    config.set("SML settings", "model_path_1", os.path.join(MODELS_DIR, "Grooming.sav"))
-    config.set("SML settings", "model_path_2", os.path.join(MODELS_DIR, "Thigmotaxis.sav"))
+    config.set("SML settings", "model_path_1", os.path.abspath(THIGMOTAXIS_MODEL))
+    config.set("SML settings", "model_path_2", os.path.abspath(GROOMING_MODEL))
     
     # Set thresholds (0.5 = 50% confidence required)
     config.set("threshold_settings", "threshold_1", "0.5")
@@ -51,7 +51,7 @@ def run_inference():
     import glob
     
     results_dir = os.path.join(
-        "data", "simba_projects", "SimBA_EPM_Analysis",
+        SIMBA_BASE,
         "project_folder", "csv", "machine_results"
     )
     

@@ -4,218 +4,136 @@ import sys
 import pandas as pd
 from sqlalchemy import text
 
-# REGLA #1: set_page_config SIEMPRE primero
-st.set_page_config(page_title="Panel Admin - TT 2026", layout="wide", page_icon="🛡️")
+# ================= 0. SETUP & PERSISTENCE =================
+st.set_page_config(page_title="Admin Panel | IPN", layout="wide", page_icon="assets/logos/logo_ria.png")
 
-# Add project root to path
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 
 from src.session_utils import load_session, save_session
 from src.auth import check_admin_access
 from src.db.connection import get_db_engine
+from src.ui_components import run_page_splash
+import importlib
+import ui_theme
+importlib.reload(ui_theme)
+from ui_theme import use_theme, render_topbar
 
-# Cargar sesión para tener el rol actualizado
 load_session()
+colors = use_theme()
 
-# =============== TEMA INSTITUCIONAL =================
-from ui_theme import use_theme
-use_theme()
+# ================= 1. VERIFICAR LOGIN ==================
+if not st.session_state.get("logged_in"):
+    st.switch_page("pages/00_Login.py")
 
-# ================= SEGURIDAD: SOLO ADMINS =================
 role = st.session_state.get("role", "")
 if not check_admin_access(role):
-    st.warning("⛔ Acceso Denegado. Esta página es exclusiva para Administradores.")
+    st.error("ACCESO RESTRINGIDO. Se requiere privilegio de Administrador Institucional.")
     st.stop()
 
-st.markdown("# 🛡️ Panel de Administración")
-st.markdown("### Gestión de Usuarios y Auditoría")
+run_page_splash(
+    "page_admin",
+    [
+        "Verificando privilegios administrativos...",
+        "Sincronizando directorio de usuarios...",
+        "Preparando consola institucional...",
+    ],
+    subtitle="TT 2026 - Cargando panel administrativo...",
+)
+
+# ================= 2. CABECERA =================
+render_topbar()
+st.markdown("### Módulo 99: Panel de Administración")
+st.markdown("""
+    Gestión de identidades, privilegios y auditoría de experimentos del sistema institucional. 
+    Este tablero es exclusivo para personal de administración central.
+""")
+
+st.divider()
 
 engine = get_db_engine()
 
-# ================= FUNCIONES CRUD =================
-def get_all_users():
-    with engine.connect() as conn:
-        query = text("SELECT id, username, role, is_verified, created_at, verification_code, is_active FROM users ORDER BY id ASC")
-        result = conn.execute(query).fetchall()
-        return pd.DataFrame(result)
+import datetime as _dt
 
-def delete_user_by_id(user_id):
-    with engine.connect() as conn:
-        conn.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
-        conn.commit()
+def safe_df(df):
+    """Convierte columnas con fechas a string para evitar errores de Arrow en Streamlit."""
+    df = df.copy()
+    for col in df.columns:
+        if hasattr(df[col].dtype, 'name') and any(k in df[col].dtype.name for k in ('date', 'time')):
+            df[col] = df[col].astype(str)
+            continue
+        if df[col].dtype == object:
+            sample = df[col].dropna()
+            if len(sample) > 0 and isinstance(sample.iloc[0], (_dt.date, _dt.datetime)):
+                df[col] = df[col].astype(str)
+    return df
 
-def update_user_role(user_id, new_role):
-    with engine.connect() as conn:
-        conn.execute(text("UPDATE users SET role = :r WHERE id = :id"), {"r": new_role, "id": user_id})
-        conn.commit()
+# ================= 3. USER MANAGEMENT =================
+st.markdown('<div class="content-card">', unsafe_allow_html=True)
+st.markdown("#### Directorio de Usuarios")
 
-# ================= ESTADÍSTICAS RÁPIDAS =================
-df_users = get_all_users()
+# Data fetch
+with engine.connect() as conn:
+    df_users = safe_df(pd.read_sql(text("SELECT id, username, role, is_verified, is_active FROM users"), conn))
 
 c1, c2, c3 = st.columns(3)
-c1.metric("Total Usuarios", len(df_users))
-c2.metric("Verificados", len(df_users[df_users['is_verified'] == True]))
-c3.metric("Estudiantes", len(df_users[df_users['role'].str.lower() == 'estudiante']))
+with c1: st.metric("Cuentas Totales", len(df_users))
+with c2: st.metric("Sujetos Verificados", len(df_users[df_users['is_verified'] == True]))
+with c3: st.metric("Investigadores", len(df_users[df_users['role'] == 'investigador']))
 
-st.divider()
+st.dataframe(df_users, use_container_width=True, hide_index=True)
 
-def toggle_user_status(user_id, current_status):
-    new_status = not current_status
-    with engine.connect() as conn:
-        conn.execute(text("UPDATE users SET is_active = :s WHERE id = :id"), {"s": new_status, "id": user_id})
-        conn.commit()
-
-# ================= TABLA DE USUARIOS =================
-st.subheader("📋 Listado de Usuarios")
-
-# Dataframe con status
-df_users['Estado'] = df_users['is_active'].apply(lambda x: "✅ Activo" if x else "⛔ Suspendido")
-
-# Mostramos tabla interactiva
-st.dataframe(
-    df_users,
-    column_config={
-        "id": "ID",
-        "username": "Correo Electrónico",
-        "role": "Rol Actual",
-        "Estado": "Estado",
-        "is_verified": st.column_config.CheckboxColumn("Verificado"),
-        "created_at": st.column_config.DatetimeColumn("Fecha Registro")
-    },
-    use_container_width=True,
-    hide_index=True
-)
-
-st.divider()
-
-# ================= ACCIONES (CRUD) =================
-c_edit, c_suspend = st.columns([1, 1])
-
-with c_edit:
-    st.markdown("### ✏️ Editar Rol")
-    user_to_edit = st.selectbox("Seleccionar Usuario", df_users['username'], key="sel_edit")
-    new_role_val = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"], key="sel_role_new")
-    
-    if st.button("Actualizar Rol"):
-        uid = int(df_users[df_users['username'] == user_to_edit]['id'].values[0])
-        update_user_role(uid, new_role_val)
-        st.success(f"Rol de {user_to_edit} actualizado a {new_role_val}")
-        st.rerun()
-
-with c_suspend:
-    st.markdown("### ⛔ Suspender / Activar")
-    user_to_mod = st.selectbox("Seleccionar Usuario", df_users['username'], key="sel_suspend")
-    
-    current_active = bool(df_users[df_users['username'] == user_to_mod]['is_active'].values[0])
-    btn_label = "⛔ SUSPENDER CUENTA" if current_active else "✅ REACTIVAR CUENTA"
-    
-    if st.button(btn_label, type="primary" if current_active else "secondary"):
-        if user_to_mod == st.session_state.user:
-            st.error("❌ No puedes suspender tu propia cuenta de Admin.")
-        else:
-            uid = int(df_users[df_users['username'] == user_to_mod]['id'].values[0])
-            toggle_user_status(uid, current_active)
-            st.success(f"Estado de {user_to_mod} actualizado.")
+# User Actions
+st.markdown("---")
+cols = st.columns(2)
+with cols[0]:
+    st.markdown("##### ✏️ Editar Privilegios")
+    u_sel = st.selectbox("Seleccionar Usuario", df_users['username'])
+    new_r = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"])
+    if st.button("Actualizar Rol", use_container_width=True):
+        with engine.connect() as conn:
+            conn.execute(text("UPDATE users SET role = :r WHERE username = :u"), {"r": new_r, "u": u_sel})
+            conn.commit()
+            st.success(f"Rol de {u_sel} actualizado exitosamente.")
             st.rerun()
 
-# ================= GESTIÓN DE EXPERIMENTOS =================
-st.divider()
-st.markdown("## 🧪 Gestión de Experimentos")
+with cols[1]:
+    st.markdown("##### ⛔ Gestión de Estado")
+    u_mod = st.selectbox("Usuario a modificar", df_users['username'], key="u_mod")
+    current_s = df_users[df_users['username'] == u_mod]['is_active'].values[0]
+    btn_label = "SUSPENDER CUENTA" if current_s else "REACTIVAR CUENTA"
+    if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True):
+        with engine.connect() as conn:
+            conn.execute(text("UPDATE users SET is_active = :s WHERE username = :u"), {"s": not current_s, "u": u_mod})
+            conn.commit()
+            st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
-def get_all_experiments():
-    with engine.connect() as conn:
-        query = text("""
-            SELECT e.id, e.rat_id, e.treatment, e.experiment_date,
-                   e.responsible, e.processed, e.created_at,
-                   u.username AS creado_por
-            FROM experiments e
-            LEFT JOIN users u ON e.created_by = u.id
-            ORDER BY e.id DESC
-        """)
-        result = conn.execute(query).fetchall()
-        return pd.DataFrame(result)
-
-def delete_experiment_by_id(exp_id):
-    """Borra experimento + ROIs + resultados (CASCADE)."""
-    with engine.connect() as conn:
-        conn.execute(text("DELETE FROM experiments WHERE id = :id"), {"id": exp_id})
-        conn.commit()
-
-def delete_unprocessed_experiments():
-    """Borra todos los experimentos no procesados."""
-    with engine.connect() as conn:
-        result = conn.execute(text("DELETE FROM experiments WHERE processed = FALSE"))
-        conn.commit()
-        return result.rowcount
-
-df_exp = get_all_experiments()
+# ================= 4. EXPERIMENT AUDIT =================
+st.markdown('<div class="content-card">', unsafe_allow_html=True)
+st.markdown("#### 🧪 Auditoría de Experimentos")
+with engine.connect() as conn:
+    df_exp = safe_df(pd.read_sql(
+        text("SELECT id, rat_id, treatment, responsible, processed FROM experiments ORDER BY id DESC LIMIT 50"),
+        conn
+    ))
 
 if df_exp.empty:
-    st.info("📭 No hay experimentos registrados en la base de datos.")
+    st.info("No hay experimentos registrados en la plataforma.")
 else:
-    # Métricas rápidas
-    e1, e2, e3 = st.columns(3)
-    e1.metric("Total Experimentos", len(df_exp))
-    e2.metric("Procesados", len(df_exp[df_exp['processed'] == True]))
-    e3.metric("Sin Procesar", len(df_exp[df_exp['processed'] == False]))
+    st.dataframe(df_exp, use_container_width=True, hide_index=True)
+    if st.button("LIMPIAR REGISTROS HUERFANOS", type="secondary"):
+        with engine.connect() as conn:
+            conn.execute(text("DELETE FROM experiments WHERE processed = FALSE"))
+            conn.commit()
+            st.success("Limpieza completada.")
+            st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
-    # Tabla de experimentos
-    st.dataframe(
-        df_exp,
-        column_config={
-            "id": "ID",
-            "rat_id": "Sujeto",
-            "treatment": "Tratamiento",
-            "experiment_date": st.column_config.DateColumn("Fecha Exp."),
-            "responsible": "Responsable",
-            "processed": st.column_config.CheckboxColumn("Procesado"),
-            "created_at": st.column_config.DatetimeColumn("Fecha Registro"),
-            "creado_por": "Creado Por",
-        },
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.divider()
-
-    col_del, col_bulk = st.columns([1, 1])
-
-    # --- Borrado Individual ---
-    with col_del:
-        st.markdown("### 🗑️ Eliminar Experimento")
-        exp_options = [f"ID {row['id']} — {row['rat_id']} ({row['treatment']})" for _, row in df_exp.iterrows()]
-        selected_exp = st.selectbox("Seleccionar Experimento", exp_options, key="sel_exp_del")
-
-        if selected_exp:
-            exp_id_to_del = int(selected_exp.split(" ")[1])
-
-            st.warning(
-                f"⚠️ Esto eliminará el experimento **ID {exp_id_to_del}** junto con "
-                f"todas sus ROIs y resultados de análisis asociados."
-            )
-            confirm = st.checkbox(f"Confirmo que quiero eliminar el experimento {exp_id_to_del}", key="confirm_del")
-
-            if st.button("🗑️ Eliminar", disabled=not confirm, type="primary"):
-                delete_experiment_by_id(exp_id_to_del)
-                st.success(f"✅ Experimento {exp_id_to_del} eliminado correctamente.")
-                st.rerun()
-
-    # --- Borrado Masivo ---
-    with col_bulk:
-        st.markdown("### 🧹 Limpieza Masiva")
-        n_unprocessed = len(df_exp[df_exp['processed'] == False])
-
-        if n_unprocessed == 0:
-            st.success("✅ No hay experimentos sin procesar.")
-        else:
-            st.error(f"Hay **{n_unprocessed}** experimento(s) sin procesar.")
-            confirm_bulk = st.checkbox(
-                f"Confirmo eliminar TODOS los {n_unprocessed} experimentos sin procesar",
-                key="confirm_bulk"
-            )
-            if st.button("🧹 Eliminar Todos Sin Procesar", disabled=not confirm_bulk, type="primary"):
-                deleted = delete_unprocessed_experiments()
-                st.success(f"✅ {deleted} experimento(s) eliminados.")
-                st.rerun()
-
+# Footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(f"""
+    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
+        Administración Central de Plataforma &bull; IPN &bull; ESCOM &bull; 2026
+    </div>
+""", unsafe_allow_html=True)

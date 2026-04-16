@@ -15,9 +15,15 @@ def send_verification_email(to_email, code):
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
     
-    sender_email = os.getenv("GMAIL_SENDER_EMAIL")
-    # We try to get the password from Streamlit secrets or env var, fallback to empty string
-    sender_password = st.secrets.get("GMAIL_APP_PASSWORD", os.environ.get("GMAIL_APP_PASSWORD", ""))
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    sender_email = os.environ.get("GMAIL_SENDER_EMAIL", "").strip()
+    
+    # We try to get the password from Streamlit secrets or env var
+    try:
+        sender_password = st.secrets.get("GMAIL_APP_PASSWORD", os.environ.get("GMAIL_APP_PASSWORD", "")).strip()
+    except:
+        sender_password = os.environ.get("GMAIL_APP_PASSWORD", "").strip()
     
     if not sender_email:
         return False, "Falta configurar el correo remitente (GMAIL_SENDER_EMAIL)."

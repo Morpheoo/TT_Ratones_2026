@@ -1,0 +1,813 @@
+\documentclass[12pt]{report}
+
+% ─── Paquetes básicos ────────────────────────────────────────────────────────
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm]{geometry}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ─── Configuración de hiperlinks ─────────────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black
+}
+
+% ─── Configuración de listings (código fuente) ───────────────────────────────
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\definecolor{codeblue}{rgb}{0.1,0.2,0.6}
+\definecolor{codecomment}{rgb}{0.3,0.5,0.3}
+
+\lstdefinestyle{pythonstyle}{
+    backgroundcolor=\color{codegray},
+    commentstyle=\color{codecomment},
+    keywordstyle=\color{codeblue},
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{orange!70!black},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    tabsize=4,
+    frame=single
+}
+\lstset{style=pythonstyle}
+
+% ─── Metadatos del documento ─────────────────────────────────────────────────
+\title{
+    \textbf{Reporte de Avance Técnico} \\[0.5em]
+    \large Trabajo Terminal 2 \\[0.3em]
+    \normalsize Sistema de Visión Computacional para el Análisis \\
+    Automatizado del Comportamiento de Roedores en el EPM \\[1em]
+    \small Instituto Politécnico Nacional \\
+    Escuela Superior de Cómputo (ESCOM) \\
+    Centro de Apoyo a la Titulación (CATT)
+}
+\author{Trabajo Terminal TT\_Ratones\_2026}
+\date{Abril 2026}
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\clearpage
+
+% =============================================================================
+\chapter{Descripción General del Sistema}
+% =============================================================================
+
+\section{Contexto y motivación}
+
+El análisis del comportamiento animal en entornos estandarizados constituye
+una herramienta fundamental en la investigación neurocientífica y farmacológica.
+El Elevated Plus Maze (EPM) es uno de los paradigmas más utilizados para evaluar
+respuestas de ansiedad en roedores: el animal es colocado en un laberinto en
+forma de cruz elevado sobre el suelo, con dos brazos abiertos y dos brazos
+cerrados. La proporción de tiempo que el animal pasa en cada zona, su velocidad
+de desplazamiento y los patrones motores que exhibe proporcionan métricas
+objetivas del estado conductual del individuo.
+
+Históricamente, este análisis se ha realizado de forma manual o mediante
+software comercial de costo elevado. Ambas alternativas presentan limitaciones
+importantes: la primera introduce sesgo observacional y consume un tiempo
+considerable de trabajo humano especializado; la segunda restringe el acceso a
+grupos de investigación con recursos limitados y dificulta la reproducibilidad
+de los análisis.
+
+\section{Propósito del sistema}
+
+El sistema desarrollado en este trabajo terminal tiene como objetivo automatizar
+el proceso completo de análisis conductual para experimentos EPM, desde la
+recepción del video original hasta la generación de métricas cuantitativas
+validadas. El sistema está diseñado para reducir la intervención manual al
+mínimo indispensable, mantener trazabilidad completa de cada experimento y
+producir resultados reproducibles entre sesiones.
+
+En su estado actual, el sistema implementa el flujo completo de trabajo:
+
+\begin{enumerate}[leftmargin=*, label=\arabic*.]
+    \item Ingesta y validación del video de experimento.
+    \item Extracción de keypoints corporales del roedor mediante DeepLabCut SuperAnimal.
+    \item Filtrado espacial de poses mediante un detector YOLO entrenado localmente.
+    \item Cómputo de características conductuales con SimBA.
+    \item Clasificación de conductas: thigmotaxis y grooming.
+    \item Generación de un video multimodal con anotaciones superpuestas.
+    \item Persistencia de resultados en base de datos relacional.
+    \item Visualización de métricas, trayectorias y estadísticas en un dashboard interactivo.
+\end{enumerate}
+
+\section{Alcance actual}
+
+El sistema procesa videos de entre 5 y 10 minutos de duración en formato
+estándar (MP4, AVI), capturados desde una cámara cenithal fija sobre el aparato
+EPM. El escenario experimental está controlado en cuanto a iluminación y escala.
+La interfaz de usuario opera en la web a través de una aplicación multipágina
+desarrollada con Streamlit, accesible desde la red local del laboratorio.
+
+La fase actual del proyecto se encuentra en una etapa de consolidación del
+sistema operativo y en la apertura de una segunda línea de investigación
+orientada a sustituir DeepLabCut como backend de extracción de pose por un
+modelo YOLO Pose de última generación, con el objetivo principal de reducir
+drásticamente los tiempos de inferencia.
+
+% =============================================================================
+\chapter{Arquitectura del Sistema}
+% =============================================================================
+
+\section{Visión general}
+
+El sistema se organiza en tres capas funcionales claramente diferenciadas:
+la capa de aplicación, la capa de lógica y soporte, y la capa de ejecución
+del pipeline. Esta separación permite que la interfaz gráfica opere de forma
+independiente de los procesos computacionales intensivos, los cuales se ejecutan
+en segundo plano con retroalimentación en tiempo real al usuario.
+
+\begin{figure}[H]
+    \centering
+    % Si se agrega un diagrama, descomentar y reemplazar el nombre del archivo:
+    % \includegraphics[width=0.85\textwidth]{arquitectura_sistema.png}
+    \fbox{\parbox{0.85\textwidth}{
+        \centering\vspace{1em}
+        \textit{[Diagrama de arquitectura -- insertar imagen]}
+        \vspace{1em}
+    }}
+    \caption{Arquitectura de tres capas del sistema TT Ratones 2026.}
+    \label{fig:arquitectura}
+\end{figure}
+
+\section{Capa de aplicación}
+
+La interfaz de usuario está construida con Streamlit y se estructura como una
+aplicación multipágina. Cada página corresponde a una etapa lógica del flujo
+de trabajo experimental:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        \textbf{Archivo} & \textbf{Página} & \textbf{Función principal} \\
+        \midrule
+        \texttt{Home.py}                     & Inicio            & Presentación y acceso al sistema \\
+        \texttt{pages/00\_Login.py}           & Autenticación     & Inicio de sesión y verificación OTP \\
+        \texttt{pages/01\_Ingesta\_de\_Video.py} & Ingesta        & Carga y validación del video \\
+        \texttt{pages/02\_Keypoints.py}       & Keypoints         & Extracción de pose (DLC / YOLO Pose) \\
+        \texttt{pages/03\_Configuracion\_Zonas.py} & Zonas       & Definición de ROIs en el EPM \\
+        \texttt{pages/04\_Analisis\_Final.py}  & Análisis          & Ejecución del pipeline completo \\
+        \texttt{pages/05\_Resultados\_y\_Estadisticas.py} & Resultados & Dashboard de métricas \\
+        \texttt{pages/98\_Perfil.py}           & Perfil            & Gestión de cuenta de usuario \\
+        \texttt{pages/99\_Admin\_Panel.py}     & Administración    & Gestión de usuarios y sistema \\
+        \bottomrule
+    \end{tabular}
+    \caption{Páginas de la aplicación Streamlit y su función.}
+    \label{tab:paginas}
+\end{table}
+
+\section{Capa de lógica y soporte}
+
+El núcleo técnico reside en el directorio \texttt{src/} e incluye:
+
+\begin{itemize}[leftmargin=*]
+    \item \texttt{src/config.py}: configuración centralizada de rutas y parámetros del proyecto.
+    \item \texttt{src/session\_utils.py}: gestión del estado de sesión entre páginas de Streamlit.
+    \item \texttt{src/ui\_components.py}: componentes de interfaz reutilizables (splash, banners, etc.).
+    \item \texttt{src/auth.py}: autenticación de usuarios con soporte de OTP por correo electrónico.
+    \item \texttt{src/email\_utils.py}: envío de notificaciones y tokens vía SMTP.
+    \item \texttt{src/analysis\_logic.py}: lógica base para interpretación de resultados conductuales.
+    \item \texttt{src/simba\_roi\_bridge.py}: sincronización de zonas del EPM con el formato de regiones
+          de interés que espera SimBA.
+    \item \texttt{src/db/}: capa de acceso a base de datos (SQLite), incluyendo gestión de experimentos
+          e historial.
+    \item \texttt{src/security\_logger.py}: registro de eventos de seguridad y auditoría.
+\end{itemize}
+
+\section{Capa de ejecución del pipeline}
+
+Los procesos computacionales intensivos se implementan como scripts independientes
+invocados por el orquestador principal:
+
+\begin{itemize}[leftmargin=*]
+    \item \texttt{src/scripts/run\_behavior\_pipeline.py}: orquestador central del pipeline.
+    \item \texttt{src/scripts/run\_superanimal.py}: extracción de pose con DLC SuperAnimal.
+    \item \texttt{src/scripts/apply\_dlc\_bbox\_constraint.py}: filtrado de keypoints fuera del bounding box YOLO.
+    \item \texttt{src/scripts/compute\_simba\_features.py}: cómputo de características para SimBA.
+    \item \texttt{src/scripts/simba\_inference.py}: inferencia conductual con modelos SimBA entrenados.
+    \item \texttt{src/scripts/generar\_video\_prediccion.py}: generación del video multimodal de resultados.
+    \item \texttt{src/scripts/run\_with\_live\_log.py}: envoltorio para ejecución con transmisión de logs en tiempo real.
+    \item \texttt{src/scripts/render\_dlc\_keypoints\_video.py}: renderizado de keypoints sobre video para validación.
+\end{itemize}
+
+\section{Base de datos}
+
+El sistema utiliza SQLite como motor de persistencia. El esquema almacena
+experimentos, usuarios, regiones de interés (ROIs), resultados de clasificación
+y rutas a los artefactos generados (video multimodal, trayectorias, timelogs).
+Las migraciones se gestionan mediante scripts independientes en \texttt{src/migrations/}
+y \texttt{src/db/migrations/}, y se aplican de forma programática durante el arranque
+del sistema.
+
+% =============================================================================
+\chapter{Pipeline de Procesamiento}
+% =============================================================================
+
+\section{Descripción general del flujo}
+
+El pipeline de procesamiento es la secuencia ordenada de transformaciones que
+convierte un video de experimento crudo en un conjunto de métricas conductuales
+validadas. El orquestador central (\texttt{run\_behavior\_pipeline.py}) gestiona
+la ejecución de cada etapa, verifica la frescura de los artefactos intermedios
+para evitar recómputos innecesarios y transmite el estado de avance al proceso
+padre mediante marcadores estandarizados en la salida estándar.
+
+\section{Etapas del pipeline}
+
+\subsection{Etapa 1 -- Ingesta y validación}
+
+El usuario carga el video a través de la página \texttt{01\_Ingesta\_de\_Video.py}.
+El sistema valida el formato, la resolución y la duración del archivo. Los metadatos
+del experimento (fecha, identificador del animal, observaciones) quedan registrados
+en la base de datos antes de continuar.
+
+\subsection{Etapa 2 -- Extracción de pose}
+
+La extracción de keypoints se ejecuta desde la página \texttt{02\_Keypoints.py},
+que lanza \texttt{run\_superanimal.py} en un proceso hijo con la siguiente configuración:
+
+\begin{itemize}[leftmargin=*]
+    \item Modelo: DeepLabCut SuperAnimal (\texttt{superanimal\_topviewmouse}).
+    \item Entorno Python: \texttt{venv\_310} (Python 3.10, requerimiento de DLC).
+    \item Parámetros configurables: tamaño de batch (4--32 frames), rango de tiempo a analizar,
+          uso opcional de CPU en caso de indisponibilidad de GPU.
+    \item Salida: archivo \texttt{.h5} con coordenadas brutas de keypoints por frame.
+\end{itemize}
+
+El proceso emite logs línea a línea y marcadores \texttt{[OUTPUT] clave=valor}
+que la interfaz captura para actualizar el estado sin necesidad de polling activo.
+
+\subsection{Etapa 3 -- Filtrado mediante bounding box YOLO}
+
+Una vez disponible el archivo de pose crudo, \texttt{apply\_dlc\_bbox\_constraint.py}
+aplica un detector YOLO para localizar el roedor en cada frame. Los keypoints
+que caen fuera del bounding box predicho son descartados o corregidos. Esta etapa
+reduce artefactos de estimación producidos por oclusiones parciales, sombras o
+reflejos en el laberinto.
+
+Los artefactos generados en esta etapa son:
+\begin{itemize}[leftmargin=*]
+    \item \texttt{*\_bbox\_constrained.h5}: pose filtrada en formato HDF5.
+    \item \texttt{*\_bbox\_constrained.csv}: misma información en formato tabular compatible con SimBA.
+    \item \texttt{*\_bbox\_constraint.mp4}: video de validación con keypoints y bounding box superpuestos.
+\end{itemize}
+
+\subsection{Etapa 4 -- Cómputo de características SimBA}
+
+\texttt{compute\_simba\_features.py} toma el CSV filtrado y las zonas del EPM
+configuradas por el usuario, y produce un archivo de características en el
+formato que espera el motor de clasificación de SimBA. Las características
+incluyen, entre otras: distancias entre keypoints, velocidades instantáneas,
+tiempo acumulado por zona, y ángulos de orientación corporal.
+
+\subsection{Etapa 5 -- Inferencia conductual}
+
+Con las características extraídas, el sistema aplica los clasificadores entrenados
+para dos conductas objetivo:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Thigmotaxis}: tendencia del animal a mantenerse próximo a las paredes
+          del laberinto. Se asocia con estados de ansiedad elevada.
+    \item \textbf{Grooming}: comportamiento de autolimpieza caracterizado por movimientos
+          repetitivos y posturas corporales específicas.
+\end{itemize}
+
+Cada clasificador es un modelo de aprendizaje automático (formato \texttt{.sav})
+entrenado en SimBA y consumido mediante la API de scikit-learn. Los modelos
+residen en \texttt{data/simba\_projects/.../models/generated\_models/}.
+
+\subsection{Etapa 6 -- Generación del video multimodal}
+
+\texttt{generar\_video\_prediccion.py} produce el artefacto visual principal
+del sistema: un video donde se superponen sobre los frames originales las
+trayectorias del animal, las predicciones conductuales por frame, los
+indicadores de zona activa y el marcador temporal. Este video constituye
+el material de revisión cualitativa para el investigador.
+
+Los artefactos de esta etapa incluyen:
+\begin{itemize}[leftmargin=*]
+    \item \texttt{*\_STREAMLIT\_MULTIMODAL.mp4}: video final con anotaciones.
+    \item \texttt{*\_trajectory.csv}: coordenadas de trayectoria por frame.
+    \item \texttt{*\_GROOMING\_TIMELOG.csv}: intervalos de tiempo con grooming detectado.
+    \item \texttt{*\_THIGMOTAXIS\_TIMELOG.csv}: intervalos de tiempo con thigmotaxis detectada.
+\end{itemize}
+
+\subsection{Etapa 7 -- Persistencia y visualización}
+
+Los resultados y rutas a artefactos se persisten en la base de datos SQLite.
+La página \texttt{05\_Resultados\_y\_Estadisticas.py} los recupera y genera
+un dashboard con métricas de tiempo por zona, porcentajes conductuales,
+heatmap de posición y reproductor del video multimodal.
+
+% =============================================================================
+\chapter{Herramientas y Tecnologías}
+% =============================================================================
+
+\section{Entorno de hardware}
+
+El sistema fue desarrollado y validado sobre una estación de trabajo con las
+siguientes características de referencia:
+
+\begin{itemize}[leftmargin=*]
+    \item Sistema operativo: Windows 11 Pro.
+    \item GPU: NVIDIA RTX 5070 Ti Laptop (usada durante etapas DLC e inferencia YOLO).
+    \item Almacenamiento: unidad SSD para datos de video y modelos.
+\end{itemize}
+
+El sistema puede operar en modo CPU (\texttt{--force-cpu}) con degradación de
+velocidad, lo que lo hace funcional en equipos sin acelerador gráfico dedicado,
+aunque con tiempos de procesamiento significativamente mayores.
+
+\section{Entornos de ejecución Python}
+
+Debido a las incompatibilidades entre las dependencias de DeepLabCut (Python 3.10)
+y las de YOLO/Ultralytics (Python 3.11), el proyecto mantiene dos entornos
+virtuales independientes:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}llp{6cm}@{}}
+        \toprule
+        \textbf{Entorno} & \textbf{Versión} & \textbf{Uso principal} \\
+        \midrule
+        \texttt{venv\_310} & Python 3.10 & DeepLabCut SuperAnimal, SimBA (features) \\
+        \texttt{venv\_311} & Python 3.11 & Ultralytics YOLO, procesamiento de video, interfaz Streamlit \\
+        \bottomrule
+    \end{tabular}
+    \caption{Entornos virtuales del proyecto y sus responsabilidades.}
+    \label{tab:envs}
+\end{table}
+
+\section{Frameworks y librerías principales}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        \textbf{Librería / Framework} & \textbf{Rol en el sistema} & \textbf{Versión objetivo} \\
+        \midrule
+        Streamlit            & Interfaz web multipágina            & 1.x \\
+        DeepLabCut           & Estimación de pose (backend actual) & 3.x \\
+        Ultralytics YOLO     & Detección, tracking y pose (futuro) & 8.x / YOLO26 \\
+        SimBA                & Features y clasificación conductual & Estable \\
+        OpenCV               & Procesamiento y renderizado de video & 4.x \\
+        pandas               & Manipulación de datos tabulares     & 2.x \\
+        scikit-learn         & Inferencia con modelos \texttt{.sav} & 1.x \\
+        SQLite / sqlite3     & Persistencia relacional             & -- \\
+        FFmpeg               & Recodificación y recorte de video   & 6.x \\
+        python-dotenv        & Gestión de configuración por entorno & -- \\
+        \bottomrule
+    \end{tabular}
+    \caption{Librerías y frameworks principales del proyecto.}
+    \label{tab:librerias}
+\end{table}
+
+\section{Herramientas de desarrollo}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Git}: control de versiones del código fuente.
+    \item \textbf{pytest}: suite de pruebas unitarias e de integración.
+    \item \textbf{Visual Studio Code}: entorno de desarrollo principal.
+    \item \textbf{Overleaf / LaTeX}: documentación técnica formal.
+\end{itemize}
+
+% =============================================================================
+\chapter{Módulos del Sistema}
+% =============================================================================
+
+\section{Módulo de autenticación}
+
+Implementado en \texttt{src/auth.py} y \texttt{src/email\_utils.py}, este módulo
+gestiona el ciclo de vida de sesión de los usuarios del sistema. Soporta
+verificación en dos factores mediante OTP (One-Time Password) enviado por
+correo electrónico. Incluye registro de auditoría de accesos en
+\texttt{src/security\_logger.py}.
+
+\section{Módulo de configuración centralizada}
+
+\texttt{src/config.py} define todas las rutas del proyecto de forma relativa
+al directorio raíz detectado automáticamente mediante \texttt{Path(\_\_file\_\_).parent.parent}.
+Esto elimina rutas absolutas del código fuente y hace el proyecto portable entre
+estaciones de trabajo. Incluye detección automática de FFmpeg en el sistema,
+variables de entorno opcionales mediante \texttt{.env}, y validación de rutas
+críticas al arranque.
+
+\section{Módulo de ingesta de video}
+
+La página \texttt{01\_Ingesta\_de\_Video.py} permite al usuario seleccionar un
+video del sistema de archivos local, validar sus metadatos (resolución, duración,
+codec) y registrar el experimento en la base de datos antes de continuar al
+siguiente paso. El componente de banner de contexto (\texttt{src/video\_context\_banner.py})
+mantiene visible la información del video activo en todas las páginas posteriores.
+
+\section{Módulo de extracción de keypoints}
+
+La página \texttt{02\_Keypoints.py} actúa como gestor de la etapa de pose estimation.
+Sus responsabilidades son:
+
+\begin{itemize}[leftmargin=*]
+    \item Lanzar el proceso de extracción en segundo plano mediante \texttt{run\_with\_live\_log.py}.
+    \item Transmitir los logs del subproceso a la interfaz en tiempo real.
+    \item Detectar el archivo de pose generado y registrar su ruta en la sesión.
+    \item Recuperar el estado de una extracción previa si el usuario regresa a esta página.
+    \item Ofrecer la opción experimental de YOLO Pose como backend alternativo.
+\end{itemize}
+
+\section{Módulo de configuración de zonas}
+
+\texttt{03\_Configuracion\_Zonas.py} permite al usuario definir las seis
+regiones canónicas del EPM (dos brazos abiertos, dos brazos cerrados, área
+central y zona perimetral). La interfaz permite ajustar las coordenadas de
+cada zona mediante controles deslizantes. El módulo \texttt{src/simba\_roi\_bridge.py}
+traduce estas definiciones al formato XML que espera SimBA para sus cálculos
+de tiempo por zona.
+
+\section{Módulo de análisis final}
+
+La página \texttt{04\_Analisis\_Final.py} orquesta la ejecución completa del
+pipeline desde la interfaz. Invoca \texttt{run\_behavior\_pipeline.py} como
+subproceso, recopila los marcadores de salida y persiste los resultados en la
+base de datos al finalizar. Maneja también los casos de reanudación parcial,
+donde artefactos intermedios ya existentes son reutilizados sin recómputo.
+
+\section{Módulo de resultados}
+
+La página \texttt{05\_Resultados\_y\_Estadisticas.py} construye el dashboard
+de visualización final. Carga los datos del experimento desde la base de datos
+y genera:
+
+\begin{itemize}[leftmargin=*]
+    \item Métricas de tiempo por zona del EPM (porcentajes y segundos absolutos).
+    \item Porcentaje de frames clasificados como thigmotaxis y grooming.
+    \item Mapa de calor de posición acumulada del animal.
+    \item Reproductor del video multimodal generado.
+    \item Tablas de timelogs conductuales exportables.
+\end{itemize}
+
+\section{Módulo de administración}
+
+\texttt{99\_Admin\_Panel.py} provee funciones de gestión del sistema para
+usuarios con rol de administrador: alta y baja de usuarios, revisión del
+log de auditoría de seguridad y herramientas de diagnóstico del entorno.
+
+% =============================================================================
+\chapter{Funcionamiento del Sistema}
+% =============================================================================
+
+\section{Flujo de trabajo desde la perspectiva del usuario}
+
+El sistema está diseñado para guiar al usuario a través de un flujo lineal
+de páginas, donde cada etapa depende de la correcta finalización de la anterior.
+A continuación se describe el procedimiento completo.
+
+\subsection{Paso 1 -- Acceso al sistema}
+
+El usuario accede a la aplicación Streamlit a través de un navegador web en
+la dirección de red local donde está desplegado el servidor. Introduce sus
+credenciales en la página de inicio de sesión. Si la autenticación de dos
+factores está habilitada, recibirá un código OTP en su correo institucional
+que deberá ingresar para completar el acceso.
+
+\subsection{Paso 2 -- Ingesta del video}
+
+En la página de ingesta, el usuario:
+\begin{enumerate}[label=\alph*.]
+    \item Selecciona el archivo de video desde su equipo local.
+    \item Revisa los metadatos detectados automáticamente (duración, resolución, fps).
+    \item Registra los datos del experimento (identificador del animal, fecha, observaciones).
+    \item Confirma la ingesta para continuar.
+\end{enumerate}
+
+\subsection{Paso 3 -- Extracción de keypoints}
+
+El usuario inicia el proceso de extracción desde la página de Keypoints.
+El sistema lanza DeepLabCut en segundo plano y muestra los logs de avance en
+tiempo real. Dependiendo de la duración del video y el hardware disponible,
+este proceso puede durar entre 30 minutos y varias horas. Una vez finalizado,
+el sistema notifica al usuario y habilita la continuación al siguiente paso.
+
+\subsection{Paso 4 -- Configuración de zonas del EPM}
+
+El usuario ajusta las coordenadas de las zonas del EPM para el video actual.
+El sistema ofrece una configuración predeterminada basada en plantillas, que
+el usuario puede modificar mediante controles en la interfaz. Las zonas se
+guardan y sincronizan automáticamente con el proyecto SimBA activo.
+
+\subsection{Paso 5 -- Análisis final}
+
+El usuario lanza el análisis final desde la página correspondiente. El sistema
+ejecuta las etapas de filtrado YOLO, cómputo de características SimBA e
+inferencia conductual de forma automática y secuencial. Al finalizar, el
+video multimodal y las métricas quedan disponibles en la base de datos.
+
+\subsection{Paso 6 -- Consulta de resultados}
+
+El usuario accede al dashboard de resultados para revisar las métricas
+cuantitativas del experimento, visualizar el video multimodal y descargar
+los archivos de timelogs conductuales para análisis estadístico posterior.
+
+% =============================================================================
+\chapter{Validación y Pruebas}
+% =============================================================================
+
+\section{Estrategia de validación}
+
+La validación del sistema se aborda en dos dimensiones complementarias: la
+validación técnica del software (corrección funcional de los módulos) y la
+validación científica de los modelos (precisión de la clasificación conductual
+respecto a una referencia experta).
+
+\section{Pruebas del software}
+
+La suite de pruebas del proyecto reside en el directorio \texttt{tests/} e
+incluye siete archivos con un total de 387 líneas de código de prueba. La
+cobertura actual se concentra en:
+
+\begin{itemize}[leftmargin=*]
+    \item Autenticación de usuarios y gestión de sesiones.
+    \item Operaciones de lectura y escritura en la base de datos.
+    \item Lógica de análisis conductual base (\texttt{analysis\_logic.py}).
+    \item Validación de rutas y configuración centralizada.
+\end{itemize}
+
+Las pruebas se ejecutan con pytest y pueden lanzarse desde la raíz del proyecto.
+La cobertura del pipeline de procesamiento (etapas DLC, filtrado YOLO, bridge
+SimBA) está identificada como área de mejora prioritaria para la segunda mitad
+de TT2.
+
+\section{Validación del pipeline con datos reales}
+
+El pipeline completo ha sido ejecutado satisfactoriamente con videos reales
+del experimento EPM. Una corrida documentada procesó el video
+\texttt{R6YB15\_01mar24.mp4} (311 segundos de experimento) en un tiempo
+efectivo de 3 horas 19 minutos utilizando DeepLabCut con GPU RTX 5070 Ti.
+
+Este tiempo constituye el indicador de línea base más importante del proyecto
+y justifica directamente la investigación de alternativas de pose más eficientes
+como objetivo central de TT2.
+
+\section{Validación de clasificadores conductuales}
+
+Los modelos de thigmotaxis y grooming fueron entrenados en SimBA con anotaciones
+manuales de video de referencia. La evaluación de estos modelos se realiza
+comparando las predicciones automáticas del sistema con el criterio de un
+observador experto en comportamiento animal. Esta validación científica se
+encuentra en progreso y constituye uno de los frentes de trabajo activos de
+la segunda etapa.
+
+% =============================================================================
+\chapter{Limitaciones del Sistema}
+% =============================================================================
+
+\section{Limitaciones técnicas}
+
+\subsection{Latencia del backend de pose}
+
+La limitación más significativa del sistema en su estado actual es el tiempo
+de procesamiento requerido por DeepLabCut SuperAnimal para la extracción de
+keypoints. Los tiempos medidos oscilan entre 3 y 4.5 horas por video de 5
+minutos en hardware de referencia. Este cuello de botella impide la iteración
+experimental ágil y dificulta el análisis de lotes de videos.
+
+\subsection{Dependencia de entornos duales}
+
+La necesidad de mantener dos entornos Python independientes (\texttt{venv\_310}
+para DLC y \texttt{venv\_311} para YOLO/Streamlit) añade complejidad operativa
+al sistema. La comunicación entre etapas se realiza mediante subprocesos con
+marcadores de texto en la salida estándar, lo que, si bien funciona correctamente,
+resulta frágil ante cambios de formato de log en versiones futuras de DLC.
+
+\subsection{Esquema de base de datos con migraciones en runtime}
+
+Algunas columnas del esquema (como \texttt{trajectory\_path}) se agregan
+mediante sentencias \texttt{ALTER TABLE ... ADD COLUMN IF NOT EXISTS} ejecutadas
+en tiempo de ejecución de la aplicación, en lugar de ser gestionadas por un
+sistema formal de migraciones. Esto puede producir comportamientos inesperados
+en entornos de producción multi-instancia.
+
+\subsection{Escenario experimental único}
+
+El dataset de entrenamiento de los modelos conductuales fue construido con
+videos de un único escenario experimental (mismo aparato EPM, misma cámara,
+condiciones de iluminación similares). Esto puede limitar la generalización
+de los clasificadores ante variaciones en el equipamiento o las condiciones
+de captura.
+
+\subsection{Cobertura de pruebas del pipeline}
+
+Las pruebas automatizadas no cubren aún las etapas más críticas del pipeline
+(extracción de pose, filtrado YOLO, cómputo de características). Esto reduce
+la capacidad de detectar regresiones al introducir cambios en estos módulos.
+
+\section{Limitaciones científicas}
+
+La clasificación de grooming depende de micro-posturas corporales que pueden
+no estar suficientemente representadas con el esquema actual de 8 keypoints.
+La validez de los clasificadores entrenados está condicionada a la calidad y
+diversidad de las anotaciones de referencia, cuya construcción formal está
+en curso.
+
+% =============================================================================
+\chapter{Trabajo a Futuro}
+% =============================================================================
+
+\section{Migración a YOLO26 Pose}
+
+La tarea de mayor prioridad para TT2 es la integración de YOLO26 Pose como
+backend alternativo de extracción de pose. La motivación central es reducir
+el tiempo de inferencia de varias horas a un rango de minutos por video, lo
+que habilitaría un flujo de trabajo experimental sustancialmente más ágil.
+
+La ruta de integración planificada es:
+
+\begin{enumerate}[label=\arabic*.]
+    \item Completar y validar el dataset de entrenamiento de pose:
+          857 imágenes anotadas, 5 videos fuente, 1 escenario, 8 keypoints por pose.
+    \item Entrenar el modelo YOLO26 Pose y evaluar métricas de precisión de keypoints.
+    \item Desarrollar el adaptador de salida que convierta las predicciones YOLO Pose
+          al formato CSV de entrada esperado por \texttt{compute\_simba\_features.py}.
+    \item Integrar el nuevo backend en \texttt{pages/02\_Keypoints.py} como opción
+          seleccionable al lado del backend DLC actual.
+    \item Ejecutar un benchmark comparativo formal entre DLC y YOLO26 Pose en términos
+          de velocidad, estabilidad de keypoints e impacto en la clasificación conductual.
+    \item Conservar YOLO11 Pose como baseline de comparación de velocidad y estabilidad.
+\end{enumerate}
+
+\section{Refactorización de la arquitectura de backends de pose}
+
+Para soportar múltiples backends de forma mantenible, se propone diseñar una
+interfaz formal (\textit{abstract base class}) que defina el contrato que
+cualquier backend de pose debe cumplir para integrarse con el resto del sistema.
+Esto eliminaría la necesidad de bloques condicionales dispersos en el pipeline
+y facilitaría la incorporación futura de nuevos backends.
+
+\section{Mejoras en la cobertura de pruebas}
+
+\begin{itemize}[leftmargin=*]
+    \item Pruebas de integración del pipeline con un clip corto de referencia
+          y salidas esperadas predefinidas (smoke test).
+    \item Pruebas de las etapas de filtrado YOLO, cómputo de características
+          y bridge de zonas.
+    \item Pruebas de regresión que detecten automáticamente cambios en la
+          distribución de predicciones conductuales.
+\end{itemize}
+
+\section{Gestión formal de migraciones de base de datos}
+
+Migrar las modificaciones de esquema en runtime a un sistema de migraciones
+versionado (por ejemplo, mediante Alembic o un mecanismo propio basado en
+un registro de versiones aplicadas), para garantizar que el esquema sea
+reproducible y auditaable entre instalaciones.
+
+\section{Ampliación del dataset conductual}
+
+\begin{itemize}[leftmargin=*]
+    \item Incorporar videos de experimentos con condiciones de iluminación
+          y ángulos de cámara variados para mejorar la generalización.
+    \item Reforzar la representación de secuencias de grooming en el conjunto
+          de entrenamiento, dado el interés científico específico en esta conducta
+          y la dependencia de sus micro-posturas en una representación de keypoints
+          de alta calidad.
+    \item Establecer una verdad terreno formal para pose y comportamiento
+          mediante anotación experta de un subconjunto de video de validación.
+\end{itemize}
+
+\section{Actualización de la documentación}
+
+Actualizar el contenido de \texttt{Home.py}, el diagrama \texttt{pipeline\_TT2026.html}
+y los manuales de pruebas para reflejar el estado real del sistema, eliminando
+referencias a módulos no conectados actualmente al flujo principal.
+
+% =============================================================================
+\chapter{Anexos Técnicos}
+% =============================================================================
+
+\section{Estructura del repositorio}
+
+El repositorio del proyecto tiene la siguiente organización de alto nivel:
+
+\begin{lstlisting}[language=bash, caption={Estructura de directorios del repositorio.}]
+TT_Ratones_2026/
+├── Home.py                    # Página principal de la app Streamlit
+├── pages/                     # Páginas de la aplicación (9 archivos, ~5230 líneas)
+├── src/                       # Lógica central del sistema (~82 archivos, ~10752 líneas)
+│   ├── config.py              # Configuración centralizada
+│   ├── auth.py                # Autenticación y OTP
+│   ├── simba_roi_bridge.py    # Sincronización de zonas con SimBA
+│   ├── db/                    # Capa de acceso a base de datos
+│   ├── migrations/            # Scripts de migración de esquema
+│   └── scripts/               # Scripts del pipeline y herramientas
+├── tests/                     # Suite de pruebas (7 archivos, ~387 líneas)
+├── data/                      # Modelos, proyectos SimBA y artefactos
+├── videos_data/               # Videos de experimento
+├── logs/                      # Logs del sistema y del pipeline
+├── reportes/                  # Documentación técnica del proyecto
+├── assets/                    # Recursos estáticos (logos, imágenes)
+├── launcher.bat               # Lanzador del sistema en Windows
+└── start_services.py          # Script de arranque de servicios
+\end{lstlisting}
+
+\section{Scripts de utilidad relevantes}
+
+Además de los scripts del pipeline principal, el directorio \texttt{src/scripts/}
+contiene una colección de utilidades de apoyo al desarrollo y validación:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}lp{8.5cm}@{}}
+        \toprule
+        \textbf{Script} & \textbf{Propósito} \\
+        \midrule
+        \texttt{entrenar\_yolo\_local.py}      & Entrena un detector YOLO con el dataset local \\
+        \texttt{solo\_yolo\_tracker.py}         & Tracking puro con YOLO sin estimación de pose \\
+        \texttt{verify\_gpu.py}                & Verifica la disponibilidad y estado de la GPU \\
+        \texttt{benchmark\_gpu.py}             & Benchmark de rendimiento del acelerador \\
+        \texttt{trim\_test\_video.py}           & Recorta clips de prueba desde videos de experimento \\
+        \texttt{render\_dlc\_keypoints\_video.py} & Renderiza keypoints DLC sobre video para revisión \\
+        \texttt{prune\_simba\_project.py}       & Limpia artefactos intermedios del proyecto SimBA \\
+        \texttt{run\_masivo\_dlc.py}            & Procesamiento en lote de múltiples videos con DLC \\
+        \bottomrule
+    \end{tabular}
+    \caption{Scripts de utilidad del directorio \texttt{src/scripts/}.}
+    \label{tab:scripts_util}
+\end{table}
+
+\section{Configuración del entorno}
+
+El sistema requiere las siguientes variables de entorno, definidas en un
+archivo \texttt{.env} en la raíz del proyecto:
+
+\begin{lstlisting}[caption={Variables de entorno del sistema.}]
+# Modelo YOLO activo (ruta relativa desde la raíz del proyecto)
+YOLO_MODEL=yolo_tracker.pt
+
+# Configuración SMTP para envío de OTP
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=usuario@example.com
+SMTP_PASSWORD=contraseña
+
+# Ruta opcional a FFmpeg (si no está en PATH)
+FFMPEG_PATH=C:/ffmpeg/bin/ffmpeg.exe
+\end{lstlisting}
+
+\section{Instrucciones de arranque}
+
+El sistema puede iniciarse mediante el archivo \texttt{launcher.bat} en Windows,
+o directamente con:
+
+\begin{lstlisting}[language=bash, caption={Arranque manual del sistema.}]
+# Activar el entorno virtual principal
+venv_311\Scripts\activate
+
+# Lanzar la aplicación Streamlit
+streamlit run Home.py
+\end{lstlisting}
+
+\section{Métricas de tamaño del código fuente}
+
+Al inicio de la fase TT2, el repositorio activo contiene:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}lrr@{}}
+        \toprule
+        \textbf{Directorio} & \textbf{Archivos} & \textbf{Líneas de código} \\
+        \midrule
+        \texttt{pages/}  & 9  & 5,230  \\
+        \texttt{src/}    & 82 & 10,752 \\
+        \texttt{tests/}  & 7  & 387    \\
+        \midrule
+        \textbf{Total}   & \textbf{98} & \textbf{16,369} \\
+        \bottomrule
+    \end{tabular}
+    \caption{Métricas de tamaño del código fuente activo al inicio de TT2.}
+    \label{tab:loc}
+\end{table}
+
+\end{document}

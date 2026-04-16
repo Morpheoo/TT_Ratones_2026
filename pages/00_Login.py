@@ -1,411 +1,234 @@
 import streamlit as st
-import base64
 import os
 import sys
+import time
 
-# Seteamos la ruta de src para importar utilerías
+# ================= 0. SETUP & PERSISTENCE =================
+sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "src"))
+
 from session_utils import load_session, save_session
-
-# Cargar sesión previa
-if "init_done" not in st.session_state:
-    load_session()
-    st.session_state.init_done = True
-
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="TT 2026 - Login", page_icon="🐭", layout="wide")
-
-# 2. FUNCIÓN DE IMAGEN
-PRIVACY_NOTICE = """
-**Aviso de Privacidad Simplificado – Sistema de Análisis EPM (TT 2026)**  
-
-El equipo responsable del proyecto “TT 2026 – Sistema de Análisis EPM” de la Escuela Superior de Cómputo del Instituto Politécnico Nacional (ESCOM-IPN), es responsable del tratamiento de los datos personales que se recaben a través de esta plataforma.
-
-**1. Datos personales que recabamos**  
-Para el acceso y uso del sistema se recaban y tratan los siguientes datos personales:  
-- Correo electrónico institucional (@ipn.mx).  
-- Nombre de usuario asociado a la cuenta institucional.  
-- Credenciales de acceso (que en su versión final deberán almacenarse de forma cifrada o mediante servicios de autenticación institucional).  
-
-Adicionalmente, el sistema puede registrar información técnica relacionada con el uso de la plataforma, como fecha y hora de acceso, dirección IP y acciones realizadas dentro del sistema, con fines de seguridad y trazabilidad.
-
-**2. Finalidades del tratamiento**  
-Los datos personales serán utilizados para las siguientes finalidades:  
-- Gestionar su autenticación e inicio de sesión en el sistema.  
-- Administrar los permisos de acceso y los perfiles de usuario (p. ej. Investigador, Administrador).  
-- Generar registros y bitácoras de uso con fines académicos, estadísticos y de mejora continua del sistema.  
-- Dar cumplimiento a obligaciones derivadas de normas institucionales y disposiciones aplicables en materia de investigación y resguardo de información.  
-
-No se utilizarán sus datos personales para finalidades distintas a las aquí señaladas sin obtener previamente su consentimiento.
-
-**3. Transferencias de datos**  
-Sus datos personales no serán vendidos, cedidos ni transferidos a terceros ajenos al proyecto, salvo en los casos en que lo exija una disposición legal aplicable o requerimientos formales de autoridades competentes o instancias del propio Instituto Politécnico Nacional.
-
-**4. Medidas de seguridad**  
-El proyecto implementa medidas de seguridad administrativas, técnicas y físicas razonables para proteger sus datos personales contra daño, pérdida, alteración, destrucción o uso, acceso o tratamiento no autorizado.
-
-**5. Derechos ARCO y revocación del consentimiento**  
-Usted puede ejercer sus derechos de Acceso, Rectificación, Cancelación u Oposición (ARCO), así como revocar el consentimiento otorgado para el tratamiento de sus datos personales, enviando una solicitud al correo electrónico de contacto del proyecto:  
-**tt2026.epm@escom.ipn.mx**  
-
-La solicitud deberá contener, al menos, nombre completo, correo institucional de contacto y la descripción clara del derecho que desea ejercer.
-
-**6. Cambios al Aviso de Privacidad**  
-Cualquier modificación al presente Aviso de Privacidad será publicada en esta misma plataforma, indicando la fecha de la última actualización.  
-
-_Fecha de última actualización: diciembre de 2025._
-"""
-
-def get_img_as_base64(file_path: str):
-    if not os.path.exists(file_path):
-        return None
-    with open(file_path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-# LOGO
-LOGO_PATH = "logo_ria.png"
-img_base64 = get_img_as_base64(LOGO_PATH)
-if img_base64:
-    logo_html = f'<img src="data:image/png;base64,{img_base64}" class="tt-logo">'
-else:
-    logo_html = '<div style="text-align:center;">⚠️ Logo no encontrado</div>'
-
-# 3. TEMA Y ESTILOS
+from auth import authenticate, register_user, verify_otp, request_password_reset, reset_password
+from ui_components import run_page_splash
+import importlib
+import ui_theme
+importlib.reload(ui_theme)
 from ui_theme import use_theme
-use_theme()
 
-# 4. CSS ESTILIZADO ESPECÍFICO DEL LOGIN
-st.markdown(
-    """
-    <style>
-    /* Estilizar el formulario principal como tarjeta IPN */
-    [data-testid="stForm"] {
-        background-color: var(--card-bg);
-        padding: 3rem 3.5rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 15px var(--shadow);
-        border: 1px solid var(--card-border);
-        border-top: 4px solid var(--primary);
-        max-width: 600px;
-        margin: 2rem auto 1rem auto;
-    }
+st.set_page_config(page_title="Login | Sistema EPM", page_icon="🔐", layout="centered")
 
-    .tt-logo {
-        width: 90px;
-        height: auto;
-    }
+load_session()
+colors = use_theme()
 
-    h1.tt-title {
-        text-align: center;
-        font-family: 'Inter', sans-serif;
-        font-weight: 800;
-        font-size: 2.1rem !important;
-        letter-spacing: -0.02em;
-        color: var(--text-main);
-        margin: 0 0 6px 0;
-        padding: 0;
-    }
-
-    div.tt-subtitle {
-        text-align: center;
-        font-size: 1.05rem;
-        font-weight: 600;
-        margin-bottom: 32px;
-        color: var(--primary);
-    }
-
-    @media (max-width: 768px) {
-        [data-testid="stForm"] {
-            padding: 2.3rem 1.6rem;
-            max-width: 100%;
-            margin: 2rem 1rem 1rem 1rem;
-        }
-        h1.tt-title {
-            font-size: 1.7rem !important;
-        }
-        div.tt-subtitle {
-            font-size: 0.95rem;
-        }
-        .tt-logo {
-            width: 70px;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
+run_page_splash(
+    "page_login",
+    [
+        "Validando entorno institucional...",
+        "Preparando autenticación segura...",
+        "Cargando acceso a la plataforma...",
+    ],
+    subtitle="TT 2026 - Preparando acceso seguro...",
 )
 
+if "auth_mode" not in st.session_state:
+    st.session_state.auth_mode = "login"
 
+# ================= 1. CABECERA LIMPIA LOGIN =================
+from ui_theme import get_image_base64
+logo_ria_path = os.path.join("assets", "logos", "logo_ria.png")
+app_logo_b64 = get_image_base64(logo_ria_path)
+img_tag = f'<img src="{app_logo_b64}" style="width: 150px; margin-bottom: 0.5rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));">' if app_logo_b64 else ''
 
-# 5. AUTH UTILITY (Force Reload)
-from src.auth import authenticate, register_user, verify_otp, resend_verification_code, request_password_reset, reset_password
+st.markdown(f"""
+<div style="text-align: center; margin-bottom: 2rem;">
+    {img_tag}
+    <div style="font-size: 2.2rem; margin-bottom: 0.2rem; letter-spacing: -0.5px; color: {colors['primary_dark']}; font-weight: 800;">
+        SISTEMA EPM
+    </div>
+    <div style="font-size: 0.85rem; color: {colors['text_sub']}; text-transform: uppercase; font-weight: 600; letter-spacing: 1.5px;">
+        Instituto Politécnico Nacional — ESCOM
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# 6. LÓGICA DE SESIÓN
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# ================= 2. ESTILOS LOCALES PARA LOGIN =================
+bg_card = colors.get('bg_card', '#FFFFFF')
+border_c = colors.get('border', '#EAE3E6')
+primary_c = colors.get('primary', '#6A1B3F')
+text_sub_c = colors.get('text_sub', '#737373')
+text_main_c = colors.get('text_main', '#1F1F1F')
 
-if st.session_state.logged_in:
-    st.success(f"Bienvenido, {st.session_state.user}")
-    st.info(f"Rol: {st.session_state.role}")
-    if st.button("Cerrar Sesión"):
-        st.session_state.logged_in = False
-        from src.session_utils import clear_session
-        clear_session()
-        st.rerun()
-    st.stop()
+st.markdown(f"""
+    <style>
+    /* Target the form container to be the login card */
+    [data-testid="stForm"] {{
+        background: {bg_card} !important;
+        padding: 2.5rem 3rem !important;
+        border-radius: 16px !important;
+        border: 1px solid {border_c} !important;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.03) !important;
+        margin: auto !important;
+        max-width: {'550px' if st.session_state.get('auth_mode') == 'register' else '450px'} !important;
+    }}
+    
+    /* REDISEÑO TOTAL DEL BOTÓN (White theme - Redo from scratch) */
+    /* Target via tag, kind, and multiple test-ids to ensure catch-all */
+    div.stButton > button[kind="primary"],
+    [data-testid="stForm"] button[kind="primary"],
+    [data-testid="stForm"] button[data-testid*="primary"],
+    [data-testid="stFormSubmitButton"] button {{
+        background-color: #FFFFFF !important;
+        color: #6A1B3F !important;
+        border: 2px solid #6A1B3F !important;
+        border-radius: 12px !important;
+        padding: 0.8rem 2rem !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 800 !important;
+        font-size: 0.95rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1.5px !important;
+        transition: all 0.25s ease-out !important;
+        box-shadow: 0 4px 12px rgba(106, 27, 63, 0.08) !important;
+        min-height: 52px !important;
+        cursor: pointer !important;
+        width: 100% !important;
+    }}
+    
+    /* Target text inside button broadly */
+    [data-testid="stForm"] button[kind="primary"] *,
+    [data-testid="stForm"] button[data-testid*="primary"] *,
+    [data-testid="stFormSubmitButton"] button * {{
+        color: #6A1B3F !important;
+        font-weight: 800 !important;
+        background: transparent !important;
+        border: none !important;
+    }}
 
-# Logos institucionales
-import os
-import base64
+    /* Hover state robust redo */
+    div.stButton > button[kind="primary"]:hover,
+    [data-testid="stForm"] button[kind="primary"]:hover,
+    [data-testid="stFormSubmitButton"] button:hover {{
+        background-color: #6A1B3F !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 8px 25px rgba(106, 27, 63, 0.25) !important;
+        transform: translateY(-2px) !important;
+        border-color: #6A1B3F !important;
+    }}
+    
+    [data-testid="stForm"] button[kind="primary"]:hover *,
+    [data-testid="stFormSubmitButton"] button:hover * {{
+        color: #FFFFFF !important;
+    }}
 
-def get_img_as_base64_login(file_path):
-    if not os.path.exists(file_path): return None
-    with open(file_path, "rb") as f: return base64.b64encode(f.read()).decode()
+    .login-title {{
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 1.7rem;
+        color: {text_main_c};
+        margin-bottom: 0.2rem;
+        text-align: center;
+    }}
+    .login-subtitle {{
+        font-size: 0.95rem;
+        color: {text_sub_c};
+        margin-bottom: 2rem;
+        text-align: center;
+    }}
+    </style>
+""", unsafe_allow_html=True)
 
-IPN_LOGO_PATH = os.path.join("assets", "logos", "logo_ipn.webp")
-ESCOM_LOGO_PATH = os.path.join("assets", "logos", "logo_escom.webp")
+# ================= 3. LÓGICA DE NAVEGACIÓN =================
+if st.session_state.auth_mode == "login":
+    st.markdown('<div class="login-title">Inicia Sesión</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-subtitle">Ingresa tus credenciales para continuar</div>', unsafe_allow_html=True)
+    
+    with st.form("login_form"):
+        email = st.text_input("Correo Electrónico Institucional", placeholder="ejemplo@alumno.ipn.mx")
+        password = st.text_input("Contraseña", type="password", placeholder="••••••••")
+        submit = st.form_submit_button("Entrar de forma segura", type="primary", use_container_width=True)
 
-ipn_img_base64 = get_img_as_base64_login(IPN_LOGO_PATH)
-if ipn_img_base64: ipn_logo_html = f'<img src="data:image/webp;base64,{ipn_img_base64}" class="institucional-logo" style="width: 140px; height: auto;">'
-else: ipn_logo_html = '<div style="width:140px; height:140px; border-radius:50%; background-color:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px; margin: 0 auto;">IPN</div>'
-
-escom_img_base64 = get_img_as_base64_login(ESCOM_LOGO_PATH)
-if escom_img_base64: escom_logo_html = f'<img src="data:image/webp;base64,{escom_img_base64}" class="institucional-logo" style="width: 80px; height: auto;">'
-else: escom_logo_html = '<div style="width:80px; height:80px; border-radius:50%; background-color:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; margin: 0 auto;">ESCOM</div>'
-
-# 7. LAYOUT CENTRADO
-c1, c2, c3 = st.columns([1, 2, 1])
-
-with c2:
-    st.markdown(
-        f"""
-        <style>
-        .logos-container-login {{
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            width: 100%;
-            margin-bottom: 2rem;
-        }}
-        .logo-left-lg, .logo-right-lg {{
-            flex: 1;
-            flex-basis: 33%;
-            display: flex;
-        }}
-        .logo-left-lg {{
-            justify-content: flex-start;
-        }}
-        .logo-right-lg {{
-            justify-content: flex-end;
-        }}
-        .logo-center-lg {{
-            flex: 1;
-            flex-basis: 33%;
-            display: flex;
-            justify-content: center;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        f'''
-        <div class="logos-container-login">
-            <div class="logo-left-lg">{ipn_logo_html}</div>
-            <div class="logo-center-lg">{logo_html}</div>
-            <div class="logo-right-lg">{escom_logo_html}</div>
-        </div>
-        ''', unsafe_allow_html=True
-    )
-    st.markdown('<h1 class="tt-title">INSTITUTO POLITÉCNICO NACIONAL</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="tt-subtitle">Sistema EPM - Plataforma Institucional</div>', unsafe_allow_html=True)
-
-    # MODIFICACIÓN: Si hay verificación pendiente, ocultamos los tabs para no confundir
-    if st.session_state.get("show_verification"):
-        st.info(f"📧 Hemos enviado un código de verificación a: **{st.session_state.get('pending_email')}**")
-        st.warning("⚠️ Revisa tu carpeta de SPAM o 'Correo no deseado'.")
-        
-        st.markdown("### 🔐 Ingresa el Código")
-        with st.form("verify_form"):
-            otp_input = st.text_input("Código de 6 dígitos", max_chars=6, placeholder="Ej: 123456")
-            verify_btn = st.form_submit_button("VERIFICAR CUENTA")
-            
-            if verify_btn:
-                success, msg = verify_otp(st.session_state.get("pending_email"), otp_input)
-                if success:
-                    st.success("✅ ¡Cuenta verificada! Accediendo...")
-                    st.session_state["show_verification"] = False
-                    st.session_state["pending_email"] = None
-                    st.balloons()
-                    # Opcional: Auto-login si guardamos credentials
-                    st.rerun()
-                else:
-                    st.error(f"❌ {msg}")
-                    
-        # Botón de reenvío fuera del form para no enviar el form principal
-        col_resend, col_back = st.columns([1, 1])
-        with col_resend:
-            if st.button("🔄 Reenviar Código"):
-                success_rs, msg_rs = resend_verification_code(st.session_state.get("pending_email"))
-                if success_rs:
-                    st.toast(msg_rs)
-                else:
-                    st.error(msg_rs)
-                    
-        with col_back:
-            if st.button("⬅️ Volver"):
-                st.session_state["show_verification"] = False
-                st.session_state["pending_email"] = None
-                st.rerun()
-
-    elif st.session_state.get("show_recovery"):
-        # PANTALLA DE RECUPERACIÓN DE CONTRASEÑA
-        st.markdown("### 🔄 Recuperar Contraseña")
-        
-        if not st.session_state.get("recovery_step_2"):
-            # PASO 1: Solicitar Correo
-            st.info("Ingresa tu correo institucional para recibir un código de recuperación.")
-            with st.form("recovery_req_form"):
-                rec_email = st.text_input("Correo Registrado", placeholder="usuario@ipn.mx")
-                req_btn = st.form_submit_button("ENVIAR CÓDIGO")
-                
-                if req_btn:
-                    success, msg = request_password_reset(rec_email)
-                    if success:
-                        st.session_state["recovery_email"] = rec_email
-                        st.session_state["recovery_step_2"] = True
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-            
-            if st.button("⬅️ Volver al Login"):
-                st.session_state["show_recovery"] = False
-                st.rerun()
-                
+    if submit:
+        if email and password:
+            user_data = authenticate(email, password)
+            if user_data:
+                st.session_state.logged_in = True
+                st.session_state.user = user_data["email"]
+                st.session_state.user_name = user_data["name"]
+                st.session_state.role = user_data["role"]
+                save_session()
+                st.success("Autenticación exitosa.")
+                time.sleep(1)
+                st.switch_page("Home.py")
+            else:
+                st.error("Credenciales incorrectas o cuenta inactiva.")
         else:
-            # PASO 2: Ingresar OTP y Nueva pass
-            st.success(f"Código enviado a: {st.session_state.get('recovery_email')}")
-            with st.form("recovery_reset_form"):
-                otp_rec = st.text_input("Código de Verificación", max_chars=6)
-                new_p1 = st.text_input("Nueva Contraseña", type="password")
-                new_p2 = st.text_input("Confirmar Nueva Contraseña", type="password")
-                reset_btn = st.form_submit_button("CAMBIAR CONTRASEÑA")
-                
-                if reset_btn:
-                    if new_p1 != new_p2:
-                        st.error("Las contraseñas no coinciden.")
-                    elif len(new_p1) < 6:
-                        st.error("Mínimo 6 caracteres.")
-                    else:
-                        success, msg = reset_password(st.session_state.get("recovery_email"), otp_rec, new_p1)
-                        if success:
-                            st.success(msg)
-                            st.balloons()
-                            # Resetear estados y volver a login
-                            st.session_state["show_recovery"] = False
-                            st.session_state["recovery_step_2"] = False
-                            st.session_state["recovery_email"] = None
-                            st.rerun()
-                        else:
-                            st.error(msg)
-                            
-            if st.button("⬅️ Cancelar"):
-                st.session_state["show_recovery"] = False
-                st.session_state["recovery_step_2"] = False
+            st.warning("Completa todos los campos requeridos.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("¿No tienes cuenta? Solicita acceso aquí", use_container_width=True):
+        st.session_state.auth_mode = "register"
+        st.rerun()
+
+elif st.session_state.auth_mode == "register":
+    st.markdown('<div class="login-title">Crear Cuenta</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-subtitle">Acceso exclusivo para investigadores IPN</div>', unsafe_allow_html=True)
+    
+    with st.form("reg_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            full_name = st.text_input("Nombre Completo *")
+            boleta = st.text_input("Número de Boleta (ID) *")
+        with col2:
+            carrera = st.text_input("Carrera / Posgrado")
+            escuela = st.text_input("Escuela / Centro (ej. ESCOM)")
+        
+        st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
+        new_email = st.text_input("Correo Electrónico Institucional (@ipn.mx) *")
+        new_pass = st.text_input("Contraseña segura *", type="password")
+        
+        st.markdown("""
+            <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
+                <strong>Términos y Condiciones:</strong> Al registrarte en el Sistema EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
+            </div>
+        """, unsafe_allow_html=True)
+        accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
+        
+        reg_submit = st.form_submit_button("Solicitar Acceso", type="primary", use_container_width=True)
+
+    if reg_submit:
+        if not accepted:
+            st.error("⚠️ Debes aceptar los términos institucionales.")
+        elif not all([full_name, boleta, new_email, new_pass]):
+            st.warning("Completa los campos obligatorios (*).")
+        else:
+            # register_user guarda full_name, boleta, carrera, escuela, accepted_terms
+            success, msg = register_user(
+                email=new_email, 
+                password=new_pass, 
+                role="investigador", 
+                full_name=full_name,
+                boleta=boleta,
+                carrera=carrera,
+                escuela=escuela,
+                accepted_terms=accepted
+            )
+            if success:
+                st.success("✅ Registro enviado. Por favor verifica tu correo para activar la cuenta.")
+                time.sleep(2)
+                st.session_state.auth_mode = "login"
                 st.rerun()
-
-    else:
-        # PANTALLA NORMAL (Login / Registro)
-        tab_login, tab_register = st.tabs(["🔐 Iniciar Sesión", "📝 Registro IPN"])
-
-        with tab_login:
-            with st.form("login_form"):
-                email = st.text_input("Usuario", placeholder="correo@ipn.mx")
-                password = st.text_input("Contraseña", type="password", placeholder="••••••")
-                submitted = st.form_submit_button("INGRESAR")
-                
-                if submitted:
-                    # Intentar login
-                    auth_result = authenticate(email, password)
-                    
-                    if auth_result and auth_result.get("status") == "ACTIVE":
-                        st.session_state.logged_in = True
-                        st.session_state.user = auth_result["email"]
-                        st.session_state.role = auth_result["role"]
-                        st.session_state.user_name = auth_result["name"]
-                        save_session()
-                        st.success(f"✅ Bienvenido {auth_result['name']}")
-                        st.rerun()
-                        
-                    elif auth_result and auth_result.get("status") == "SUSPENDED":
-                        st.error("⛔ Tu cuenta ha sido SUSPENDIDA por un administrador.")
-                        st.warning("Contacta al administrador si crees que es un error.")
-
-                    elif auth_result and auth_result.get("status") == "NOT_VERIFIED":
-                        st.session_state["pending_email"] = email
-                        st.warning("⚠️ Tu cuenta no está verificada. Revisa tu correo IPN.")
-                        st.session_state["show_verification"] = True
-                        st.rerun()
-                        
-                    else:
-                        st.error("❌ Credenciales incorrectas o usuario no encontrado.")
+            else:
+                st.error(msg)
             
-            # Botón de Olvidé mi contraseña
-            st.markdown("---")
-            if st.button("¿Olvidaste tu contraseña?", type="secondary"):
-                st.session_state["show_recovery"] = True
-                st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Volver al Inicio de Sesión", use_container_width=True):
+        st.session_state.auth_mode = "login"
+        st.rerun()
 
-        if st.session_state.get("show_verification"):
-           pass # Ya se mostró arriba
-
-
-        with tab_register:
-            st.info("Solo se permiten correos @ipn.mx o @alumno.ipn.mx para el registro.")
-            with st.form("register_form"):
-                new_name = st.text_input("Nombre Completo")
-                new_email = st.text_input("Correo Institucional", placeholder="usuario@alumno.ipn.mx")
-                new_pass = st.text_input("Contraseña", type="password", key="reg_pass")
-                confirm_pass = st.text_input("Confirmar Contraseña", type="password", key="reg_confirm")
-                new_role = st.selectbox("Rol", ["Investigador", "Estudiante"], key="reg_role")
-                
-                # Reintegrar checkbox solo para registro
-                aceptar_aviso_reg = st.checkbox("Acepto el Aviso de Privacidad", key="reg_aviso")
-                
-                # Mostrar aviso en expander aquí mismo
-                with st.expander("📄 Ver Aviso de Privacidad"):
-                    st.markdown(PRIVACY_NOTICE)
-                    
-                reg_submitted = st.form_submit_button("CREAR CUENTA")
-
-            if reg_submitted:
-                if not aceptar_aviso_reg:
-                    st.error("⚠️ Debes aceptar el Aviso de Privacidad para crear una cuenta.")
-                elif not (new_email.endswith("@ipn.mx") or new_email.endswith("@alumno.ipn.mx")):
-                    st.error("❌ El correo debe ser institucional (@ipn.mx o @alumno.ipn.mx).")
-                elif new_pass != confirm_pass:
-                    st.error("❌ Las contraseñas no coinciden.")
-                elif len(new_pass) < 6:
-                    st.error("❌ La contraseña debe tener al menos 6 caracteres.")
-                else:
-                    success, msg = register_user(new_email, new_pass, new_role, new_name)
-                    if success:
-                        st.success(f"✅ {msg}")
-                        # Auto-mostrar pantalla de verificación
-                        st.session_state["pending_email"] = new_email
-                        st.session_state["show_verification"] = True
-                        st.balloons()
-                        st.rerun()
-                    else:
-                        st.error(f"❌ {msg}")
-
-    # Pie de página
-    st.markdown(
-        '<div style="text-align:center; margin-top:15px; '
-        'font-size:0.85rem; color:var(--text-sub); font-weight: 500;">'
-        "Escuela Superior de Cómputo - Instituto Politécnico Nacional © 2026"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(f"""
+    <div style="text-align:center; color: {text_sub_c}; font-size: 0.75rem;">
+        Sistema Técnico para Análisis Automatizado de Comportamiento &copy; 2026<br>
+        Laboratorio de Proyectos Profesionales — IPN ESCOM
+    </div>
+""", unsafe_allow_html=True)

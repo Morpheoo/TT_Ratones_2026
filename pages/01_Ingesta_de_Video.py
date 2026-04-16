@@ -1,356 +1,345 @@
-import streamlit as st
 import os
 import sys
-import re
-# moviepy se importa de forma LAZY dentro del bloque de edición (ver abajo)
-# para evitar ~3s de overhead en cada carga de página.
 
-# ================= 0. PERSISTENCIA =================
-# REGLA #1: set_page_config SIEMPRE primero, antes de cualquier st.*
-st.set_page_config(page_title="Ingesta de Video (EPM)", page_icon="📥", layout="wide")
+import streamlit as st
 
-if os.path.join(os.getcwd(), "src") not in sys.path:
-    sys.path.append(os.path.join(os.getcwd(), "src"))
+# ================= 0. SETUP & PERSISTENCE =================
+sys.path.append(os.getcwd())
+sys.path.append(os.path.join(os.getcwd(), "src"))
 
-from ui_components import generic_splash_loader
 from session_utils import load_session, save_session
+from ui_components import run_page_splash
+import importlib
+import ui_theme
 
-# Cargar sesión antes de validar login
+importlib.reload(ui_theme)
+from ui_theme import render_topbar, use_theme
+
+st.set_page_config(page_title="Ingesta de Video | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+
 load_session()
+colors = use_theme()
 
-# =============== 1. VERIFICAR LOGIN ==================
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.warning("⚠️ Debes iniciar sesión en la página 🔐 Login antes de usar el prototipo.")
-    st.stop()
+# ================= 1. VERIFICAR LOGIN ==================
+if not st.session_state.get("logged_in"):
+    st.switch_page("pages/00_Login.py")
 
-# Cargar sesión y establecer init_done si no está ya
-if not st.session_state.get("init_done"):
-    load_session()
-    st.session_state.init_done = True
-
-# GUARDIA: ADMINS NO PUEDEN USAR EL MÓDULO EXPERIMENTAL
-if st.session_state.get("role") == "admin":
-    st.warning("⛔ El rol de Administrador está limitado a gestión de usuarios.")
-    st.info("Para cuidar la integridad de los datos, los administradores no pueden crear ni modificar experimentos.")
-    st.stop()
-
-# =============== 2. TEMA Y ESTILOS =================
-from ui_theme import use_theme
-use_theme()
-
-def ingestion_loading_sequence():
-    """Generador para el splash screen de Ingesta."""
-    yield 30, "Conectando con la base de datos..."
-    from db.connection import get_db_engine
-    engine = get_db_engine()
-    
-    yield 70, "Preparando entorno de carga..."
-    # No buscamos tratamientos previos para el selector, según solicitud del usuario
-    
-    yield 100, "Módulo de ingesta listo."
-    return []
-
-# ================== 2. EJECUCIÓN DEL SPLASH SCREEN (INGESTA) ==================
-if "ingestion_loaded" not in st.session_state:
-    st.session_state["_prev_treatments_cache"] = generic_splash_loader(ingestion_loading_sequence())
-    st.session_state.ingestion_loaded = True
-
-# =============== 3. CSS GLOBAL PARA INGESTA =================
-st.markdown(
-    """
-    <style>
-    .tt-ingesta-title {
-        font-family: 'Inter', sans-serif;
-        font-weight: 800;
-        font-size: 1.9rem;
-        color: var(--text-main);
-        letter-spacing: 0.04em;
-        margin-bottom: 0.3rem;
-    }
-
-    .tt-ingesta-subtitle {
-        font-size: 0.95rem;
-        color: var(--text-main);
-        opacity: 0.9;
-        margin-bottom: 1.2rem;
-    }
-
-    .tt-ingesta-card {
-        background-color: var(--card-bg);
-        border-radius: 0.5rem;
-        padding: 1.6rem 1.8rem;
-        box-shadow: 0 4px 15px var(--shadow);
-        border: 1px solid var(--card-border);
-        border-top: 3px solid var(--primary);
-        margin-bottom: 1.5rem;
-    }
-
-    /* Labels y textos dentro de la tarjeta */
-    .tt-ingesta-card label,
-    .tt-ingesta-card p,
-    .tt-ingesta-card span {
-        color: var(--text-main) !important;
-    }
-
-    /* SELECTBOX */
-    div[data-baseweb="select"] > div {
-        background-color: var(--input-bg) !important;
-        color: var(--text-main) !important;
-        border: 1px solid var(--input-border) !important;
-        border-radius: 0.35rem;
-    }
-    .stSelectbox > label {
-        color: var(--text-main) !important;
-        font-weight: 600;
-    }
-
-    /* FILE UPLOADER - zona de drop */
-    div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {
-        background-color: var(--input-bg) !important;
-        border-radius: 0.5rem !important;
-        border: 1px dashed var(--input-border) !important;
-    }
-    div[data-testid="stFileUploader"] section * {
-        color: var(--text-main) !important;
-    }
-
-    /* FILE UPLOADER - botón "Browse files" */
-    div[data-testid="stFileUploader"] button {
-        background-color: var(--card-bg) !important;
-        color: var(--text-main) !important;
-        border: 1px solid var(--input-border) !important;
-        border-radius: 0.35rem !important;
-        padding: 0.2rem 0.9rem !important;
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-    }
-
-    /* Slider con gradiente IPN */
-    [data-testid="stSlider"] > div > div > div {
-        background: linear-gradient(to right, var(--primary), var(--primary-hover));
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
+run_page_splash(
+    "page_ingesta",
+    [
+        "Inicializando modulo de ingesta...",
+        "Verificando almacenamiento local...",
+        "Habilitando captura experimental...",
+    ],
+    subtitle="TT 2026 - Preparando ingesta de video...",
 )
 
-# =============== 4. CONFIGURACIÓN DE CARPETA =================
+
+def format_mm_ss(total_seconds):
+    total_seconds = max(0, int(total_seconds))
+    return f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
+
+
+def set_trim_widget_values(start_seconds, end_seconds):
+    st.session_state["trim_start_min"] = max(0, int(start_seconds)) // 60
+    st.session_state["trim_start_sec"] = max(0, int(start_seconds)) % 60
+    st.session_state["trim_end_min"] = max(0, int(end_seconds)) // 60
+    st.session_state["trim_end_sec"] = max(0, int(end_seconds)) % 60
+
+
+@st.cache_data(show_spinner=False)
+def get_video_metadata(video_path, modified_time):
+    import cv2
+
+    capture = cv2.VideoCapture(video_path)
+    if not capture.isOpened():
+        capture.release()
+        raise RuntimeError("No se pudo abrir el video para calcular su duracion.")
+
+    fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
+    frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    capture.release()
+
+    if fps <= 0 or frame_count <= 0:
+        raise RuntimeError("No se pudo obtener la duracion del video.")
+
+    duration_seconds = int(round(frame_count / fps))
+    return {
+        "fps": fps,
+        "frame_count": frame_count,
+        "duration_seconds": max(duration_seconds, 1),
+    }
+
+
+def reset_trim_context():
+    for session_key in [
+        "ruta_video_actual",
+        "inicio_recorte",
+        "fin_recorte",
+        "pipeline_dlc_activo",
+        "zonas_configuradas",
+        "_zones_cache",
+        "_zones_cache__splash_signature",
+        "trim_start_min",
+        "trim_start_sec",
+        "trim_end_min",
+        "trim_end_sec",
+        "_trim_video_source",
+        "ultimo_video_analizado",
+        "ultimo_pose_file",
+        "ultimo_pose_filtrado",
+        "ultimo_overlay_path",
+        "ultimo_bbox_video",
+        "ultimo_feature_file",
+        "ultimo_multimodal_video",
+        "ultimo_trajectory_file",
+        "ultimo_grooming_timelog",
+        "ultimo_thigmotaxis_timelog",
+        "analysis_db_notice",
+        "analysis_last_logs",
+        "analysis_last_status",
+        "analysis_last_progress",
+        "keypoints_last_logs",
+        "keypoints_last_status",
+        "keypoints_last_progress",
+    ]:
+        st.session_state.pop(session_key, None)
+
+
+def stage_video_for_edit(video_file, rat_id, treatment, experiment_date, responsible_name):
+    extension = os.path.splitext(video_file.name)[1].lower() or ".mp4"
+    clean_name = f"{rat_id}_{treatment}{extension}".replace(" ", "_")
+    save_path = os.path.join(CARPETA_VIDEOS, clean_name)
+
+    with open(save_path, "wb") as file_handle:
+        file_handle.write(video_file.getbuffer())
+
+    st.session_state["video_en_edicion"] = save_path
+    st.session_state["id_raton_actual"] = rat_id
+    st.session_state["treatment"] = treatment
+    st.session_state["ingesta_fecha_actual"] = str(experiment_date)
+    st.session_state["ingesta_responsable_actual"] = responsible_name
+    st.session_state["ingesta_video_source"] = clean_name
+    reset_trim_context()
+    save_session()
+    return clean_name
+
+
+# ================= 2. CABECERA =================
+render_topbar()
+st.markdown("### Modulo 01: Ingesta de Video")
+st.markdown(
+    """
+    Cargue el registro experimental en formato de video para iniciar el proceso de analisis conductual.
+    Defina los parametros basicos del especimen y el tratamiento administrado.
+    """
+)
+
+st.divider()
+
+# ================= 3. CARPETA DE VIDEOS =================
 CARPETA_VIDEOS = "videos_data"
 if not os.path.exists(CARPETA_VIDEOS):
     os.makedirs(CARPETA_VIDEOS)
 
-# Encabezado
-st.markdown('<div class="tt-ingesta-title">📥 Ingesta de Video Experimental</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="tt-ingesta-subtitle">'
-    'Carga el video del experimento en el laberinto en cruz elevado y selecciona el rango a analizar.'
-    '</div>',
-    unsafe_allow_html=True,
+# ================= 4. FORMULARIO DE CARGA =================
+st.markdown('<div class="content-card">', unsafe_allow_html=True)
+st.markdown("#### Parametros del Registro")
+c1, c2 = st.columns(2)
+with c1:
+    id_raton = st.text_input(
+        "ID del Especimen",
+        placeholder="Ej. MOUSE-001",
+        key="ingesta_id_raton",
+    ).strip()
+    tratamiento_input = st.text_input(
+        "ID del Tratamiento",
+        placeholder="Ej. Diazepam 5mg...",
+        key="ingesta_tratamiento",
+    ).strip()
+with c2:
+    fecha_exp = st.date_input("Fecha del Experimento", key="ingesta_fecha")
+    responsable = st.text_input(
+        "Responsable",
+        value=st.session_state.get("user_name", "Investigador"),
+        key="ingesta_responsable",
+    ).strip()
+
+video_file = st.file_uploader(
+    "Cargar Video (MP4 / MOV / AVI)",
+    type=["mp4", "mov", "avi"],
+    key="ingesta_video_file",
 )
 
-# =============== 5. FORMULARIO DE REGISTRO + CARGA =================
-st.markdown('<div class="tt-ingesta-card">', unsafe_allow_html=True)
-
-with st.form("registro_experimento"):
-    c1, c2 = st.columns(2)
-
-    with c1:
-        id_raton = st.text_input("ID del Espécimen", placeholder="Ej. MOUSE-001")
-        # Campo libre para el tratamiento según solicitud del usuario
-        tratamiento_input = st.text_input(
-            "ID del Tratamiento",
-            placeholder="Ej. Diazepam 5mg, Molécula X, Vehículo...",
-            key="tratamiento_text"
-        )
-    with c2:
-        fecha = st.date_input("Fecha del Experimento")
-        responsable = st.text_input("Responsable", value="Equipo TT")
-    
-    video_file = st.file_uploader("Cargar Video (MP4 / MOV / AVI)", type=["mp4", "mov", "avi"])
-    
-    submitted = st.form_submit_button("Cargar Video y Reemplazar Actual")
-
+st.markdown("---")
+button_cols = st.columns([1, 2])
+with button_cols[0]:
+    preparar_video = st.button("PREPARAR VIDEO Y RECORTAR", type="primary", use_container_width=True)
+with button_cols[1]:
+    if video_file is not None:
+        st.caption("Despues de preparar el video podras definir el minuto y segundo exactos a analizar.")
 st.markdown("</div>", unsafe_allow_html=True)
 
-if "video_en_edicion" in st.session_state:
-    st.info(
-        "Seleccionar un archivo en el formulario no cambia por sí solo el video activo. "
-        "Para reemplazarlo, pulsa `Cargar Video y Reemplazar Actual` y luego confirma "
-        "que el bloque azul `Video en edición` muestre el nuevo nombre."
-    )
-
-# =============== 6. PROCESAMIENTO DE LA CARGA =================
-if submitted and video_file is not None:
-    if not id_raton:
-        st.error("⚠️ Falta el ID del ratón.")
+# ================= 5. PROCESAMIENTO INICIAL =================
+if preparar_video:
+    if video_file is None:
+        st.error("Carga un video antes de preparar el recorte.")
+    elif not id_raton:
+        st.error("Ingrese un ID valido para el especimen.")
     else:
-        # Preferir el texto del campo libre (guardado en session), o vacío si no existe
-        tratamiento = (st.session_state.get("tratamiento_text") or "").strip()
-        nombre_limpio = f"{id_raton}_{tratamiento}.mp4".replace(" ", "_")
-        ruta_guardado = os.path.join("videos_data", nombre_limpio)
-        
-        with open(ruta_guardado, "wb") as f:
-            f.write(video_file.getbuffer())
-        
-        # ── Resetear estado de análisis previo al cargar video nuevo ────────
-        st.session_state["video_en_edicion"]  = ruta_guardado
-        st.session_state["id_raton_actual"]   = id_raton
-        st.session_state["treatment_id"]       = tratamiento   # usado por 04_Analisis_Final
-        st.session_state["treatment"]          = tratamiento
-        # Limpiar contexto de análisis anterior para no confundir keypoints/zonas
-        for _k in ["ruta_video_actual", "inicio_recorte", "fin_recorte",
-                   "pipeline_dlc_activo", "zonas_configuradas"]:
-            st.session_state.pop(_k, None)
-        save_session()
-        st.success(f"✅ Video '**{video_file.name}**' subido correctamente. Confirma el recorte abajo.")
-        st.rerun()  # Forzar rerender para mostrar el nuevo video inmediatamente
+        tratamiento = tratamiento_input or "Control"
+        nombre_guardado = stage_video_for_edit(
+            video_file=video_file,
+            rat_id=id_raton,
+            treatment=tratamiento,
+            experiment_date=fecha_exp,
+            responsible_name=responsable or st.session_state.get("user_name", "Investigador"),
+        )
+        st.success(f"Video cargado para edicion como: `{nombre_guardado}`.")
+        st.rerun()
 
-# =============== 7. EDITOR PERSISTENTE =================
+# ================= 6. RECORTE DE VIDEO =================
 if "video_en_edicion" in st.session_state:
     ruta_actual = st.session_state["video_en_edicion"]
+    if os.path.exists(ruta_actual):
+        st.markdown('<div class="content-card" style="border-top: 4px solid #6F1D46;">', unsafe_allow_html=True)
+        st.markdown(f"#### Edicion de Registro: `{os.path.basename(ruta_actual)}`")
+        st.info("Selecciona el tramo exacto a analizar. Por ejemplo, de `00:00` a `05:00` aunque el video dure `05:11`.")
 
-    # ── Guardia: si el archivo ya no existe en disco, limpiar la sesión ───────
-    if not os.path.exists(ruta_actual):
-        st.warning("⚠️ El video en sesión ya no existe en disco. Carga uno nuevo.")
-        st.session_state.pop("video_en_edicion", None)
-        st.stop()
+        try:
+            metadata = get_video_metadata(ruta_actual, os.path.getmtime(ruta_actual))
+            duration_seconds = metadata["duration_seconds"]
+            max_minute = max(0, duration_seconds // 60)
 
-    st.markdown('<div class="tt-ingesta-card">', unsafe_allow_html=True)
+            if st.session_state.get("_trim_video_source") != ruta_actual:
+                default_start = 0
+                default_end = duration_seconds
+                if st.session_state.get("ruta_video_actual") == ruta_actual:
+                    default_start = int(st.session_state.get("inicio_recorte", 0) or 0)
+                    default_end = int(st.session_state.get("fin_recorte", duration_seconds) or duration_seconds)
+                default_end = min(max(default_end, 1), duration_seconds)
+                set_trim_widget_values(default_start, default_end)
+                st.session_state["_trim_video_source"] = ruta_actual
 
-    # ── Banner del video activo ──────────────────────────────────────────────
-    st.warning(
-        "El recorte de abajo siempre se aplica al video mostrado en `Video en edición`. "
-        "Si acabas de seleccionar otro archivo arriba, primero debes cargarlo."
-    )
+            st.markdown(
+                f"**Duracion detectada:** `{format_mm_ss(duration_seconds)}`  \n"
+                f"**Archivo listo para analisis:** `{os.path.basename(ruta_actual)}`"
+            )
 
-    nombre_video = os.path.basename(ruta_actual)
-    id_display   = st.session_state.get("id_raton_actual", nombre_video)
-    st.markdown(
-        f"""
-        <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-left:4px solid #63b3ed;
-                    border-radius:8px;padding:0.8rem 1.2rem;margin-bottom:1rem;">
-            <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#63b3ed;">Video en edición</div>
-            <div style="font-size:1.1rem;font-weight:700;color:#EDF2F7;font-family:monospace;">{nombre_video}</div>
-            <div style="font-size:0.7rem;color:rgba(237,242,247,0.5);font-family:monospace;">ID: {id_display} · {ruta_actual}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.subheader(f"✂️ Rango de análisis")
+            quick_cols = st.columns(3)
+            with quick_cols[0]:
+                if st.button("Usar video completo", use_container_width=True, key="trim_full_video"):
+                    set_trim_widget_values(0, duration_seconds)
+                    st.rerun()
+            with quick_cols[1]:
+                if st.button(
+                    "Recortar a 05:00",
+                    use_container_width=True,
+                    key="trim_first_5min",
+                    disabled=duration_seconds < 300,
+                ):
+                    set_trim_widget_values(0, 300)
+                    st.rerun()
+            with quick_cols[2]:
+                st.caption("La previsualizacion empieza desde el punto inicial que selecciones.")
 
-    try:
-        # Lazy import: moviepy carga FFmpeg internamente; solo se importa aquí
-        # donde realmente se necesita (post-upload), no al tope de la página.
-        from moviepy.editor import VideoFileClip
-        clip = VideoFileClip(ruta_actual)
-        duracion = clip.duration
+            trim_cols = st.columns(2)
+            with trim_cols[0]:
+                st.markdown("##### Inicio de interes")
+                start_min = st.number_input(
+                    "Minuto inicial",
+                    min_value=0,
+                    max_value=max_minute,
+                    step=1,
+                    key="trim_start_min",
+                )
+                start_sec = st.number_input(
+                    "Segundo inicial",
+                    min_value=0,
+                    max_value=59,
+                    step=1,
+                    key="trim_start_sec",
+                )
 
-        def fmt_seconds_to_mmss(s: float) -> str:
-            s = max(0, int(s))
-            mm = s // 60
-            ss = s % 60
-            return f"{mm:02d}:{ss:02d}"
+            with trim_cols[1]:
+                st.markdown("##### Fin de interes")
+                end_min = st.number_input(
+                    "Minuto final",
+                    min_value=0,
+                    max_value=max_minute,
+                    step=1,
+                    key="trim_end_min",
+                )
+                end_sec = st.number_input(
+                    "Segundo final",
+                    min_value=0,
+                    max_value=59,
+                    step=1,
+                    key="trim_end_sec",
+                )
 
-        def parse_mmss_to_seconds(text: str):
-            text = (text or "").strip()
-            # Accept formats like mm:ss or m:ss or ss
-            m = re.match(r"^(\d+):(\d{1,2})$", text)
-            if m:
-                minutes = int(m.group(1))
-                seconds = int(m.group(2))
-                return minutes * 60 + seconds
-            # fallback: plain seconds number
-            if re.match(r"^\d+$", text):
-                return int(text)
-            return None
+            start_seconds = int(start_min) * 60 + int(start_sec)
+            end_seconds = int(end_min) * 60 + int(end_sec)
+            valid_range = 0 <= start_seconds < end_seconds <= duration_seconds
 
-        # Defaults for inputs
-        default_start = fmt_seconds_to_mmss(0)
-        default_end = fmt_seconds_to_mmss(duracion)
+            summary_col, preview_col = st.columns([1.05, 1.45])
+            with summary_col:
+                if valid_range:
+                    st.success(
+                        f"Se analizara de `{format_mm_ss(start_seconds)}` a `{format_mm_ss(end_seconds)}` "
+                        f"({format_mm_ss(end_seconds - start_seconds)} efectivos)."
+                    )
+                else:
+                    st.error("El rango no es valido. El inicio debe ser menor que el fin y ambos deben quedar dentro de la duracion total.")
 
-        c1, c2 = st.columns(2)
-        with c1:
-            start_text = st.text_input("Inicio (mm:ss)", value=default_start, key="inicio_recorte_text", placeholder="mm:00")
+                active_start = st.session_state.get("inicio_recorte")
+                active_end = st.session_state.get("fin_recorte")
+                if st.session_state.get("ruta_video_actual") == ruta_actual and active_start is not None and active_end is not None:
+                    st.caption(
+                        f"Recorte activo actual: {format_mm_ss(active_start)} -> {format_mm_ss(active_end)}"
+                    )
 
-        with c2:
-            end_text = st.text_input("Fin (mm:ss)", value=default_end, key="fin_recorte_text", placeholder="mm:00")
+            with preview_col:
+                preview_start = min(start_seconds, max(duration_seconds - 1, 0))
+                st.video(ruta_actual, start_time=preview_start)
 
-        start_seconds = parse_mmss_to_seconds(start_text)
-        end_seconds = parse_mmss_to_seconds(end_text)
+            action_cols = st.columns(2)
+            with action_cols[0]:
+                guardar_recorte = st.button(
+                    "GUARDAR RECORTE Y ACTIVAR",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=not valid_range,
+                    key="guardar_recorte_ingesta",
+                )
+            with action_cols[1]:
+                guardar_y_keypoints = st.button(
+                    "GUARDAR Y PASAR A KEYPOINTS",
+                    use_container_width=True,
+                    disabled=not valid_range,
+                    key="guardar_recorte_keypoints",
+                )
 
-        # Validate inputs
-        valid = True
-        if start_seconds is None:
-            st.error("Formato inválido para Inicio. Use mm:ss o segundos enteros.")
-            valid = False
-        if end_seconds is None:
-            st.error("Formato inválido para Fin. Use mm:ss o segundos enteros.")
-            valid = False
-        if valid and start_seconds is not None and end_seconds is not None:
-            if start_seconds < 0 or start_seconds > duracion:
-                st.error("El tiempo de Inicio está fuera de rango del video.")
-                valid = False
-            if end_seconds < 0 or end_seconds > duracion:
-                st.error("El tiempo de Fin está fuera de rango del video.")
-                valid = False
-            if start_seconds >= end_seconds:
-                st.error("El tiempo de Inicio debe ser menor que el tiempo de Fin.")
-                valid = False
-
-        # Show video starting at parsed start time if valid, otherwise default to 0
-        if valid and start_seconds is not None and end_seconds is not None:
-            st.video(ruta_actual, start_time=int(start_seconds))
-            st.info(f"⏱️ Se analizará de **{fmt_seconds_to_mmss(start_seconds)}** a **{fmt_seconds_to_mmss(end_seconds)}** ({start_seconds}–{end_seconds} s).")
-
-            if st.button("💾 Confirmar recorte y continuar →", type="primary"):
+            if guardar_recorte or guardar_y_keypoints:
                 st.session_state["ruta_video_actual"] = ruta_actual
-                st.session_state["inicio_recorte"]   = start_seconds
-                st.session_state["fin_recorte"]       = end_seconds
-                # treatment_id ya fue guardado en el submit del form
+                st.session_state["inicio_recorte"] = start_seconds
+                st.session_state["fin_recorte"] = end_seconds
                 save_session()
+                if guardar_y_keypoints:
+                    st.switch_page("pages/02_Keypoints.py")
+                else:
+                    st.success("Parametros de recorte guardados. Ya puedes continuar con Keypoints o Configuracion de Zonas.")
+        except Exception as error:
+            st.warning(f"Error al preparar el editor de recorte: {error}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-                # Guardar/asegurar tratamiento en la base de datos para histórico/autocompletado
-                try:
-                    from src.db.connection import get_db_engine
-                    from sqlalchemy import text
-                    engine = get_db_engine()
-                    if engine:
-                        with engine.connect() as conn:
-                            # Intentar obtener el id del usuario
-                            usr_email = st.session_state.get("user", "admin")
-                            res_usr = conn.execute(text("SELECT id FROM users WHERE username = :u"), {"u": usr_email}).fetchone()
-                            user_id = res_usr[0] if res_usr else None
-
-                            # Si ya existe un experimento con este video_path, actualizar su treatment y marcar processed=False
-                            existing = conn.execute(text("SELECT id FROM experiments WHERE video_path = :path LIMIT 1"), {"path": ruta_actual}).fetchone()
-                            if existing:
-                                conn.execute(text("UPDATE experiments SET treatment = :treat, processed = FALSE WHERE id = :eid"), {"treat": st.session_state.get("treatment", ""), "eid": existing[0]})
-                            else:
-                                # Insertar registro mínimo para preservar tratamiento en histórico
-                                conn.execute(text(
-                                    """
-                                    INSERT INTO experiments (rat_id, treatment, experiment_date, responsible, video_path, duration_seconds, created_by, processed)
-                                    VALUES (:rid, :treat, CURRENT_DATE, :resp, :path, NULL, :uid, FALSE)
-                                    """), {
-                                    "rid": st.session_state.get("id_raton_actual", "Unknown-Rat"),
-                                    "treat": st.session_state.get("treatment", ""),
-                                    "resp": st.session_state.get("user_name", "Investigador"),
-                                    "path": ruta_actual,
-                                    "uid": user_id
-                                })
-                            conn.commit()
-                except Exception as e:
-                    st.error(f"Error guardando tratamiento en BD: {e}")
-
-                st.balloons()
-                st.success("✅ ¡Datos guardados! Ahora ve a la página **Configuración Zonas**.")
-        else:
-            # still show full video preview if parsing invalid
-            st.video(ruta_actual)
-
-        clip.close()
-
-    except Exception as e:
-        st.error(f"Error cargando el video para edición: {e}")
-
-    st.markdown("</div>", unsafe_allow_html=True)
+# Footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
+        IPN - Unidad de Investigacion de Comportamiento Animal 2026
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
