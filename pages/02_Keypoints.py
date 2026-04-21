@@ -161,21 +161,27 @@ def parse_extract_progress(lines, current_progress):
     status = "Preparando extraccion y postproceso..."
 
     for line in lines:
-        if "[STEP] DLC" in line:
+        if "[STEP] YOLO11_POSE" in line:
+            progress = max(progress, 0.05)
+            status = "Preparando entorno YOLO11..."
+        elif "[STEP] DLC" in line:
             progress = max(progress, 0.05)
             status = "Preparando entorno DLC..."
         elif "[STEP] BOOT" in line:
             progress = max(progress, 0.08)
-            status = "Preparando entorno DLC..."
+            status = "Inicializando pipeline..."
         elif "[STEP] TRIM" in line:
             progress = max(progress, 0.12)
             status = "Aplicando recorte seleccionado..."
+        elif "[STEP] IMPORT_YOLO" in line:
+            progress = max(progress, 0.18)
+            status = "Cargando modelo YOLO11..."
         elif "[STEP] IMPORT_DLC" in line:
             progress = max(progress, 0.18)
             status = "Cargando DeepLabCut y TensorFlow..."
         elif "[STEP] INFERENCE" in line:
             progress = max(progress, 0.36)
-            status = "Extrayendo keypoints con SuperAnimal..."
+            status = "Extrayendo keypoints..."
         elif "[STEP] BBOX" in line:
             progress = max(progress, 0.62)
             status = "Aplicando filtro bbox a los keypoints..."
@@ -195,11 +201,28 @@ def parse_extract_progress(lines, current_progress):
             status = f"Recortando video... {int(ratio * 100)}%"
             break
 
+        # Progreso de inferencia
+        inference_match = re.search(r"\[INFERENCE\]\s+(\d+)/(\d+)", line)
+        if inference_match:
+            current = int(inference_match.group(1))
+            total = max(int(inference_match.group(2)), 1)
+            ratio = current / total
+            progress = max(progress, 0.36 + (0.26 * ratio))
+            status = f"Extrayendo keypoints... {int(ratio * 100)}%"
+            break
+
         heartbeat_match = re.search(r"\[HEARTBEAT\]\s+inference\s+elapsed=(\d+)s", line)
         if heartbeat_match:
             elapsed = int(heartbeat_match.group(1))
             progress = min(max(progress + 0.02, 0.42), 0.88)
             status = f"Extrayendo keypoints... {format_mm_ss(elapsed)} transcurridos"
+            break
+
+        import_yolo_match = re.search(r"\[HEARTBEAT\]\s+import_yolo\s+elapsed=(\d+)s", line)
+        if import_yolo_match:
+            elapsed = int(import_yolo_match.group(1))
+            progress = min(max(progress + 0.015, 0.18), 0.32)
+            status = f"Importando YOLO11... {format_mm_ss(elapsed)} transcurridos"
             break
 
         import_match = re.search(r"\[HEARTBEAT\]\s+import_dlc\s+elapsed=(\d+)s", line)
@@ -539,6 +562,8 @@ def find_pose_file(video_path):
     video_dir = os.path.dirname(video_path)
     base_name = os.path.splitext(os.path.basename(video_path))[0]
     patterns = [
+        f"{base_name}*YOLO11*.csv",  # Archivos YOLO11
+        f"{base_name}*pose*.csv",    # Archivos de pose genéricos
         f"{base_name}*filtered*.csv",
         f"{base_name}*filtered*.h5",
         f"{base_name}*_bbox_constrained.csv",
@@ -681,24 +706,34 @@ def render_log_panel(snapshot=None):
     st.code(last_logs, language="bash")
 
 
-def build_extract_command(batch_size, device_option):
+def build_extract_command(batch_size, device_option, motor="YOLO11 Pose (Recomendado)"):
     script_path = os.path.abspath(os.path.join("src", "scripts", "run_behavior_pipeline.py"))
     video_path = os.path.abspath(st.session_state["ruta_video_actual"])
     start_seconds = int(st.session_state.get("inicio_recorte", 0) or 0)
     end_seconds = st.session_state.get("fin_recorte")
     zones = st.session_state.get("zonas_configuradas") or []
 
+    # Determinar método de pose según el motor seleccionado
+    pose_method = "yolo11" if "YOLO11" in motor else "dlc"
+    
     command = [
         sys.executable,
         script_path,
         "--video",
         video_path,
-        "--batch-size",
-        str(int(batch_size)),
+        "--pose-method",
+        pose_method,
         "--start-seconds",
         str(start_seconds),
         "--skip-final-video",
     ]
+    
+    # Agregar parámetros específicos según el método
+    if pose_method == "yolo11":
+        command.extend(["--conf-threshold", "0.25"])
+    else:
+        command.extend(["--batch-size", str(int(batch_size))])
+    
     if end_seconds is not None:
         command.extend(["--end-seconds", str(int(end_seconds))])
     if device_option == "CPU (Forzar)":
@@ -740,7 +775,7 @@ st.markdown("### Modulo 02: Extraccion de Keypoints")
 st.markdown(
     """
     Proceso de vision computacional para la extraccion de coordenadas anatomicas.
-    Utilice DeepLabCut SuperAnimal para procesar el video y generar una vista previa del overlay.
+    Utilice YOLO11 Pose (recomendado) o DeepLabCut SuperAnimal para procesar el video y generar keypoints.
     """
 )
 
@@ -780,37 +815,47 @@ with col_left:
     st.markdown("#### Configuracion del Motor")
     motor = st.radio(
         "Motor de Inferencia",
-        ["DeepLabCut SuperAnimal", "YOLO Pose (Experimental)"],
+        ["YOLO11 Pose (Recomendado)", "DeepLabCut SuperAnimal"],
         index=0,
         key="keypoints_motor",
     )
-    if motor != "DeepLabCut SuperAnimal":
-        st.warning("La ruta operativa de este modulo hoy esta conectada a DeepLabCut SuperAnimal.")
+    if motor == "DeepLabCut SuperAnimal":
+        st.info("DeepLabCut SuperAnimal es el motor legacy. YOLO11 es mas rapido y preciso.")
 
     st.markdown("---")
     st.caption(f"Rango activo a analizar: `{get_trim_summary()}`")
 
     with st.expander("Parametros de Analisis", expanded=True):
-        batch_size = st.slider(
-            "Batch Size",
-            min_value=4,
-            max_value=32,
-            value=int(st.session_state.get("dlc_batch_size", 16) or 16),
-            step=4,
-            help="Capado a 32 para no castigar demasiado la GPU. En laptop, 16 suele ser el punto mas estable.",
-        )
+        if motor == "DeepLabCut SuperAnimal":
+            batch_size = st.slider(
+                "Batch Size",
+                min_value=4,
+                max_value=32,
+                value=int(st.session_state.get("dlc_batch_size", 16) or 16),
+                step=4,
+                help="Capado a 32 para no castigar demasiado la GPU. En laptop, 16 suele ser el punto mas estable.",
+            )
+            st.caption("Mi recomendacion: deja 32 como tope, pero usa 16 por default y sube a 24/32 solo si la GPU se mantiene estable.")
+        else:
+            batch_size = 16  # Valor por defecto para mantener compatibilidad
+            st.info("YOLO11 procesa el video de forma eficiente. Umbral de confianza: 0.25")
+        
         device_option = st.selectbox(
             "Dispositivo Hardware",
             ["Auto (Recomendado)", "CPU (Forzar)"],
             index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
         )
-        st.caption("Mi recomendacion: deja 32 como tope, pero usa 16 por default y sube a 24/32 solo si la GPU se mantiene estable.")
-        st.caption("Al terminar DLC, este flujo aplica bbox y deja sincronizado el bridge hacia SimBA en automatico.")
+        
+        if motor == "DeepLabCut SuperAnimal":
+            st.caption("Al terminar DLC, este flujo aplica bbox y deja sincronizado el bridge hacia SimBA en automatico.")
+        else:
+            st.caption("Al terminar la extraccion, este flujo aplica filtros y sincroniza con SimBA en automatico.")
 
     extraction_running = extract_snapshot["is_running"]
-    extraction_disabled = motor != "DeepLabCut SuperAnimal" or not dlc_available or extraction_running
-    if not dlc_available:
+    extraction_disabled = extraction_running
+    if motor == "DeepLabCut SuperAnimal" and not dlc_available:
         st.error(f"No se encontro el interprete GPU esperado en `{dlc_python}`.")
+        extraction_disabled = True
 
     st.markdown("<br>", unsafe_allow_html=True)
     if extraction_running:
@@ -874,7 +919,7 @@ if action == "extract":
     st.session_state["dlc_device_opt"] = device_option
     save_session()
 
-    launch_background_extract(build_extract_command(batch_size, device_option))
+    launch_background_extract(build_extract_command(batch_size, device_option, motor))
     st.rerun()
 
 elif action == "cancel_extract":

@@ -1,0 +1,31 @@
+# Requirements para venv_310 (Python 3.10)
+# Para DeepLabCut con GPU/CUDA y SimBA
+
+# PyTorch con CUDA (busca en PyPI primero, luego en PyTorch)
+--extra-index-url https://download.pytorch.org/whl/nightly/cu128
+torch>=2.11.0.dev
+torchvision>=0.25.0.dev
+
+# DeepLabCut y dependencias
+deeplabcut
+tensorflow==2.15.1
+keras<3
+opencv-python
+numpy<2.0
+scipy
+matplotlib
+pandas
+scikit-learn
+pillow
+PyYAML
+tqdm
+imageio
+imageio-ffmpeg
+
+# SimBA (usar versión con wheel precompilado)
+simba-uw-tf-dev>=1.95.5
+
+# Utilidades adicionales
+python-dotenv
+psycopg2-binary
+SQLAlchemy

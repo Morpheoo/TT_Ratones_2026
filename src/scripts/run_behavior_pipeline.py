@@ -19,6 +19,7 @@ from src.config import GROOMING_MODEL, SIMBA_BASE, SIMBA_PROJECT_DIR, THIGMOTAXI
 PY310 = PROJECT_ROOT / "venv_310" / "Scripts" / "python.exe"
 PY311 = PROJECT_ROOT / "venv_311" / "Scripts" / "python.exe"
 RUN_SUPERANIMAL_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "run_superanimal.py"
+RUN_YOLO11_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "run_yolo11_pose.py"
 APPLY_BBOX_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "apply_dlc_bbox_constraint.py"
 COMPUTE_FEATURES_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "compute_simba_features.py"
 FINAL_VIDEO_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "generar_video_prediccion.py"
@@ -180,6 +181,48 @@ def run_dlc_stage(
     return analyzed_video, pose_file
 
 
+def run_yolo11_stage(
+    *,
+    video_path: Path,
+    conf_threshold: float,
+    start_seconds: float,
+    end_seconds: float | None,
+    force_cpu: bool,
+) -> tuple[Path, Path]:
+    log("[STEP] YOLO11_POSE")
+    command = [
+        str(PY311),
+        str(RUN_YOLO11_SCRIPT),
+        "--video",
+        str(video_path.resolve()),
+        "--conf",
+        str(conf_threshold),
+        "--start-seconds",
+        str(start_seconds),
+    ]
+    if end_seconds is not None:
+        command.extend(["--end-seconds", str(end_seconds)])
+    if force_cpu:
+        command.append("--force-cpu")
+
+    markers = collect_output_markers(run_and_stream(command, "YOLO11"))
+    analyzed_video = Path(markers.get("analyzed_video", str(video_path.resolve()))).resolve()
+    pose_candidate = markers.get("pose_file")
+    if not pose_candidate:
+        inferred_pose = find_pose_file(analyzed_video)
+        pose_candidate = str(inferred_pose) if inferred_pose else ""
+    if not pose_candidate:
+        raise FileNotFoundError(f"Pose file not found after YOLO11 stage for {analyzed_video}")
+
+    pose_file = Path(pose_candidate).resolve()
+    if not pose_file.exists() or pose_file.is_dir():
+        raise FileNotFoundError(f"Pose file not found after YOLO11 stage: {pose_file}")
+
+    log(f"[OUTPUT] ANALYZED_VIDEO={analyzed_video}")
+    log(f"[OUTPUT] RAW_POSE_FILE={pose_file}")
+    return analyzed_video, pose_file
+
+
 def run_bbox_stage(*, analyzed_video: Path, pose_file: Path) -> tuple[Path, Path, Path]:
     log("[STEP] BBOX")
     base_name = analyzed_video.stem
@@ -319,8 +362,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video", required=True, help="Input video path.")
     parser.add_argument("--zones-file", default="", help="Path to the normalized zones JSON file.")
     parser.add_argument("--project-root", default=str(SIMBA_BASE.resolve()), help="Root path of the active SimBA project.")
-    parser.add_argument("--batch-size", type=int, default=16, help="Batch size for DLC inference.")
-    parser.add_argument("--force-cpu", action="store_true", help="Force CPU for the DLC stage.")
+    parser.add_argument("--pose-method", choices=["yolo11", "dlc"], default="yolo11", help="Pose estimation method (yolo11 or dlc).")
+    parser.add_argument("--batch-size", type=int, default=16, help="Batch size for DLC inference (only used with --pose-method dlc).")
+    parser.add_argument("--conf-threshold", type=float, default=0.25, help="Confidence threshold for YOLO11 (only used with --pose-method yolo11).")
+    parser.add_argument("--force-cpu", action="store_true", help="Force CPU for the pose estimation stage.")
     parser.add_argument("--start-seconds", type=float, default=0.0, help="Trim start in seconds.")
     parser.add_argument("--end-seconds", type=float, default=None, help="Trim end in seconds.")
     parser.add_argument("--skip-final-video", action="store_true", help="Stop after bbox + SimBA feature sync.")
@@ -336,9 +381,16 @@ def main() -> int:
         zones_file = Path(args.zones_file).expanduser().resolve() if args.zones_file else None
 
         ensure_path(video_path, "Input video")
-        ensure_path(PY310, "venv_310 python")
-        ensure_path(PY311, "venv_311 python")
-        ensure_path(RUN_SUPERANIMAL_SCRIPT, "DLC script")
+        
+        # Validar scripts según el método de pose elegido
+        if args.pose_method == "yolo11":
+            ensure_path(PY311, "venv_311 python")
+            ensure_path(RUN_YOLO11_SCRIPT, "YOLO11 script")
+        else:
+            ensure_path(PY310, "venv_310 python")
+            ensure_path(RUN_SUPERANIMAL_SCRIPT, "DLC script")
+        
+        ensure_path(PY311, "venv_311 python (for pipeline)")
         ensure_path(APPLY_BBOX_SCRIPT, "BBox script")
         ensure_path(COMPUTE_FEATURES_SCRIPT, "SimBA feature bridge")
         ensure_path(FINAL_VIDEO_SCRIPT, "Multimodal renderer")
@@ -354,7 +406,11 @@ def main() -> int:
         log("[STEP] BOOT")
         log(f"[INFO] Video: {video_path}")
         log(f"[INFO] SimBA project: {project_root}")
-        log(f"[INFO] DLC batch size: {max(4, min(int(args.batch_size), 32))}")
+        log(f"[INFO] Pose method: {args.pose_method.upper()}")
+        if args.pose_method == "dlc":
+            log(f"[INFO] DLC batch size: {max(4, min(int(args.batch_size), 32))}")
+        else:
+            log(f"[INFO] YOLO11 confidence threshold: {args.conf_threshold}")
         log(f"[INFO] Force CPU: {bool(args.force_cpu)}")
         if zones_file is not None:
             log(f"[INFO] Zones file: {zones_file}")
@@ -363,13 +419,23 @@ def main() -> int:
         config_path = ensure_simba_project_config(project_root)
         log(f"[OUTPUT] SIMBA_CONFIG={config_path.resolve()}")
 
-        analyzed_video, raw_pose = run_dlc_stage(
-            video_path=video_path,
-            batch_size=max(4, min(int(args.batch_size), 32)),
-            start_seconds=float(args.start_seconds or 0.0),
-            end_seconds=None if args.end_seconds is None else float(args.end_seconds),
-            force_cpu=bool(args.force_cpu),
-        )
+        # Ejecutar etapa de pose según el método elegido
+        if args.pose_method == "yolo11":
+            analyzed_video, raw_pose = run_yolo11_stage(
+                video_path=video_path,
+                conf_threshold=float(args.conf_threshold),
+                start_seconds=float(args.start_seconds or 0.0),
+                end_seconds=None if args.end_seconds is None else float(args.end_seconds),
+                force_cpu=bool(args.force_cpu),
+            )
+        else:
+            analyzed_video, raw_pose = run_dlc_stage(
+                video_path=video_path,
+                batch_size=max(4, min(int(args.batch_size), 32)),
+                start_seconds=float(args.start_seconds or 0.0),
+                end_seconds=None if args.end_seconds is None else float(args.end_seconds),
+                force_cpu=bool(args.force_cpu),
+            )
         filtered_pose, filtered_csv, bbox_video = run_bbox_stage(
             analyzed_video=analyzed_video,
             pose_file=raw_pose,

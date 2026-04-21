@@ -59,6 +59,10 @@ DLC_MODEL_PATH = DLC_MODEL_DIR / "DLC_ma_supertopview5k_resnet_50_iteration-0_sh
 # YOLO
 # ============================================
 
+YOLO_MODELS_DIR = MODELS_DIR / "yolo"
+YOLO_POSE_MODEL = YOLO_MODELS_DIR / "yolo11s_pose_raton_v12.pt"
+
+# Legacy fallback
 YOLO_MODEL = PROJECT_ROOT / os.getenv("YOLO_MODEL", "yolo_tracker.pt")
 
 # ============================================
@@ -116,8 +120,11 @@ def validate_paths():
     if not THIGMOTAXIS_MODEL.exists():
         issues.append(f"❌ Modelo Thigmotaxis no encontrado: {THIGMOTAXIS_MODEL}")
     
+    if not YOLO_POSE_MODEL.exists():
+        issues.append(f"❌ Modelo YOLO11 Pose no encontrado: {YOLO_POSE_MODEL}")
+    
     if not DLC_MODEL_PATH.exists():
-        issues.append(f"❌ Modelo DeepLabCut no encontrado: {DLC_MODEL_PATH}")
+        issues.append(f"⚠️ Modelo DeepLabCut no encontrado: {DLC_MODEL_PATH}")
     
     if not FFMPEG_PATH:
         issues.append(f"⚠️ FFmpeg no encontrado en el sistema")
@@ -138,8 +145,9 @@ if __name__ == "__main__":
     print(f"📁 Directorio de modelos: {MODELS_DIR}")
     print(f"\n🤖 Modelo Grooming: {GROOMING_MODEL}")
     print(f"🤖 Modelo Thigmotaxis: {THIGMOTAXIS_MODEL}")
+    print(f"🤖 Modelo YOLO11 Pose: {YOLO_POSE_MODEL}")
     print(f"🤖 Modelo DeepLabCut: {DLC_MODEL_PATH}")
-    print(f"🤖 Modelo YOLO: {YOLO_MODEL}")
+    print(f"🤖 Modelo YOLO (legacy): {YOLO_MODEL}")
     print(f"\n🎬 FFmpeg: {FFMPEG_PATH or 'NO ENCONTRADO'}")
     
     print("\n" + "=" * 60)

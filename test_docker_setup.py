@@ -9,6 +9,10 @@ import sys
 import time
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 # Configuración
 WINDOWS = sys.platform == "win32"
@@ -17,7 +21,7 @@ CONTAINER_NAME = "tt_ratones_db"
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 DB_PORT = int(os.getenv("DB_PORT", 5432))
 DB_USER = os.getenv("POSTGRES_USER", "admin")
-DB_PASS = os.getenv("POSTGRES_PASSWORD", "admin_secure_password")
+DB_PASS = os.getenv("POSTGRES_PASSWORD", "secure_password_here")
 DB_NAME = os.getenv("POSTGRES_DB", "ratones_lab")
 
 

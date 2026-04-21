@@ -48,20 +48,62 @@ def _looks_like_dlc_multilevel_csv(input_csv: str) -> bool:
         return False
 
 
+def _looks_like_yolo_pose_csv(input_csv: str) -> bool:
+    """Detecta si es un CSV de YOLO11 pose."""
+    try:
+        with open(input_csv, "r", encoding="utf-8", errors="ignore") as file_handle:
+            first_line = file_handle.readline().strip().lower()
+            second_line = file_handle.readline().strip().lower()
+        # El formato YOLO tiene "yolo" en la primera línea seguido de bodyparts en la segunda
+        return "yolo" in first_line and ("nose" in second_line or "paw" in second_line or "neck" in second_line)
+    except Exception:
+        return False
+
+
 def _load_pose_dataframe(input_path: str) -> pd.DataFrame:
     ext = os.path.splitext(input_path)[1].lower()
     if ext == ".h5":
         return pd.read_hdf(input_path)
-    if ext == ".csv" and _looks_like_dlc_multilevel_csv(input_path):
-        return pd.read_csv(input_path, header=[0, 1, 2], index_col=0)
+    if ext == ".csv":
+        if _looks_like_dlc_multilevel_csv(input_path):
+            # Formato DeepLabCut: 3 niveles de encabezado, índice en columna 0
+            return pd.read_csv(input_path, header=[0, 1, 2], index_col=0)
+        elif _looks_like_yolo_pose_csv(input_path):
+            # Formato YOLO11: 3 niveles de encabezado, índice en columna 0
+            return pd.read_csv(input_path, header=[0, 1, 2], index_col=0)
+        else:
+            # Intentar cargar como CSV simple y convertir
+            df = pd.read_csv(input_path)
+            if 'frame' in df.columns:
+                df = df.set_index('frame')
+            return df
     raise ValueError(f"Unsupported pose file for renderer: {input_path}")
 
 
 def _extract_bodyparts(df_pose: pd.DataFrame) -> list[str]:
-    if not isinstance(df_pose.columns, pd.MultiIndex) or df_pose.columns.nlevels < 3:
-        raise ValueError("Expected DeepLabCut MultiIndex columns (scorer, bodyparts, coords).")
+    if not isinstance(df_pose.columns, pd.MultiIndex):
+        # Si no es multi-índice, intentar extraer de nombres de columnas
+        # Formato esperado: bodypart_x, bodypart_y, bodypart_likelihood
+        bodyparts_set = set()
+        for col in df_pose.columns:
+            if isinstance(col, str):
+                # Remover sufijos _x, _y, _likelihood
+                for suffix in ['_x', '_y', '_likelihood']:
+                    if col.endswith(suffix):
+                        bodypart = col[:-len(suffix)]
+                        bodyparts_set.add(bodypart)
+                        break
+        return sorted(list(bodyparts_set))
+    
+    if df_pose.columns.nlevels < 2:
+        raise ValueError("Expected at least 2 levels in MultiIndex columns.")
+    
+    # Para formato DeepLabCut: nivel 1 son los bodyparts
+    # Para formato YOLO11: nivel 1 también son los bodyparts
     bodyparts = df_pose.columns.get_level_values(1).unique().tolist()
-    return [str(bodypart) for bodypart in bodyparts]
+    # Filtrar valores vacíos
+    bodyparts = [str(bp) for bp in bodyparts if bp and str(bp).strip()]
+    return bodyparts
 
 
 def _build_bodypart_palette(bodyparts: list[str]) -> dict[str, tuple[int, int, int]]:
@@ -75,18 +117,41 @@ def _build_bodypart_palette(bodyparts: list[str]) -> dict[str, tuple[int, int, i
 
 
 def _resolve_column(df_pose: pd.DataFrame, bodypart: str, coord: str):
+    """Resuelve la columna para un bodypart y coordenada, soportando múltiples formatos."""
+    
+    # Caso 1: No es multi-índice (formato simple)
+    if not isinstance(df_pose.columns, pd.MultiIndex):
+        # Buscar columna con formato bodypart_coord
+        for suffix in [f"_{coord}", f"_{coord[0]}"]:  # Probar _x, _y, _likelihood o _p
+            col_name = f"{bodypart}{suffix}"
+            if col_name in df_pose.columns:
+                return col_name
+        return None
+    
+    # Caso 2: Multi-índice
     if bodypart not in df_pose.columns.get_level_values(1):
         return None
 
+    # Obtener el scorer (nivel 0)
     scorer = df_pose.columns[df_pose.columns.get_level_values(1) == bodypart][0][0]
+    
+    # Probar diferentes variantes de coordenadas
     coord_candidates = [coord]
     if coord == "likelihood":
-        coord_candidates.extend(["p"])
-
+        coord_candidates.extend(["p", "conf", "confidence"])
+    
     for coord_name in coord_candidates:
-        column = (scorer, bodypart, coord_name)
-        if column in df_pose.columns:
-            return column
+        if df_pose.columns.nlevels == 3:
+            # Formato DeepLabCut: (scorer, bodypart, coord)
+            column = (scorer, bodypart, coord_name)
+            if column in df_pose.columns:
+                return column
+        elif df_pose.columns.nlevels == 2:
+            # Formato simplificado: (bodypart, coord)
+            column = (bodypart, coord_name)
+            if column in df_pose.columns:
+                return column
+    
     return None
 
 

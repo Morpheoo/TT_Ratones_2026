@@ -66,7 +66,17 @@ def _looks_like_dlc_multilevel_csv(input_csv: str) -> bool:
         with open(input_csv, "r", encoding="utf-8", errors="ignore") as file_handle:
             first_line = file_handle.readline().strip().lower()
             second_line = file_handle.readline().strip().lower()
-        return first_line.startswith("scorer,") and second_line.startswith("bodyparts,")
+        
+        # Formato DeepLabCut tradicional
+        if first_line.startswith("scorer,") and second_line.startswith("bodyparts,"):
+            return True
+        
+        # Formato YOLO11: primera línea tiene "frame" y el scorer repetido
+        # Segunda línea tiene los nombres de keypoints (nose, neck, body_center, etc.)
+        if "yolo" in first_line and ("nose" in second_line or "neck" in second_line or "paw" in second_line):
+            return True
+        
+        return False
     except Exception:
         return False
 
@@ -75,18 +85,32 @@ def _load_pose_dataframe(input_csv: str) -> pd.DataFrame:
     """
     Acepta:
     - CSV DLC crudo con encabezado multinivel (scorer/bodyparts/coords)
+    - CSV YOLO11 con encabezado multinivel (scorer/bodyparts/coords)
     - CSV ya aplanado tipo SimBA
     - CSV enriquecido de features que aun conserva las 24 columnas base
     """
     if _looks_like_dlc_multilevel_csv(input_csv):
-        print("[ENGINE] Formato detectado: CSV DLC crudo (multi-header)")
+        print("[ENGINE] Formato detectado: CSV multi-header (DLC/YOLO11)")
         df_in = pd.read_csv(input_csv, header=[0, 1, 2], index_col=0)
         flat_columns = []
-        for _, bodypart, coord in df_in.columns:
+        for scorer, bodypart, coord in df_in.columns:
+            # Filtrar columnas vacías del multi-índice
+            if not bodypart or str(bodypart).strip() == '':
+                continue
             coord_name = "likelihood" if str(coord) in {"p", "likelihood"} else str(coord)
             flat_columns.append(f"{bodypart}_{coord_name}")
+        
+        # Mantener solo las columnas válidas
+        if len(flat_columns) < len(df_in.columns):
+            # Hay columnas vacías, filtrarlas
+            valid_cols = []
+            for i, (scorer, bodypart, coord) in enumerate(df_in.columns):
+                if bodypart and str(bodypart).strip():
+                    valid_cols.append(df_in.columns[i])
+            df_in = df_in[valid_cols]
+        
         df_in.columns = flat_columns
-        df_in = df_in.reset_index().rename(columns={"index": "Unnamed: 0"})
+        df_in = df_in.reset_index().rename(columns={df_in.index.name or "index": "Unnamed: 0"})
         return df_in
 
     print("[ENGINE] Formato detectado: CSV tabular")
@@ -448,45 +472,54 @@ def _get_existing_canonical_rois(project_folder: str, video_name: str) -> list[s
 
 
 def _build_pose_bridge(input_csv: str, output_dir: str, video_name: str) -> str:
-    print("[ENGINE] Mapeando bodyparts DLC a configuracion SimBA 8bp...")
+    print("[ENGINE] Mapeando bodyparts DLC/YOLO11 a configuracion SimBA 8bp...")
     df_in = _load_pose_dataframe(input_csv)
+    
+    # Mapeo expandido para soportar keypoints de DeepLabCut y YOLO11
     mapping = {
         "Nose": ["nose", "Nose"],
-        "Ear_left": ["left_ear", "Ear_left"],
-        "Ear_right": ["right_ear", "Ear_right"],
-        "Center": ["mouse_center", "head_midpoint", "Head_center", "Center"],
-        "Lat_left": ["left_midside", "Lateral_left", "Lat_left"],
-        "Lat_right": ["right_midside", "Lateral_right", "Lat_right"],
+        "Ear_left": ["left_ear", "Ear_left", "neck"],  # YOLO11: usar neck como aproximación
+        "Ear_right": ["right_ear", "Ear_right", "neck"],  # YOLO11: usar neck como aproximación
+        "Center": ["body_center", "mouse_center", "head_midpoint", "Head_center", "Center", "neck"],
+        "Lat_left": ["left_front_paw", "left_midside", "Lateral_left", "Lat_left"],
+        "Lat_right": ["right_front_paw", "right_midside", "Lateral_right", "Lat_right"],
         "Tail_base": ["tail_base", "Tail_base"],
-        "Tail_end": ["tail1", "tail_end", "Tail_end"],
+        "Tail_end": ["tail1", "tail_end", "Tail_end", "tail_base"],  # YOLO11: usar tail_base como aproximación si no hay tail_end
     }
 
-    cols_to_keep = ["Unnamed: 0"]
-    rename_dict: dict[str, str] = {}
+    # Rastrear qué columnas originales se usan para cada SimBA bodypart
+    source_map = {}  # {simba_col: source_col}
     matched_columns = 0
     missing_columns: list[str] = []
+    
     for simba_name, dlc_candidates in mapping.items():
         for suffix in ("_x", "_y", "_likelihood"):
             new_col = f"{simba_name}{'_p' if suffix == '_likelihood' else suffix}"
             old_col = _resolve_pose_column(df_in.columns, dlc_candidates, suffix)
-            if old_col in df_in.columns:
-                cols_to_keep.append(old_col)
-                rename_dict[old_col] = new_col
+            if old_col and old_col in df_in.columns:
+                source_map[new_col] = old_col
                 matched_columns += 1
             else:
-                df_in[new_col] = 0.0
-                cols_to_keep.append(new_col)
+                source_map[new_col] = None
                 missing_columns.append(f"{dlc_candidates[0]}{suffix}")
 
     print(f"[ENGINE] Columnas base encontradas: {matched_columns}/24")
     if missing_columns:
-        print(f"[ENGINE] Columnas faltantes rellenadas con 0.0: {missing_columns[:8]}")
-    if matched_columns < 12:
+        print(f"[ENGINE] Columnas faltantes rellenadas con 0.0: {', '.join(missing_columns[:6])}")
+    
+    # Reducir el umbral para YOLO11 que tiene menos keypoints
+    if matched_columns < 6:
         raise ValueError(
-            "No se detectaron suficientes keypoints DLC/SimBA en el CSV fuente. "
-            f"Columnas encontradas: {matched_columns}/24"
+            "No se detectaron suficientes keypoints en el CSV fuente. "
+            f"Columnas encontradas: {matched_columns}/24. Se requieren al menos 6."
         )
+    
+    # Construir DataFrame final con mapeo explícito
+    df_bridge_data = {"Unnamed: 0": df_in["Unnamed: 0"]}
 
+    # Construir DataFrame final con mapeo explícito
+    df_bridge_data = {"Unnamed: 0": df_in["Unnamed: 0"]}
+    
     ordered_cols = [
         "Unnamed: 0",
         "Nose_x",
@@ -514,7 +547,16 @@ def _build_pose_bridge(input_csv: str, output_dir: str, video_name: str) -> str:
         "Tail_end_y",
         "Tail_end_p",
     ]
-    df_bridge = df_in[cols_to_keep].rename(columns=rename_dict)[ordered_cols]
+    
+    # Copiar o crear cada columna según el mapeo
+    for simba_col in ordered_cols[1:]:  # Skip "Unnamed: 0"
+        source_col = source_map.get(simba_col)
+        if source_col:
+            df_bridge_data[simba_col] = df_in[source_col].copy()
+        else:
+            df_bridge_data[simba_col] = 0.0
+    
+    df_bridge = pd.DataFrame(df_bridge_data)
     bridge_csv = os.path.join(output_dir, f"bridge_{video_name}.csv")
     df_bridge.to_csv(bridge_csv, index=False)
     print(f"[ENGINE] Bridge 8bp generado: {bridge_csv}")

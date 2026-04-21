@@ -12,7 +12,7 @@ import numpy as np
 import json
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
+YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "data", "models", "yolo", "yolo11s_pose_raton_v12.pt")
 SIMBA_MODELS_DIR = os.path.join(
     PROJECT_DIR,
     "data",

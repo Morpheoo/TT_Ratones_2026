@@ -77,14 +77,14 @@ if exist "venv_311\Scripts\activate.bat" (
 
 echo.
 echo [INFO] Comprobando dependencias de Python (Streamlit, SQLAlchemy, etc)...
-python -c "import streamlit, psycopg2, sqlalchemy, dotenv" >nul 2>&1
+python -c "import streamlit" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [WARN] Faltan librerias basicas de Python. 
-    echo [INFO] Iniciando instalacion automatica desde requirements.txt...
-    pip install -r requirements.txt
+    echo [INFO] Iniciando instalacion automatica desde requirements_venv311.txt...
+    pip install -r requirements_venv311.txt
     if %errorlevel% neq 0 (
         echo [ERROR] Ocurrio un error al instalar las dependencias.
-        echo [INFO] Es posible que necesites ejecutarr "pip install -r requirements.txt" como administrador.
+        echo [INFO] Es posible que necesites ejecutar "pip install -r requirements_venv311.txt" como administrador.
         pause
     ) else (
         echo [OK] Dependencias instaladas correctamente.
