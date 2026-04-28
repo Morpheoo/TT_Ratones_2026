@@ -127,7 +127,12 @@ def is_output_fresh(output_path: Path, dependencies: list[Path]) -> bool:
     return True
 
 
-def ensure_simba_project_config(project_root: Path) -> Path:
+def ensure_simba_project_config(
+    project_root: Path,
+    *,
+    grooming_model: Path = GROOMING_MODEL,
+    thigmotaxis_model: Path = THIGMOTAXIS_MODEL,
+) -> Path:
     config_path = project_root / "project_folder" / "project_config.ini"
     ensure_path(config_path, "SimBA project config")
 
@@ -135,8 +140,8 @@ def ensure_simba_project_config(project_root: Path) -> Path:
     config.read(config_path, encoding="utf-8")
 
     config.set("SML settings", "model_dir", str((project_root / "models").resolve()))
-    config.set("SML settings", "model_path_1", str(THIGMOTAXIS_MODEL.resolve()))
-    config.set("SML settings", "model_path_2", str(GROOMING_MODEL.resolve()))
+    config.set("SML settings", "model_path_1", str(thigmotaxis_model.resolve()))
+    config.set("SML settings", "model_path_2", str(grooming_model.resolve()))
 
     with open(config_path, "w", encoding="utf-8") as config_file:
         config.write(config_file)
@@ -417,7 +422,11 @@ def main() -> int:
             log(f"[INFO] Zones file: {zones_file}")
         log(f"[INFO] Skip final video: {bool(args.skip_final_video)}")
 
-        config_path = ensure_simba_project_config(project_root)
+        config_path = ensure_simba_project_config(
+            project_root,
+            grooming_model=grooming_model,
+            thigmotaxis_model=thigmotaxis_model,
+        )
         log(f"[OUTPUT] SIMBA_CONFIG={config_path.resolve()}")
 
         if args.backend == "yolo":

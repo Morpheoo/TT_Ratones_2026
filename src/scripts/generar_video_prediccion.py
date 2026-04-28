@@ -66,12 +66,13 @@ def get_yolo_class():
 
 def resolve_behavior_model(requested_path: str, generated_name: str, fallback_names: list[str]) -> str:
     """
-    Prefiere los modelos re-entrenados en models/generated_models.
-    Si no existen, cae al path pedido y luego a modelos históricos de validations.
+    Respeta primero el modelo pedido por el pipeline.
+    Esto evita mezclar modelos DLC con features YOLO cuando el backend activo es YOLO Pose.
     """
-    candidate_paths = [os.path.join(GENERATED_MODELS_DIR, generated_name)]
+    candidate_paths = []
     if requested_path:
         candidate_paths.append(requested_path)
+    candidate_paths.append(os.path.join(GENERATED_MODELS_DIR, generated_name))
     for fallback_name in fallback_names:
         candidate_paths.append(os.path.join(VALIDATION_MODELS_DIR, fallback_name))
 
