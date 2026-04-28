@@ -72,6 +72,36 @@ def normalize_dataframe_for_streamlit(df):
     return df
 
 
+def get_latest_completed_id(df):
+    if df.empty or "id" not in df.columns:
+        return None
+
+    status_series = df.get("analysis_status", pd.Series([""] * len(df))).astype(str).str.lower()
+    completed = df[status_series == "completed"].copy()
+    candidates = completed if not completed.empty else df.copy()
+    candidates["id"] = pd.to_numeric(candidates["id"], errors="coerce")
+    candidates = candidates.dropna(subset=["id"])
+    if candidates.empty:
+        return None
+    return int(candidates["id"].max())
+
+
+def filter_history_scope(df_hist, scope):
+    if df_hist.empty:
+        return df_hist
+
+    if scope == "Ultimo completado":
+        latest_completed_id = get_latest_completed_id(df_hist)
+        if latest_completed_id is None:
+            return df_hist.iloc[0:0].copy()
+        return df_hist[pd.to_numeric(df_hist["id"], errors="coerce") == latest_completed_id].copy()
+    if scope == "Completados":
+        return df_hist[df_hist["analysis_status"].astype(str).str.lower() == "completed"].copy()
+    if scope == "Pendientes":
+        return df_hist[df_hist["analysis_status"].astype(str).str.lower() == "pending"].copy()
+    return df_hist.copy()
+
+
 def apply_plot_style(fig, *, height=360, show_y_grid=True):
     fig.update_layout(
         height=height,
@@ -406,16 +436,18 @@ def build_opencv_heatmap_image(heatmap_df, width, height):
 
 def render_global_kpis(df_hist):
     m1, m2, m3, m4 = st.columns(4)
+    open_mean = df_hist["open_t"].mean() if not df_hist.empty and "open_t" in df_hist.columns else 0.0
+    grooming_mean = df_hist["grooming_t"].mean() if not df_hist.empty and "grooming_t" in df_hist.columns else 0.0
 
     with m1:
         st.metric("Total experimentos", len(df_hist))
     with m2:
-        latest_date = str(df_hist["experiment_date"].max()) if "experiment_date" in df_hist.columns else "N/A"
+        latest_date = str(df_hist["experiment_date"].max()) if not df_hist.empty and "experiment_date" in df_hist.columns else "N/A"
         st.metric("Ultimo registro", latest_date)
     with m3:
-        st.metric("Prom. abiertos", format_seconds(df_hist["open_t"].mean()))
+        st.metric("Prom. abiertos", format_seconds(open_mean))
     with m4:
-        st.metric("Prom. grooming", format_seconds(df_hist["grooming_t"].mean()))
+        st.metric("Prom. grooming", format_seconds(grooming_mean))
 
 
 def render_global_chart(df_view):
@@ -623,24 +655,32 @@ try:
         for column in numeric_cols:
             df_hist[column] = pd.to_numeric(df_hist[column], errors="coerce").fillna(0.0)
 
-        render_global_kpis(df_hist)
-        st.markdown("<br>", unsafe_allow_html=True)
-
         st.markdown('<div class="content-card">', unsafe_allow_html=True)
         st.markdown("#### Historial experimental")
+        scope_options = ["Ultimo completado", "Completados", "Todos", "Pendientes"]
+        history_scope = st.selectbox(
+            "Vista del historial",
+            scope_options,
+            index=0,
+            key="results_history_scope",
+        )
+        df_scope = filter_history_scope(df_hist, history_scope)
+
+        render_global_kpis(df_scope if not df_scope.empty else df_hist.iloc[0:0].copy())
+        st.markdown("<br>", unsafe_allow_html=True)
         st.info("Filtra registros y luego selecciona uno para ver detalles y graficas.")
 
         filter_col1, filter_col2, filter_col3 = st.columns(3)
         with filter_col1:
             q_search = st.text_input("Buscar sujeto o responsable")
         with filter_col2:
-            treatments = ["Todos"] + sorted([value for value in df_hist["treatment"].dropna().unique().tolist() if value])
+            treatments = ["Todos"] + sorted([value for value in df_scope["treatment"].dropna().unique().tolist() if value])
             q_treat = st.selectbox("Filtrar por tratamiento", treatments)
         with filter_col3:
-            statuses = ["Todos"] + sorted([value for value in df_hist["analysis_status"].dropna().unique().tolist() if value])
+            statuses = ["Todos"] + sorted([value for value in df_scope["analysis_status"].dropna().unique().tolist() if value])
             q_status = st.selectbox("Estado", statuses)
 
-        df_view = df_hist.copy()
+        df_view = df_scope.copy()
         if q_search:
             mask = (
                 df_view["rat_id"].astype(str).str.contains(q_search, case=False, na=False)
@@ -687,6 +727,8 @@ try:
         }
         visible_ids = {int(exp_id) for exp_id in display_df["ID"].tolist()}
         selected_before = selected_before.intersection(visible_ids)
+        if not selected_before and len(visible_ids) == 1:
+            selected_before = visible_ids
 
         selection_df = display_df.copy()
         selection_df.insert(0, "Seleccionar", selection_df["ID"].astype(int).isin(selected_before))
