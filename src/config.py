@@ -30,7 +30,7 @@ for directory in [DATA_DIR, VIDEOS_DIR, MODELS_DIR, LOGS_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 # ============================================
-# SIMBA
+# SIMBA — Proyecto DLC (operativo actual)
 # ============================================
 
 SIMBA_BASE = DATA_DIR / "simba_projects" / "New folder" / "thigmotaxis_optimizado"
@@ -47,6 +47,18 @@ SIMBA_INPUT_CSV = SIMBA_PROJECT_DIR / "csv" / "input_csv"
 SIMBA_OUTLIER_CSV = SIMBA_PROJECT_DIR / "csv" / "outlier_corrected_movement_location"
 SIMBA_FEATURES_CSV = SIMBA_PROJECT_DIR / "csv" / "features_extracted"
 SIMBA_VIDEOS = SIMBA_PROJECT_DIR / "videos"
+
+# ============================================
+# SIMBA — Proyecto YOLO (grooming_thigmotaxis_yolo)
+# ============================================
+
+SIMBA_YOLO_BASE = DATA_DIR / "simba_projects" / "grooming_thigmotaxis_yolo"
+SIMBA_YOLO_PROJECT_DIR = SIMBA_YOLO_BASE / "project_folder"
+SIMBA_YOLO_MODELS_DIR = SIMBA_YOLO_BASE / "models"
+SIMBA_YOLO_GENERATED_MODELS_DIR = SIMBA_YOLO_MODELS_DIR / "generated_models"
+
+GROOMING_MODEL_YOLO = SIMBA_YOLO_GENERATED_MODELS_DIR / "Grooming.sav"
+THIGMOTAXIS_MODEL_YOLO = SIMBA_YOLO_GENERATED_MODELS_DIR / "Thigmotaxis.sav"
 
 # ============================================
 # DEEPLABCUT

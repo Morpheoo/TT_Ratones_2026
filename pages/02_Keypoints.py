@@ -160,13 +160,18 @@ def parse_extract_progress(lines, current_progress):
     progress = max(current_progress, 0.02)
     status = "Preparando extraccion y postproceso..."
 
+    is_yolo = any("[STEP] YOLO_POSE" in line for line in lines)
+
     for line in lines:
-        if "[STEP] DLC" in line:
+        if "[STEP] YOLO_POSE" in line:
+            progress = max(progress, 0.08)
+            status = "Extrayendo keypoints con YOLO Pose..."
+        elif "[STEP] DLC" in line:
             progress = max(progress, 0.05)
             status = "Preparando entorno DLC..."
         elif "[STEP] BOOT" in line:
             progress = max(progress, 0.08)
-            status = "Preparando entorno DLC..."
+            status = "Preparando entorno DLC..." if not is_yolo else "Iniciando pipeline YOLO Pose..."
         elif "[STEP] TRIM" in line:
             progress = max(progress, 0.12)
             status = "Aplicando recorte seleccionado..."
@@ -180,7 +185,7 @@ def parse_extract_progress(lines, current_progress):
             progress = max(progress, 0.62)
             status = "Aplicando filtro bbox a los keypoints..."
         elif "[STEP] SIMBA_FEATURES" in line:
-            progress = max(progress, 0.82)
+            progress = max(progress, 0.65 if is_yolo else 0.82)
             status = "Sincronizando pose y features en SimBA..."
         elif "[STEP] ERROR" in line or line.startswith("[ERROR]"):
             status = "La extraccion termino con error."
@@ -332,6 +337,7 @@ def sync_extract_outputs(outputs):
         "bbox_validation_video": "ultimo_bbox_video",
         "feature_csv": "ultimo_feature_file",
         "final_feature_csv": "ultimo_feature_file",
+        "yolo_keypoints_video": "ultimo_yolo_kp_video",
     }
     for output_key, session_key in output_map.items():
         candidate = outputs.get(output_key)
@@ -659,10 +665,32 @@ def render_output_panel(snapshot=None):
             for file_path in generated_files:
                 st.code(file_path, language=None)
 
-    if overlay_path:
+    yolo_kp_video = st.session_state.get("ultimo_yolo_kp_video")
+    if yolo_kp_video and not os.path.exists(yolo_kp_video):
+        yolo_kp_video = None
+
+    if yolo_kp_video:
+        st.markdown("---")
+        st.markdown("##### Vista previa YOLO Pose")
+        st.video(yolo_kp_video)
+    elif overlay_path:
         st.markdown("---")
         st.markdown("##### Vista previa disponible")
         st.video(overlay_path)
+
+    keypoints_yolo_dir = os.path.abspath("keypoints_yolo")
+    st.markdown("---")
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("ABRIR CARPETA KEYPOINTS YOLO", use_container_width=True, key="btn_open_kp_folder"):
+            os.makedirs(keypoints_yolo_dir, exist_ok=True)
+            subprocess.Popen(["explorer", keypoints_yolo_dir])
+            st.toast(f"Abriendo: {keypoints_yolo_dir}")
+    with col_btn2:
+        if yolo_kp_video:
+            st.code(yolo_kp_video, language=None)
+        else:
+            st.caption("Los videos de keypoints YOLO se guardan en `keypoints_yolo/`.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -681,7 +709,7 @@ def render_log_panel(snapshot=None):
     st.code(last_logs, language="bash")
 
 
-def build_extract_command(batch_size, device_option):
+def build_extract_command(batch_size, device_option, yolo_mode=False):
     script_path = os.path.abspath(os.path.join("src", "scripts", "run_behavior_pipeline.py"))
     video_path = os.path.abspath(st.session_state["ruta_video_actual"])
     start_seconds = int(st.session_state.get("inicio_recorte", 0) or 0)
@@ -699,10 +727,13 @@ def build_extract_command(batch_size, device_option):
         str(start_seconds),
         "--skip-final-video",
     ]
-    if end_seconds is not None:
-        command.extend(["--end-seconds", str(int(end_seconds))])
-    if device_option == "CPU (Forzar)":
-        command.append("--force-cpu")
+    if yolo_mode:
+        command.extend(["--backend", "yolo"])
+    else:
+        if end_seconds is not None:
+            command.extend(["--end-seconds", str(int(end_seconds))])
+        if device_option == "CPU (Forzar)":
+            command.append("--force-cpu")
     if zones:
         zones_path = os.path.join(ensure_logs_dir(), "keypoints_zonas_activas.json")
         with open(zones_path, "w", encoding="utf-8") as file_handle:
@@ -778,14 +809,9 @@ col_left, col_right = st.columns([1, 1.35])
 with col_left:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     st.markdown("#### Configuracion del Motor")
-    motor = st.radio(
-        "Motor de Inferencia",
-        ["DeepLabCut SuperAnimal", "YOLO Pose (Experimental)"],
-        index=0,
-        key="keypoints_motor",
-    )
-    if motor != "DeepLabCut SuperAnimal":
-        st.warning("La ruta operativa de este modulo hoy esta conectada a DeepLabCut SuperAnimal.")
+    # Motor fijo en YOLO — DLC disponible en código para versiones futuras
+    motor = "YOLO Pose (Experimental)"
+    st.info("Motor activo: **YOLO Pose v4** — 3,953 imágenes | mAP50: 99.5%")
 
     st.markdown("---")
     st.caption(f"Rango activo a analizar: `{get_trim_summary()}`")
@@ -808,8 +834,9 @@ with col_left:
         st.caption("Al terminar DLC, este flujo aplica bbox y deja sincronizado el bridge hacia SimBA en automatico.")
 
     extraction_running = extract_snapshot["is_running"]
-    extraction_disabled = motor != "DeepLabCut SuperAnimal" or not dlc_available or extraction_running
-    if not dlc_available:
+    yolo_mode = motor == "YOLO Pose (Experimental)"
+    extraction_disabled = (not yolo_mode and not dlc_available) or extraction_running
+    if not dlc_available and not yolo_mode:
         st.error(f"No se encontro el interprete GPU esperado en `{dlc_python}`.")
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -874,7 +901,7 @@ if action == "extract":
     st.session_state["dlc_device_opt"] = device_option
     save_session()
 
-    launch_background_extract(build_extract_command(batch_size, device_option))
+    launch_background_extract(build_extract_command(batch_size, device_option, yolo_mode=yolo_mode))
     st.rerun()
 
 elif action == "cancel_extract":

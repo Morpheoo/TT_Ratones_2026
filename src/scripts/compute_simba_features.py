@@ -451,14 +451,14 @@ def _build_pose_bridge(input_csv: str, output_dir: str, video_name: str) -> str:
     print("[ENGINE] Mapeando bodyparts DLC a configuracion SimBA 8bp...")
     df_in = _load_pose_dataframe(input_csv)
     mapping = {
-        "Nose": ["nose", "Nose"],
-        "Ear_left": ["left_ear", "Ear_left"],
-        "Ear_right": ["right_ear", "Ear_right"],
-        "Center": ["mouse_center", "head_midpoint", "Head_center", "Center"],
-        "Lat_left": ["left_midside", "Lateral_left", "Lat_left"],
-        "Lat_right": ["right_midside", "Lateral_right", "Lat_right"],
-        "Tail_base": ["tail_base", "Tail_base"],
-        "Tail_end": ["tail1", "tail_end", "Tail_end"],
+        "Nose": ["nose", "Nose", "nariz"],
+        "Ear_left": ["left_ear", "Ear_left", "oreja-izq"],
+        "Ear_right": ["right_ear", "Ear_right", "oreja-der"],
+        "Center": ["mouse_center", "head_midpoint", "Head_center", "Center", "torso"],
+        "Lat_left": ["left_midside", "Lateral_left", "Lat_left", "pata-izq"],
+        "Lat_right": ["right_midside", "Lateral_right", "Lat_right", "pata-der"],
+        "Tail_base": ["tail_base", "Tail_base", "cola-base"],
+        "Tail_end": ["tail1", "tail_end", "Tail_end", "punta-cola"],
     }
 
     cols_to_keep = ["Unnamed: 0"]

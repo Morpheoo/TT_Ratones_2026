@@ -22,7 +22,7 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import render_topbar, use_theme
 from video_context_banner import render_video_banner
-from config import GROOMING_MODEL, SIMBA_BASE, SIMBA_PROJECT_DIR, THIGMOTAXIS_MODEL
+from config import GROOMING_MODEL, SIMBA_BASE, SIMBA_PROJECT_DIR, THIGMOTAXIS_MODEL, SIMBA_YOLO_BASE
 
 st.set_page_config(page_title="Analisis Final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
@@ -165,54 +165,160 @@ def parse_pipeline_progress(lines, current_progress):
     return progress, status, collect_output_markers(lines)
 
 
-def run_logged_process(command, log_path, parser, success_status, error_status):
-    progress_placeholder = st.empty()
-    status_placeholder = st.empty()
-    log_placeholder = st.empty()
+def get_analysis_state_path():
+    return os.path.abspath(os.path.join(ensure_logs_dir(), "analysis_pipeline.process.json"))
 
-    progress = 0.02
-    status = "Inicializando proceso..."
-    outputs = {}
 
-    no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    with open(log_path, "w", encoding="utf-8") as log_handle:
-        process = subprocess.Popen(
-            command,
-            stdout=log_handle,
-            stderr=subprocess.STDOUT,
-            cwd=os.getcwd(),
-            creationflags=no_window,
+def save_analysis_meta(meta):
+    with open(get_analysis_state_path(), "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+
+
+def load_analysis_meta():
+    path = get_analysis_state_path()
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def is_pid_alive(pid):
+    try:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {int(pid)}"],
+            capture_output=True, text=True, check=False,
         )
+        return str(int(pid)) in (result.stdout or "")
+    except Exception:
+        return False
 
-        while process.poll() is None:
-            lines = read_log_lines(log_path)
-            progress, status, outputs = parser(lines, progress)
-            progress_placeholder.progress(min(max(progress, 0.0), 0.99), text=status)
-            status_placeholder.info(status)
-            log_placeholder.code(trim_log_text(lines), language="bash")
-            time.sleep(1)
 
-    return_code = process.wait()
+def launch_background_analysis(command, log_path):
+    wrapper_script = os.path.abspath(os.path.join("src", "scripts", "run_with_live_log.py"))
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write("[INFO] Lanzando pipeline multimodal en segundo plano...\n")
+
+    wrapper_command = [
+        sys.executable, wrapper_script,
+        "--log", log_path,
+        "--label", "TT 2026 - Analisis Final YOLO",
+        "--",
+    ] + command
+
+    process = subprocess.Popen(
+        wrapper_command,
+        cwd=os.getcwd(),
+        creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+    )
+    meta = {
+        "pid": process.pid,
+        "status": "running",
+        "log_path": log_path,
+        "started_at": time.time(),
+        "video_path": st.session_state.get("ruta_video_actual"),
+        "outputs_imported": False,
+        "completion_handled": False,
+    }
+    save_analysis_meta(meta)
+    st.session_state["analysis_last_status"] = "Pipeline multimodal lanzado en segundo plano."
+    st.session_state["analysis_last_progress"] = 0.03
+    st.session_state["analysis_last_logs"] = trim_log_text(read_log_lines(log_path))
+
+
+def cancel_background_analysis(meta):
+    if not meta:
+        return
+    log_path = meta.get("log_path") or os.path.join(ensure_logs_dir(), "analysis_pipeline.log")
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write("[STEP] CANCELLED\n[INFO] Cancelado por el usuario.\n")
+    pid = meta.get("pid")
+    if pid:
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                       capture_output=True, check=False)
+    meta["status"] = "cancelled"
+    save_analysis_meta(meta)
+    st.session_state["analysis_last_status"] = "Pipeline cancelado por el usuario."
+
+
+def get_analysis_snapshot():
+    meta = load_analysis_meta()
+    log_path = meta.get("log_path") if meta else os.path.join(ensure_logs_dir(), "analysis_pipeline.log")
     lines = read_log_lines(log_path)
-    progress, status, outputs = parser(lines, progress)
+    progress, status, outputs = parse_pipeline_progress(lines, float(
+        st.session_state.get("analysis_last_progress", 0.0) or 0.0))
+    needs_rerun = False
 
-    if return_code == 0:
-        progress_placeholder.progress(1.0, text=success_status)
-        status_placeholder.success(success_status)
-        final_status = success_status
-        final_progress = 1.0
+    if meta:
+        is_running = bool(meta.get("pid") and is_pid_alive(meta.get("pid")) and meta.get("status") == "running")
+        if is_running:
+            meta["last_progress"] = progress
+            save_analysis_meta(meta)
+        else:
+            if meta.get("status") == "running":
+                if any("[STEP] COMPLETE" in l for l in lines):
+                    meta["status"] = "completed"
+                elif any("[STEP] CANCELLED" in l for l in lines):
+                    meta["status"] = "cancelled"
+                else:
+                    meta["status"] = "error"
+
+            if meta["status"] == "completed":
+                progress = 1.0
+                status = "Pipeline multimodal completado."
+                if not meta.get("outputs_imported"):
+                    _sync_analysis_outputs(outputs)
+                    meta["outputs_imported"] = True
+                if not meta.get("completion_handled"):
+                    st.session_state["analysis_show_toast"] = True
+            elif meta["status"] == "cancelled":
+                status = "Pipeline cancelado por el usuario."
+            else:
+                status = "El pipeline termino con error. Revisa los logs."
+
+            meta["last_progress"] = progress
+            if not meta.get("completion_handled"):
+                meta["completion_handled"] = True
+                needs_rerun = True
+            save_analysis_meta(meta)
     else:
-        final_progress = min(max(progress, 0.1), 0.95)
-        progress_placeholder.progress(final_progress, text=error_status)
-        status_placeholder.error(error_status)
-        final_status = error_status
+        is_running = False
 
-    log_placeholder.code(trim_log_text(lines), language="bash")
     st.session_state["analysis_last_logs"] = trim_log_text(lines, max_lines=220)
-    st.session_state["analysis_last_status"] = final_status
-    st.session_state["analysis_last_progress"] = final_progress
+    st.session_state["analysis_last_status"] = status
+    st.session_state["analysis_last_progress"] = progress
+    return {"meta": meta, "is_running": is_running, "progress": progress,
+            "status": status, "lines": lines, "outputs": outputs,
+            "log_path": log_path, "needs_rerun": needs_rerun}
 
-    return return_code, lines, outputs
+
+def _sync_analysis_outputs(outputs):
+    output_map = {
+        "analyzed_video": "ultimo_video_analizado",
+        "raw_pose_file": "ultimo_pose_file",
+        "filtered_pose": "ultimo_pose_filtrado",
+        "filtered_pose_file": "ultimo_pose_filtrado",
+        "bbox_video": "ultimo_bbox_video",
+        "feature_csv": "ultimo_feature_file",
+        "final_feature_csv": "ultimo_feature_file",
+        "multimodal_video": "ultimo_multimodal_video",
+        "final_video": "ultimo_multimodal_video",
+        "trajectory_file": "ultimo_trajectory_file",
+        "final_trajectory": "ultimo_trajectory_file",
+        "grooming_timelog": "ultimo_grooming_timelog",
+        "final_grooming_timelog": "ultimo_grooming_timelog",
+        "thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
+        "final_thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
+        "yolo_keypoints_video": "ultimo_yolo_kp_video",
+        "resultados_dir": "ultimo_resultados_dir",
+    }
+    for out_key, sess_key in output_map.items():
+        val = outputs.get(out_key)
+        if val and os.path.exists(val):
+            st.session_state[sess_key] = val
+    save_session()
 
 
 def find_pose_file(video_path):
@@ -406,18 +512,17 @@ def build_pipeline_command(batch_size, device_option, zones_file):
         "--video",
         video_path,
         "--project-root",
-        str(Path(SIMBA_BASE).resolve()),
+        str(Path(SIMBA_YOLO_BASE).resolve()),
         "--batch-size",
         str(int(batch_size)),
         "--start-seconds",
         str(start_seconds),
+        "--backend", "yolo",
     ]
     if end_seconds is not None:
         command.extend(["--end-seconds", str(int(end_seconds))])
     if zones_file:
         command.extend(["--zones-file", zones_file])
-    if device_option == "CPU (Forzar)":
-        command.append("--force-cpu")
     return command
 
 
@@ -636,11 +741,32 @@ def render_output_panel():
     else:
         st.info("Aun no existe un video multimodal final para este registro.")
 
+    # Carpeta de resultados YOLO
+    active_video = st.session_state.get("ruta_video_actual")
+    if active_video:
+        video_stem = Path(active_video).stem
+        resultados_dir = os.path.abspath(os.path.join("resultados_yolo", video_stem))
+        st.markdown("---")
+        col_btn, col_path = st.columns([1, 1.5])
+        with col_btn:
+            if st.button("ABRIR CARPETA RESULTADOS", use_container_width=True, key="btn_open_resultados"):
+                os.makedirs(resultados_dir, exist_ok=True)
+                subprocess.Popen(["explorer", resultados_dir])
+                st.toast(f"Abriendo: {resultados_dir}")
+        with col_path:
+            if os.path.exists(resultados_dir):
+                archivos = [f for f in os.listdir(resultados_dir)]
+                st.caption(f"`resultados_yolo/{video_stem}/` — {len(archivos)} archivo(s)")
+                if final_video and os.path.exists(final_video):
+                    st.code(final_video, language=None)
+            else:
+                st.caption(f"Los resultados se guardarán en `resultados_yolo/{video_stem}/`")
+
     generated_files = collect_generated_files()
     if generated_files:
-        st.markdown("##### Archivos detectados")
-        for file_path in generated_files:
-            st.write(f"- `{os.path.basename(file_path)}`")
+        with st.expander("Ver todos los archivos detectados", expanded=False):
+            for file_path in generated_files:
+                st.code(file_path, language=None)
 
     summary = build_summary_from_trajectory(st.session_state.get("ultimo_trajectory_file"))
     if summary:
@@ -813,14 +939,34 @@ with left_col:
     if not status_flags["has_models"]:
         st.error("No se encontraron los modelos activos de SimBA en generated_models.")
 
-    if st.button(
-        "INICIAR PIPELINE MULTIMODAL",
-        type="primary",
-        use_container_width=True,
-        disabled=not can_run,
-        key="btn_run_behavior_pipeline",
-    ):
-        action = "run"
+    analysis_snapshot = get_analysis_snapshot()
+    if analysis_snapshot["needs_rerun"]:
+        st.rerun()
+    if st.session_state.pop("analysis_show_toast", False):
+        st.toast("Pipeline multimodal completado. Revisa el panel de salida.")
+
+    pipeline_running = analysis_snapshot["is_running"]
+
+    if pipeline_running:
+        st.info("El pipeline corre en segundo plano. Puedes moverte entre módulos y volver.")
+        col_stop, col_log = st.columns(2)
+        with col_stop:
+            if st.button("DETENER PIPELINE", use_container_width=True, key="btn_stop_analysis"):
+                action = "cancel"
+        with col_log:
+            if st.button("ABRIR CONSOLA DE LOGS", use_container_width=True, key="btn_log_analysis"):
+                action = "open_console"
+        if analysis_snapshot["meta"]:
+            st.caption(f"PID activo: `{analysis_snapshot['meta'].get('pid')}`")
+    else:
+        if st.button(
+            "INICIAR PIPELINE MULTIMODAL",
+            type="primary",
+            use_container_width=True,
+            disabled=not can_run,
+            key="btn_run_behavior_pipeline",
+        ):
+            action = "run"
     st.markdown("</div>", unsafe_allow_html=True)
 
 with right_col:
@@ -831,54 +977,48 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 if action == "run":
     st.session_state["dlc_batch_size"] = int(batch_size)
-    st.session_state["dlc_device_opt"] = device_option
-    zones_file = write_zones_temp_file()
     save_session()
-
+    zones_file = write_zones_temp_file()
     analysis_log_path = os.path.join(ensure_logs_dir(), "analysis_pipeline.log")
-    return_code, lines, outputs = run_logged_process(
-        command=build_pipeline_command(batch_size, device_option, zones_file),
-        log_path=analysis_log_path,
-        parser=parse_pipeline_progress,
-        success_status="Pipeline multimodal completado.",
-        error_status="El pipeline multimodal termino con error.",
+    launch_background_analysis(
+        build_pipeline_command(batch_size, device_option, zones_file),
+        analysis_log_path,
     )
+    st.rerun()
 
-    if return_code == 0:
-        output_map = {
-            "analyzed_video": "ultimo_video_analizado",
-            "raw_pose_file": "ultimo_pose_file",
-            "filtered_pose": "ultimo_pose_filtrado",
-            "filtered_pose_file": "ultimo_pose_filtrado",
-            "bbox_video": "ultimo_bbox_video",
-            "bbox_validation_video": "ultimo_bbox_video",
-            "feature_csv": "ultimo_feature_file",
-            "final_feature_csv": "ultimo_feature_file",
-            "multimodal_video": "ultimo_multimodal_video",
-            "final_video": "ultimo_multimodal_video",
-            "trajectory_file": "ultimo_trajectory_file",
-            "final_trajectory": "ultimo_trajectory_file",
-            "grooming_timelog": "ultimo_grooming_timelog",
-            "final_grooming_timelog": "ultimo_grooming_timelog",
-            "thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
-            "final_thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
-        }
-        for output_key, session_key in output_map.items():
-            candidate = outputs.get(output_key)
-            if candidate and os.path.exists(candidate):
-                st.session_state[session_key] = candidate
+elif action == "cancel":
+    cancel_background_analysis(analysis_snapshot["meta"])
+    st.rerun()
 
-        if st.session_state.get("ultimo_pose_filtrado"):
-            st.session_state["ultimo_pose_file"] = st.session_state["ultimo_pose_filtrado"]
+elif action == "open_console":
+    powershell = os.path.join(
+        os.environ.get("SystemRoot", r"C:\Windows"), "System32",
+        "WindowsPowerShell", "v1.0", "powershell.exe",
+    )
+    log_path = analysis_snapshot["log_path"]
+    safe_path = os.path.abspath(log_path).replace("'", "''")
+    subprocess.Popen(
+        [powershell, "-NoExit", "-Command",
+         f"$host.UI.RawUI.WindowTitle='TT 2026 - Analisis Final'; Get-Content -Path '{safe_path}' -Wait -Tail 40"],
+        cwd=os.getcwd(),
+        creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+    )
+    st.toast("Se abrió consola de logs.")
 
-        summary = build_summary_from_trajectory(st.session_state.get("ultimo_trajectory_file"))
-        if summary:
-            st.session_state["analysis_db_notice"] = persist_summary_to_db(summary)
 
-        save_session()
+@st.fragment(run_every="2s" if analysis_snapshot.get("is_running") else None)
+def render_analysis_monitor():
+    snap = get_analysis_snapshot()
+    progress = float(snap.get("progress", 0.0) or 0.0)
+    status = snap.get("status", "")
+    logs = trim_log_text(snap.get("lines", []), max_lines=220)
+    st.progress(min(max(progress, 0.0), 1.0), text=status)
+    st.code(logs, language="bash")
+    if snap["needs_rerun"]:
         st.rerun()
 
-render_status_panel()
+
+render_analysis_monitor()
 
 # Footer
 st.markdown("<br><br>", unsafe_allow_html=True)
