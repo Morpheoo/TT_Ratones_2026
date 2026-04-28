@@ -109,7 +109,7 @@ def validate_ipn_domain(email: str) -> bool:
     return any(email.endswith(dom) for dom in allowed_domains)
 
 def check_admin_access(role: str) -> bool:
-    """Verifica si el rol tiene acceso de administrador."""
+    """Verifica si el rol tiene acceso al panel de administración."""
     return role == "admin"
 
 def register_user(email, password, role="investigador", full_name=None, boleta=None, carrera=None, escuela=None, accepted_terms=False):

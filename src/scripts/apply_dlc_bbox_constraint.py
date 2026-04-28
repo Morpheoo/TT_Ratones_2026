@@ -18,8 +18,11 @@ from src.scripts.render_dlc_keypoints_video import (
     _load_pose_dataframe,
     _resolve_column,
 )
+from src.config import YOLO_MODEL, YOLO_POSE_MODEL
 
-YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
+# Usar el modelo YOLO Pose v4 para detección de bbox
+# Los modelos de pose también generan bboxes de detección
+YOLO_MODEL_PATH = str(YOLO_POSE_MODEL) if YOLO_POSE_MODEL.exists() else str(YOLO_MODEL)
 DEFAULT_MARGIN = 30
 DEFAULT_P_CUTOFF = 0.2
 DEFAULT_DOT_RADIUS = 3
@@ -692,8 +695,15 @@ def extract_yolo_bboxes(
     confidence_threshold: float = DEFAULT_CONFIDENCE,
     max_frames: int | None = None,
 ) -> tuple[Dict[int, Tuple[int, int, int, int]], set[int]]:
+    print(f"[BBOX] Loading YOLO model: {YOLO_MODEL_PATH}")
+
+    if not os.path.exists(YOLO_MODEL_PATH):
+        raise FileNotFoundError(f"YOLO model not found: {YOLO_MODEL_PATH}")
+
     YOLO = get_yolo_class()
+    print(f"[BBOX] Initializing model...")
     model = YOLO(YOLO_MODEL_PATH)
+    print(f"[BBOX] Model loaded successfully")
 
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():

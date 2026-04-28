@@ -78,6 +78,7 @@ svg_keypoints = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" str
 svg_zones = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>'
 svg_analysis = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>'
 svg_chart = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>'
+svg_compare = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>'
 svg_admin = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>'
 svg_warn = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#B7791F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
 svg_cpu = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg>'
@@ -245,7 +246,14 @@ with m4:
 with m5:
     module_card(svg_chart, "Resultados y Estadísticas", "Métricas, heatmaps y reportes", "btn_m5", "Ver Resultados", "pages/05_Resultados_y_Estadisticas.py")
 with m6:
-    if st.session_state.get("role") == "admin":
-        module_card(svg_user, "Admin Panel", "Gestión de usuarios e investigadores", "btn_m6", "Administrar", "pages/99_Admin_Panel.py")
-    else:
-        module_card(svg_user, "Documentación", "Manual y soporte institucional", "btn_m6", "Consultar", "Home.py")
+    module_card(svg_compare, "Comparación de Grupos", "Consolidado estadístico para ANOVA", "btn_m6", "Comparar", "pages/06_Comparacion.py")
+
+# Módulos administrativos
+if st.session_state.get("role") == "admin":
+    m7, m8, m9 = st.columns(3)
+    with m7:
+        module_card(svg_user, "Admin Panel", "Gestión de usuarios e investigadores", "btn_m7", "Administrar", "pages/99_Admin_Panel.py")
+    with m8:
+        st.empty()
+    with m9:
+        st.empty()

@@ -71,6 +71,10 @@ DLC_MODEL_PATH = DLC_MODEL_DIR / "DLC_ma_supertopview5k_resnet_50_iteration-0_sh
 # YOLO
 # ============================================
 
+YOLO_MODELS_DIR = MODELS_DIR / "yolo"
+YOLO_POSE_MODEL = PROJECT_ROOT / "runs" / "pose" / "yolo11s_pose_raton_v4" / "weights" / "best.pt"
+
+# Legacy fallback
 YOLO_MODEL = PROJECT_ROOT / os.getenv("YOLO_MODEL", "yolo_tracker.pt")
 
 # ============================================
@@ -83,24 +87,24 @@ def get_ffmpeg_path():
     env_path = os.getenv("FFMPEG_PATH")
     if env_path and os.path.exists(env_path):
         return env_path
-    
+
     # 2. Intentar desde PATH del sistema
     import shutil
     system_ffmpeg = shutil.which("ffmpeg")
     if system_ffmpeg:
         return system_ffmpeg
-    
+
     # 3. Buscar en ubicaciones comunes de Windows
     common_paths = [
         r"C:\ffmpeg\bin\ffmpeg.exe",
         r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
         Path.home() / "ffmpeg" / "bin" / "ffmpeg.exe",
     ]
-    
+
     for path in common_paths:
         if os.path.exists(path):
             return str(path)
-    
+
     # 4. No encontrado
     return None
 
@@ -121,19 +125,22 @@ def get_model_path(model_name: str) -> Path:
 def validate_paths():
     """Valida que las rutas críticas existan."""
     issues = []
-    
+
     if not GROOMING_MODEL.exists():
         issues.append(f"❌ Modelo Grooming no encontrado: {GROOMING_MODEL}")
-    
+
     if not THIGMOTAXIS_MODEL.exists():
         issues.append(f"❌ Modelo Thigmotaxis no encontrado: {THIGMOTAXIS_MODEL}")
-    
+
+    if not YOLO_POSE_MODEL.exists():
+        issues.append(f"❌ Modelo YOLO Pose v4 no encontrado: {YOLO_POSE_MODEL}")
+
     if not DLC_MODEL_PATH.exists():
-        issues.append(f"❌ Modelo DeepLabCut no encontrado: {DLC_MODEL_PATH}")
-    
+        issues.append(f"⚠️ Modelo DeepLabCut no encontrado: {DLC_MODEL_PATH}")
+
     if not FFMPEG_PATH:
         issues.append(f"⚠️ FFmpeg no encontrado en el sistema")
-    
+
     return issues
 
 # ============================================
@@ -150,14 +157,15 @@ if __name__ == "__main__":
     print(f"📁 Directorio de modelos: {MODELS_DIR}")
     print(f"\n🤖 Modelo Grooming: {GROOMING_MODEL}")
     print(f"🤖 Modelo Thigmotaxis: {THIGMOTAXIS_MODEL}")
+    print(f"🤖 Modelo YOLO Pose v4: {YOLO_POSE_MODEL}")
     print(f"🤖 Modelo DeepLabCut: {DLC_MODEL_PATH}")
-    print(f"🤖 Modelo YOLO: {YOLO_MODEL}")
+    print(f"🤖 Modelo YOLO (legacy): {YOLO_MODEL}")
     print(f"\n🎬 FFmpeg: {FFMPEG_PATH or 'NO ENCONTRADO'}")
-    
+
     print("\n" + "=" * 60)
     print("VALIDACIÓN DE RUTAS")
     print("=" * 60)
-    
+
     issues = validate_paths()
     if issues:
         for issue in issues:
