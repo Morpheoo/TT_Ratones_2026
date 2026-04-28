@@ -393,6 +393,7 @@ def reset_analysis_runtime_state():
         "ultimo_grooming_timelog",
         "ultimo_thigmotaxis_timelog",
         "analysis_db_notice",
+        "analysis_persist_key",
         "analysis_last_logs",
         "analysis_last_status",
         "analysis_last_progress",
@@ -578,6 +579,51 @@ def build_summary_from_trajectory(trajectory_path):
     }
 
 
+def _video_path_variants(video_path):
+    if not video_path:
+        return []
+
+    variants = []
+    raw_path = os.path.normpath(str(video_path))
+    variants.append(raw_path)
+
+    absolute_path = os.path.abspath(raw_path)
+    variants.append(os.path.normpath(absolute_path))
+
+    try:
+        variants.append(os.path.normpath(os.path.relpath(absolute_path, os.getcwd())))
+    except ValueError:
+        pass
+
+    return list(dict.fromkeys(variants))
+
+
+def _stored_video_path(video_path):
+    if not video_path:
+        return video_path
+
+    raw_path = os.path.normpath(str(video_path))
+    absolute_path = os.path.abspath(raw_path)
+    try:
+        relative_path = os.path.normpath(os.path.relpath(absolute_path, os.getcwd()))
+        if not relative_path.startswith("..") and not os.path.isabs(relative_path):
+            return relative_path
+    except ValueError:
+        pass
+    return raw_path
+
+
+def _summary_persist_key(summary):
+    trajectory_path = os.path.abspath(summary["trajectory_path"])
+    try:
+        modified_at = os.path.getmtime(trajectory_path)
+    except OSError:
+        modified_at = 0.0
+    active_video = st.session_state.get("ruta_video_actual", "")
+    selected_experiment_id = st.session_state.get("analysis_selected_experiment_id", "")
+    return f"{selected_experiment_id}|{active_video}|{trajectory_path}|{modified_at:.6f}"
+
+
 def persist_summary_to_db(summary):
     try:
         try:
@@ -594,6 +640,9 @@ def persist_summary_to_db(summary):
         if not video_path:
             return "No hay video activo para registrar en BD."
 
+        selected_experiment_id = st.session_state.get("analysis_selected_experiment_id")
+        video_path_candidates = _video_path_variants(video_path)
+        db_video_path = _stored_video_path(video_path)
         rat_id = st.session_state.get("id_raton_actual") or Path(video_path).stem
         treatment = st.session_state.get("treatment") or "Control"
         responsible = st.session_state.get("ingesta_responsable_actual") or st.session_state.get("user_name", "Investigador")
@@ -606,10 +655,33 @@ def persist_summary_to_db(summary):
             ).fetchone()
             user_id = int(user_row[0]) if user_row else None
 
-            existing = conn.execute(
-                text("SELECT id FROM experiments WHERE video_path = :video_path ORDER BY created_at DESC LIMIT 1"),
-                {"video_path": video_path},
-            ).fetchone()
+            existing = None
+            if selected_experiment_id:
+                existing = conn.execute(
+                    text("SELECT id FROM experiments WHERE id = :experiment_id LIMIT 1"),
+                    {"experiment_id": int(selected_experiment_id)},
+                ).fetchone()
+
+            if existing is None and video_path_candidates:
+                where_clause = " OR ".join(
+                    f"video_path = :video_path_{idx}" for idx, _ in enumerate(video_path_candidates)
+                )
+                params = {
+                    f"video_path_{idx}": candidate
+                    for idx, candidate in enumerate(video_path_candidates)
+                }
+                existing = conn.execute(
+                    text(
+                        f"""
+                        SELECT id
+                        FROM experiments
+                        WHERE {where_clause}
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                        """
+                    ),
+                    params,
+                ).fetchone()
 
             if existing:
                 experiment_id = int(existing[0])
@@ -665,7 +737,7 @@ def persist_summary_to_db(summary):
                         "rat_id": rat_id,
                         "treatment": treatment,
                         "responsible": responsible,
-                        "video_path": video_path,
+                        "video_path": db_video_path,
                         "duration_seconds": summary["total_duration"],
                         "created_by": user_id,
                     },
@@ -770,6 +842,12 @@ def render_output_panel():
 
     summary = build_summary_from_trajectory(st.session_state.get("ultimo_trajectory_file"))
     if summary:
+        persist_key = _summary_persist_key(summary)
+        if st.session_state.get("analysis_persist_key") != persist_key:
+            st.session_state["analysis_db_notice"] = persist_summary_to_db(summary)
+            st.session_state["analysis_persist_key"] = persist_key
+            save_session()
+
         st.markdown("---")
         st.markdown("##### Resumen rapido")
         m1, m2, m3, m4 = st.columns(4)

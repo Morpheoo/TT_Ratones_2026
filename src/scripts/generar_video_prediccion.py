@@ -16,6 +16,13 @@ YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
 TRACKING_CONFIDENCE_MIN = 0.25
 TRACKING_DOT_COLOR = (190, 70, 210)  # BGR morado, visible sobre rata blanca sin invadir.
 TRACKING_DOT_OUTLINE_COLOR = (250, 220, 255)
+THIGMO_CONFIRM_THRESHOLD = 0.30
+THIGMO_POSSIBLE_THRESHOLD = 0.25
+THIGMO_MIN_EVENT_SECONDS = 0.50
+GROOMING_CONFIRM_THRESHOLD = 0.25
+GROOMING_POSSIBLE_THRESHOLD = 0.18
+GROOMING_MIN_EVENT_SECONDS = 0.30
+BEHAVIOR_SMOOTHING_FRAMES = 15
 SIMBA_MODELS_DIR = os.path.join(
     PROJECT_DIR,
     "data",
@@ -393,7 +400,17 @@ def export_timelog(events, output_path, total_frames, current_start, behavior_na
         df_log.to_csv(log_path, index=False)
         print(f"✅ ¡Reporte científico guardado: {log_path}!")
 
-def state_machine_update(prob_val, current_sec, frames_acc, events_list, current_start, is_confirming, umbral_confrm=0.35, umbral_posible=0.30):
+def state_machine_update(
+    prob_val,
+    current_sec,
+    frames_acc,
+    events_list,
+    current_start,
+    is_confirming,
+    umbral_confrm=0.35,
+    umbral_posible=0.30,
+    min_event_seconds=0.50,
+):
     """
     Maquina de estados generalizada para un comportamiento.
     Maneja el paso de Ausente -> Posible -> Confirmado
@@ -406,7 +423,7 @@ def state_machine_update(prob_val, current_sec, frames_acc, events_list, current
         frames_acc += 1
         
         if not is_confirming:
-            if current_start is not None and (current_sec - current_start > 0.5):
+            if current_start is not None and (current_sec - current_start >= min_event_seconds):
                 events_list.append((current_start, current_sec, "Confirmada"))
             current_start = current_sec
             is_confirming = True
@@ -417,7 +434,7 @@ def state_machine_update(prob_val, current_sec, frames_acc, events_list, current
         bar_color = (0, 255, 255) # Amarillo/Naranja
         
         if is_confirming:
-            if current_start is not None and (current_sec - current_start > 0.5):
+            if current_start is not None and (current_sec - current_start >= min_event_seconds):
                 events_list.append((current_start, current_sec, "Confirmada"))
             current_start = current_sec
             is_confirming = False
@@ -427,7 +444,7 @@ def state_machine_update(prob_val, current_sec, frames_acc, events_list, current
         bar_color = (255, 100, 0) # Azul
         
         if current_start is not None:
-            if current_sec - current_start > 0.5:
+            if current_sec - current_start >= min_event_seconds:
                 events_list.append((current_start, current_sec, "Confirmada" if is_confirming else "Posible"))
             current_start = None
             is_confirming = False
@@ -492,14 +509,14 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
     # --- SUAVIZADO Y FILTROS (Moving Average) ---
     print("Suavizando probabilidades para evitar parpadeo de microsegundos...")
     # Thigmotaxis: Filtro de 15 frames (0.5s). Evita alertas falsas breves.
-    probs_thigmo = pd.Series(probs_thigmo).rolling(window=15, min_periods=1, center=True).mean().values
+    probs_thigmo = pd.Series(probs_thigmo).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
     
     # Grooming: Filtro de 15 frames (0.5s). 
-    probs_groom = pd.Series(probs_groom).rolling(window=15, min_periods=1, center=True).mean().values
+    probs_groom = pd.Series(probs_groom).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
 
     # Pre-calcular el movimiento promedio de la nariz para evitar "falsos estáticos"
     if 'Movement_mouse_nose' in df_master.columns:
-        mov_nose = pd.Series(df_master['Movement_mouse_nose'].values).rolling(window=15, min_periods=1, center=True).mean().values
+        mov_nose = pd.Series(df_master['Movement_mouse_nose'].values).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
     else:
         mov_nose = np.ones(len(probs_groom)) * 10.0 # Dummy fallback
 
@@ -638,13 +655,14 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
                 events_list=thigmo_events, 
                 current_start=thigmo_start, 
                 is_confirming=thigmo_is_conf,
-                umbral_confrm=0.30, # Ajustado al umbral validado del modelo
-                umbral_posible=0.25
+                umbral_confrm=THIGMO_CONFIRM_THRESHOLD,
+                umbral_posible=THIGMO_POSSIBLE_THRESHOLD,
+                min_event_seconds=THIGMO_MIN_EVENT_SECONDS
             )
             if t_col == (0, 0, 255): t_col = (0, 0, 255) # Thigmo rojo
             elif t_col == (0, 255, 255): t_col = (0, 165, 255) # Thigmo naranja
 
-            # --- EVALUAR GROOMING (Umbral ajustado a la realidad: 50%) ---
+            # --- EVALUAR GROOMING (calibrado para YOLO Pose, sin inflar a falsos positivos) ---
             (g_txt, g_col, g_status, groom_frames, groom_events, 
              groom_start, groom_is_conf) = state_machine_update(
                 prob_val=p_groom, 
@@ -653,8 +671,9 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
                 events_list=groom_events, 
                 current_start=groom_start, 
                 is_confirming=groom_is_conf,
-                umbral_confrm=0.38, # Alineado al threshold validado del modelo
-                umbral_posible=0.30
+                umbral_confrm=GROOMING_CONFIRM_THRESHOLD,
+                umbral_posible=GROOMING_POSSIBLE_THRESHOLD,
+                min_event_seconds=GROOMING_MIN_EVENT_SECONDS
             )
             # Personalizamos colores visuales del Grooming (Violeta/Magenta)
             if g_col == (0, 0, 255): g_col = (255, 0, 255) # Confirmado es Violeta

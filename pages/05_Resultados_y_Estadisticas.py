@@ -219,6 +219,8 @@ def build_session_fallback_dataframe():
     rat_id = st.session_state.get("id_raton_actual") or (Path(video_path).stem if video_path else "sesion_actual")
     treatment = st.session_state.get("treatment") or "Control"
     responsible = st.session_state.get("ingesta_responsable_actual") or st.session_state.get("user_name", "Investigador")
+    bundle = load_trajectory_bundle(trajectory_path)
+    summary = bundle["summary"] if bundle else {}
 
     return pd.DataFrame(
         [
@@ -231,12 +233,12 @@ def build_session_fallback_dataframe():
                 "video_path": video_path or "",
                 "created_by": None,
                 "created_at": str(pd.Timestamp.now()),
-                "open_t": 0.0,
-                "closed_t": 0.0,
-                "center_t": 0.0,
-                "grooming_t": 0.0,
-                "thigmo_t": 0.0,
-                "analysis_status": "session_only",
+                "open_t": float(summary.get("open_t", 0.0)),
+                "closed_t": float(summary.get("closed_t", 0.0)),
+                "center_t": float(summary.get("center_t", 0.0)),
+                "grooming_t": float(summary.get("grooming_t", 0.0)),
+                "thigmo_t": float(summary.get("thigmo_t", 0.0)),
+                "analysis_status": "completed",
                 "trajectory_path": trajectory_path,
                 "owner_email": st.session_state.get("user", ""),
             }
