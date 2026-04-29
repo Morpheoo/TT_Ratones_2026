@@ -171,7 +171,7 @@ def backup_models(behaviors: list[str]) -> None:
     ts = timestamp()
 
     for behavior in behaviors:
-        model_path = SIMBA_GENERATED_MODELS_DIR / f"{behavior}.sav"
+        model_path = _models / f"{behavior}.sav"
         if model_path.exists():
             backup_name = f"{behavior}_{ts}.sav"
             backup_path = BACKUP_DIR / backup_name
@@ -240,7 +240,7 @@ def train_classifier(behavior: str) -> bool:
         return False
 
     # 3. Verificar que el modelo se guardo
-    model_path = SIMBA_GENERATED_MODELS_DIR / f"{behavior}.sav"
+    model_path = _models / f"{behavior}.sav"
     if model_path.exists():
         size_mb = model_path.stat().st_size / (1024 * 1024)
         mod_time = datetime.fromtimestamp(model_path.stat().st_mtime)
@@ -286,7 +286,7 @@ def main() -> int:
 
     header("REENTRENAMIENTO DE MODELOS SimBA")
     print(f"   Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"   Proyecto: {SIMBA_BASE.name}")
+    print(f"   Proyecto: {_base.name}")
     print(f"   Config: {CONFIG_PATH}")
 
     behaviors_to_train = [args.behavior] if args.behavior else BEHAVIORS
@@ -331,12 +331,14 @@ def main() -> int:
     all_ok = True
     for behavior, success in results.items():
         status = "[OK]" if success else "[FAIL]"
-        model_path = SIMBA_GENERATED_MODELS_DIR / f"{behavior}.sav"
+        model_path = _models / f"{behavior}.sav"
         if model_path.exists():
             size_mb = model_path.stat().st_size / (1024 * 1024)
             print(f"   {status} {behavior}.sav ({size_mb:.1f} MB)")
         else:
             print(f"   {status} {behavior}.sav")
+            all_ok = False
+        if not success:
             all_ok = False
 
     if all_ok:

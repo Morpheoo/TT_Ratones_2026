@@ -27,6 +27,8 @@ APPLY_BBOX_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "apply_dlc_bbox_constrain
 COMPUTE_FEATURES_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "compute_simba_features.py"
 FINAL_VIDEO_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "generar_video_prediccion.py"
 YOLO_POSE_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "yolo_pose_to_csv.py"
+GROOMING_LSTM_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "infer_grooming_lstm.py"
+GROOMING_LSTM_MODEL_DIR = PROJECT_ROOT / "data" / "models" / "lstm_grooming_yolo"
 YOLO_POSE_MODEL = PROJECT_ROOT / "runs" / "pose" / "yolo11s_pose_raton_v4" / "weights" / "best.pt"
 KEYPOINTS_YOLO_DIR = PROJECT_ROOT / "keypoints_yolo"
 RESULTADOS_YOLO_DIR = PROJECT_ROOT / "resultados_yolo"
@@ -292,6 +294,44 @@ def run_feature_stage(
     return feature_csv.resolve()
 
 
+def run_grooming_lstm_stage(
+    *,
+    feature_csv: Path,
+    output_dir: Path,
+    fps: float = 30.0,
+) -> Path:
+    log("[STEP] GROOMING_LSTM")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_csv = output_dir / f"{feature_csv.stem}_grooming_lstm.csv"
+    dependencies = [
+        feature_csv,
+        GROOMING_LSTM_SCRIPT,
+        GROOMING_LSTM_MODEL_DIR / "grooming_lstm.keras",
+        GROOMING_LSTM_MODEL_DIR / "scaler.pkl",
+        GROOMING_LSTM_MODEL_DIR / "metadata.json",
+    ]
+
+    if is_output_fresh(output_csv, dependencies):
+        log(f"[INFO] Reusing existing Grooming LSTM inference for {feature_csv.stem}.")
+    else:
+        command = [
+            str(PY310),
+            str(GROOMING_LSTM_SCRIPT),
+            "--features",
+            str(feature_csv),
+            "--model-dir",
+            str(GROOMING_LSTM_MODEL_DIR),
+            "--output",
+            str(output_csv),
+            "--fps",
+            str(fps),
+        ]
+        run_and_stream(command, "GROOMING_LSTM")
+
+    log(f"[OUTPUT] GROOMING_LSTM_CSV={output_csv.resolve()}")
+    return output_csv.resolve()
+
+
 def find_generated_model(patterns: list[str], model_dir: Path) -> Path:
     for pattern in patterns:
         matches = sorted(model_dir.glob(pattern))
@@ -309,6 +349,8 @@ def run_final_video_stage(
     grooming_model: Path = GROOMING_MODEL,
     thigmotaxis_model: Path = THIGMOTAXIS_MODEL,
     output_dir: Path | None = None,
+    grooming_source: str = "rf",
+    lstm_grooming_csv: Path | None = None,
 ) -> tuple[Path, Path | None, Path | None]:
     log("[STEP] FINAL_VIDEO")
     if output_dir is not None:
@@ -323,6 +365,8 @@ def run_final_video_stage(
     dependencies = [analyzed_video, feature_csv, FINAL_VIDEO_SCRIPT, grooming_model, thigmotaxis_model]
     if zones_file is not None:
         dependencies.append(zones_file)
+    if lstm_grooming_csv is not None:
+        dependencies.append(lstm_grooming_csv)
 
     final_outputs = [output_video, trajectory_file, grooming_timelog, thigmotaxis_timelog]
     if all(is_output_fresh(output_path, dependencies) for output_path in final_outputs):
@@ -341,7 +385,22 @@ def run_final_video_stage(
             str(grooming_model.resolve()),
             "--output",
             str(output_video),
+            "--grooming-source",
+            grooming_source,
+            "--grooming-confirm-threshold",
+            "0.41",
         ]
+        if lstm_grooming_csv is not None:
+            command.extend(
+                [
+                    "--lstm-grooming-csv",
+                    str(lstm_grooming_csv),
+                    "--lstm-rescue-rf-threshold",
+                    "0.22",
+                    "--lstm-rescue-threshold",
+                    "0.11",
+                ]
+            )
         if zones_file is not None:
             command.extend(["--zonas_file", str(zones_file)])
         run_and_stream(command, "FINAL_VIDEO")
@@ -371,6 +430,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-seconds", type=float, default=None, help="Trim end in seconds.")
     parser.add_argument("--skip-final-video", action="store_true", help="Stop after bbox + SimBA feature sync.")
     parser.add_argument("--backend", default="dlc", choices=["dlc", "yolo"], help="Pose extraction backend: dlc or yolo.")
+    parser.add_argument(
+        "--grooming-source",
+        default="rescue",
+        choices=["rf", "lstm", "ensemble", "rescue"],
+        help="Grooming decision source for the final video. YOLO default uses RF with LSTM temporal rescue.",
+    )
     return parser.parse_args()
 
 
@@ -392,6 +457,7 @@ def main() -> int:
             thigmotaxis_model = THIGMOTAXIS_MODEL
 
         ensure_path(video_path, "Input video")
+        ensure_path(PY310, "venv_310 python")
         ensure_path(PY311, "venv_311 python")
         ensure_path(COMPUTE_FEATURES_SCRIPT, "SimBA feature bridge")
         ensure_path(FINAL_VIDEO_SCRIPT, "Multimodal renderer")
@@ -401,12 +467,16 @@ def main() -> int:
         if zones_file is not None:
             ensure_path(zones_file, "Zones JSON")
         if args.backend == "dlc":
-            ensure_path(PY310, "venv_310 python")
             ensure_path(RUN_SUPERANIMAL_SCRIPT, "DLC script")
             ensure_path(APPLY_BBOX_SCRIPT, "BBox script")
         else:
             ensure_path(YOLO_POSE_SCRIPT, "YOLO Pose script")
             ensure_path(YOLO_POSE_MODEL, "YOLO Pose model (best.pt)")
+            if not bool(args.skip_final_video) and args.grooming_source != "rf":
+                ensure_path(GROOMING_LSTM_SCRIPT, "Grooming LSTM inference script")
+                ensure_path(GROOMING_LSTM_MODEL_DIR / "grooming_lstm.keras", "Grooming LSTM model")
+                ensure_path(GROOMING_LSTM_MODEL_DIR / "scaler.pkl", "Grooming LSTM scaler")
+                ensure_path(GROOMING_LSTM_MODEL_DIR / "metadata.json", "Grooming LSTM metadata")
 
         log("=" * 72)
         log("TT 2026 BEHAVIOR PIPELINE")
@@ -415,6 +485,7 @@ def main() -> int:
         log(f"[INFO] Video: {video_path}")
         log(f"[INFO] Backend: {args.backend.upper()}")
         log(f"[INFO] SimBA project: {project_root}")
+        log(f"[INFO] Grooming source: {args.grooming_source if args.backend == 'yolo' else 'rf'}")
         if args.backend == "dlc":
             log(f"[INFO] DLC batch size: {max(4, min(int(args.batch_size), 32))}")
             log(f"[INFO] Force CPU: {bool(args.force_cpu)}")
@@ -447,6 +518,12 @@ def main() -> int:
                 log("=" * 72)
             else:
                 yolo_out_dir = RESULTADOS_YOLO_DIR / video_path.stem
+                lstm_grooming_csv = None
+                if args.grooming_source != "rf":
+                    lstm_grooming_csv = run_grooming_lstm_stage(
+                        feature_csv=feature_csv,
+                        output_dir=yolo_out_dir,
+                    )
                 multimodal_video, trajectory_file, grooming_timelog = run_final_video_stage(
                     analyzed_video=analyzed_video,
                     feature_csv=feature_csv,
@@ -455,6 +532,8 @@ def main() -> int:
                     grooming_model=grooming_model,
                     thigmotaxis_model=thigmotaxis_model,
                     output_dir=yolo_out_dir,
+                    grooming_source=args.grooming_source,
+                    lstm_grooming_csv=lstm_grooming_csv,
                 )
                 log(f"[OUTPUT] RESULTADOS_DIR={yolo_out_dir.resolve()}")
                 thigmotaxis_timelog = multimodal_video.with_name(multimodal_video.stem + "_THIGMOTAXIS_TIMELOG.csv")
@@ -462,6 +541,8 @@ def main() -> int:
                 log(f"[OUTPUT] FILTERED_CSV={filtered_csv}")
                 log(f"[OUTPUT] YOLO_KEYPOINTS_VIDEO={kp_video}")
                 log(f"[OUTPUT] FINAL_FEATURE_CSV={feature_csv}")
+                if lstm_grooming_csv is not None:
+                    log(f"[OUTPUT] FINAL_GROOMING_LSTM_CSV={lstm_grooming_csv}")
                 log(f"[OUTPUT] FINAL_VIDEO={multimodal_video}")
                 if trajectory_file is not None:
                     log(f"[OUTPUT] FINAL_TRAJECTORY={trajectory_file}")
