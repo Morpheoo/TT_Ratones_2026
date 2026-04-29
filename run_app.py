@@ -28,15 +28,15 @@ def ensure_services_ready():
             timeout=120  # Máximo 2 minutos para todo
         )
         if result.returncode != 0:
-            print("\n⚠️  ADVERTENCIA: Los servicios no se iniciaron correctamente.")
+            print("\n[WARN] ADVERTENCIA: Los servicios no se iniciaron correctamente.")
             print("    Streamlit continuará, pero la BD podría no estar disponible.\n")
             return False
         return True
     except subprocess.TimeoutExpired:
-        print("\n❌ TIMEOUT: Los servicios tardaron demasiado en iniciar.\n")
+        print("\n[ERROR] TIMEOUT: Los servicios tardaron demasiado en iniciar.\n")
         return False
     except Exception as e:
-        print(f"\n❌ ERROR al ejecutar start_services.py: {e}\n")
+        print(f"\n[ERROR] ERROR al ejecutar start_services.py: {e}\n")
         return False
 
 if __name__ == "__main__":

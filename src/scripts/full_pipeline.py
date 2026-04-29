@@ -127,7 +127,7 @@ def step1_prepare_video():
         return True
     
     if not FFMPEG_PATH:
-        print("❌ ERROR: FFmpeg no encontrado. Instálalo o configura FFMPEG_PATH en .env")
+        print("[ERROR] ERROR: FFmpeg no encontrado. Instálalo o configura FFMPEG_PATH en .env")
         return False
 
     ffmpeg_exe = str(FFMPEG_PATH)

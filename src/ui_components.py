@@ -144,7 +144,7 @@ def generic_splash_loader(diag_generator, logo_path=None, subtitle="TT 2026 - In
     except Exception as e:
         # Si ocurre un error real, debemos limpiar el splash y reportarlo
         splash_placeholder.empty()
-        st.error(f"❌ Error crítico durante la carga: {str(e)}")
+        st.error(f"[ERROR] Error crítico durante la carga: {str(e)}")
         st.expander("Detalles técnicos del error").code(traceback.format_exc())
         st.stop()  # Detenemos la ejecución para que el usuario vea el error
 

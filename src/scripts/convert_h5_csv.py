@@ -22,7 +22,7 @@ def convert_h5_to_csv():
         df = pd.read_hdf(h5_path)
         csv_path = h5_path.replace(".h5", ".csv")
         df.to_csv(csv_path)
-        print(f"✅ Successfully created: {csv_path}")
+        print(f"[OK] Successfully created: {csv_path}")
     except Exception as e:
         print(f"Error converting H5 to CSV: {e}")
 

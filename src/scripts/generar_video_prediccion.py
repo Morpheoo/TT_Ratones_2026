@@ -304,7 +304,7 @@ def export_timelog(events, output_path, total_frames, current_start, behavior_na
         df_log["End_MinSec"] = df_log["End_Second"].apply(format_time)
         df_log["Duration_Seconds"] = df_log["End_Second"] - df_log["Start_Second"]
         df_log.to_csv(log_path, index=False)
-        print(f"✅ ¡Reporte científico guardado: {log_path}!")
+        print(f"[OK] ¡Reporte científico guardado: {log_path}!")
 
 def state_machine_update(prob_val, current_sec, frames_acc, events_list, current_start, is_confirming, umbral_confrm=0.35, umbral_posible=0.30):
     """
@@ -458,9 +458,9 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
                     else: col = (150, 150, 150) # default gris oscuro
                     config_cats.append({"id": nombre, "color": col}) 
 
-            print(f"✅ Zonas cargadas vía JSON (modo silencioso): {list(maze_rois.keys())}")
+            print(f"[OK] Zonas cargadas vía JSON (modo silencioso): {list(maze_rois.keys())}")
         except Exception as e:
-            print(f"❌ Error parseando zonas JSON, fallback a manual: {e}")
+            print(f"[ERROR] Error parseando zonas JSON, fallback a manual: {e}")
             roi_result = select_maze_rois(video_path)
             if roi_result is None: return
             maze_rois, config_cats = roi_result

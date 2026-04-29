@@ -26,10 +26,10 @@ class ServiceStartError(Exception):
 def log(msg: str, level: str = "INFO"):
     """Simple logging"""
     prefix = {
-        "INFO": "ℹ️ ",
-        "OK": "✅ ",
-        "WARN": "⚠️ ",
-        "ERROR": "❌ ",
+        "INFO": "[INFO] ",
+        "OK": "[OK] ",
+        "WARN": "[WARN] ",
+        "ERROR": "[ERROR] ",
     }.get(level, "➜ ")
     print(f"{prefix} [{level}] {msg}")
 

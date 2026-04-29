@@ -22,7 +22,7 @@ DB_NAME     = os.getenv("POSTGRES_DB")
 
 if not all([DB_USER, DB_PASSWORD, DB_NAME]):
     raise ValueError(
-        "❌ Faltan variables de entorno críticas de Base de Datos "
+        "[ERROR] Faltan variables de entorno críticas de Base de Datos "
         "(POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)."
     )
 

@@ -112,21 +112,46 @@ def check_admin_access(role: str) -> bool:
     """Verifica si el rol tiene acceso al panel de administración."""
     return role == "admin"
 
-def register_user(email, password, role="investigador", full_name=None, boleta=None, carrera=None, escuela=None, accepted_terms=False):
-    """Register a new user in the PostgreSQL database with full profile data and pending verification."""
+def register_user(email, password, role="investigador", full_name=None, 
+                 boleta=None, carrera=None, escuela=None,
+                 num_empleado=None, area=None, centro=None,
+                 accepted_terms=False):
+    """Register a new user in the PostgreSQL database with full profile data and pending verification.
+    
+    Soporta dos tipos de perfil:
+    - Estudiante (alumno): requiere boleta, carrera, escuela - dominio @alumno.ipn.mx
+    - Investigador/Docente: requiere num_empleado, area, centro - dominio @ipn.mx
+    """
     
     # 0. Validar Términos
     if not accepted_terms:
-        return False, "⚠️ Debes aceptar los Términos y Condiciones para registrarte."
+        return False, "Debes aceptar los Términos y Condiciones para registrarte."
 
-    # 1. Validar Dominio IPN
-    if not validate_ipn_domain(email):
-        log_security_event(
-            "REGISTER_FAILED", user=email,
-            message="Intento de registro con dominio no IPN",
-            level="WARNING", success=False
-        )
-        return False, "❌ Registro restringido. Debes usar un correo institucional (@ipn.mx o @alumno.ipn.mx)."
+    # 1. Validar Dominio IPN según el rol
+    if role == "estudiante":
+        if not email.endswith("@alumno.ipn.mx"):
+            log_security_event(
+                "REGISTER_FAILED", user=email,
+                message="Estudiante debe usar @alumno.ipn.mx",
+                level="WARNING", success=False
+            )
+            return False, "Los estudiantes deben usar un correo @alumno.ipn.mx"
+    elif role == "investigador":
+        if not email.endswith("@ipn.mx") or email.endswith("@alumno.ipn.mx"):
+            log_security_event(
+                "REGISTER_FAILED", user=email,
+                message="Investigador debe usar @ipn.mx (no @alumno)",
+                level="WARNING", success=False
+            )
+            return False, "Los investigadores/docentes deben usar un correo @ipn.mx"
+    else:
+        if not validate_ipn_domain(email):
+            log_security_event(
+                "REGISTER_FAILED", user=email,
+                message="Intento de registro con dominio no IPN",
+                level="WARNING", success=False
+            )
+            return False, "Registro restringido. Debes usar un correo institucional (@ipn.mx o @alumno.ipn.mx)."
         
     engine = get_db_engine()
     if not engine:
@@ -134,38 +159,39 @@ def register_user(email, password, role="investigador", full_name=None, boleta=N
 
     log_security_event(
         "REGISTER_ATTEMPT", user=email,
-        message=f"Intento de registro. Rol solicitado: {role}. Boleta: {boleta}",
+        message=f"Intento de registro. Rol: {role}. ID: {boleta or num_empleado}",
         level="INFO", success=True
     )
 
     try:
         with engine.connect() as conn:
-            # 2. Verificar si existe
-            check = text("SELECT id FROM users WHERE username = :email")
-            if conn.execute(check, {"email": email}).fetchone():
-                log_security_event(
-                    "REGISTER_FAILED", user=email,
-                    message="Usuario ya existe en BD",
-                    level="WARNING", success=False
-                )
-                return False, "⚠️ El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
-            
-            # 3. Generar Código OTP
-            otp_code = str(random.randint(100000, 999999))
-            
-            # Start transaction explicitly
-            with conn.begin(): 
-                # 4. Insertar con campos extendidos
+            with conn.begin():  # Iniciar transacción desde el principio
+                # 2. Verificar si existe
+                check = text("SELECT id FROM users WHERE username = :email")
+                if conn.execute(check, {"email": email}).fetchone():
+                    log_security_event(
+                        "REGISTER_FAILED", user=email,
+                        message="Usuario ya existe en BD",
+                        level="WARNING", success=False
+                    )
+                    return False, "El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
+                
+                # 3. Generar Código OTP
+                otp_code = str(random.randint(100000, 999999))
+                
+                # 4. Insertar con campos extendidos (estudiante o investigador)
                 insert = text("""
                     INSERT INTO users (
                         username, password_hash, role, 
                         is_verified, verification_code, verification_code_created_at,
-                        full_name, boleta, carrera, escuela, accepted_terms
+                        full_name, boleta, carrera, escuela, 
+                        num_empleado, area, centro, accepted_terms
                     ) 
                     VALUES (
                         :email, :pwd, :role, 
                         FALSE, :otp, CURRENT_TIMESTAMP,
-                        :fname, :boleta, :carrera, :escuela, :accepted
+                        :fname, :boleta, :carrera, :escuela,
+                        :num_empleado, :area, :centro, :accepted
                     )
                 """)
                 
@@ -178,6 +204,9 @@ def register_user(email, password, role="investigador", full_name=None, boleta=N
                     "boleta": boleta,
                     "carrera": carrera,
                     "escuela": escuela,
+                    "num_empleado": num_empleado,
+                    "area": area,
+                    "centro": centro,
                     "accepted": accepted_terms
                 })
 
@@ -197,7 +226,7 @@ def register_user(email, password, role="investigador", full_name=None, boleta=N
                 message=f"Usuario registrado. OTP enviado. Rol: {role}",
                 level="INFO", success=True
             )
-            return True, "✅ Código de verificación enviado a tu correo IPN."
+            return True, "Código de verificación enviado a tu correo IPN."
             
     except Exception as e:
         # If email failed (raised Exception), the DB insert is rolled back.
@@ -282,7 +311,7 @@ def resend_verification_code(email):
                     message="Nuevo OTP generado y enviado",
                     level="INFO", success=True
                 )
-                return True, "✅ Nuevo código enviado."
+                return True, "Nuevo código enviado."
             else:
                 return False, f"Error enviando correo: {msg} (Código debug: {new_otp})"
     except Exception as e:
@@ -349,7 +378,7 @@ def reset_password(email, otp, new_password):
                 message="Contraseña actualizada exitosamente",
                 level="INFO", success=True
             )
-            return True, "✅ Contraseña actualizada exitosamente."
+            return True, "Contraseña actualizada exitosamente."
             
     except Exception as e:
         log_security_event(
@@ -367,7 +396,7 @@ def update_user_profile(email: str, full_name: str):
             update = text("UPDATE users SET full_name = :fname WHERE username = :email")
             conn.execute(update, {"fname": full_name, "email": email})
             conn.commit()
-            return True, "✅ Perfil actualizado exitosamente."
+            return True, "Perfil actualizado exitosamente."
     except Exception as e:
         return False, f"Error al actualizar perfil en BD: {e}"
 

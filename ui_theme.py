@@ -586,16 +586,17 @@ def render_topbar(title="Sistema Técnico para Análisis Automatizado de Comport
 </div>
 """, unsafe_allow_html=True)
 
-def inject_sidebar_profile():
-    """Inyecta el layout HTML para la cabecera, botones mini y logout en el sidebar."""
+def inject_sidebar_profile(show_admin_button=False):
+    """Inyecta el layout HTML para la cabecera y branding en el sidebar."""
     colors = use_theme()
     # --- 1. CABECERA (TÍTULO) ---
     st.sidebar.markdown('<div style="text-align:center; font-weight:800; color:white; letter-spacing:1px; padding-top:0.2rem;">SISTEMA EPM</div>', unsafe_allow_html=True)
     st.sidebar.markdown('<hr style="margin: 0.5rem 0; opacity:0.15;">', unsafe_allow_html=True)
 
-    # --- 2. ESPACIO PARA NAVEGACIÓN (Streamlit inserta aquí las páginas) ---
+    # --- 2. NAVEGACIÓN MANUAL (con o sin Admin Panel) ---
+    inject_sidebar_navigation(show_admin_button=show_admin_button)
     
-    # --- 3. BRANDING INSTITUCIONAL (Debajo de Admin Panel) ---
+    # --- 3. BRANDING INSTITUCIONAL (Debajo de navegación) ---
     st.sidebar.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
     
     # Centrado usando columnas nativas
@@ -613,3 +614,35 @@ def inject_sidebar_profile():
 
     # --- 4. CIERRE (ESPACIO FINAL) ---
     st.sidebar.markdown('<div style="height: 50px;"></div>', unsafe_allow_html=True)
+
+
+def inject_sidebar_navigation(show_admin_button=False):
+    """Inyecta navegación manual del sidebar (opcionalmente con Admin Panel)."""
+    # Botón de Admin Panel (solo si show_admin_button=True y user es admin)
+    if show_admin_button:
+        user_role = st.session_state.get("role", "")
+        if user_role == "admin":
+            st.sidebar.markdown("#### Panel Administrativo")
+            if st.sidebar.button("Acceder a Panel Admin", key="admin_access_btn", use_container_width=True, type="primary"):
+                st.switch_page("pages/99_Admin_Panel.py")
+            st.sidebar.markdown("<hr style='margin: 1rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
+    
+    # Navegación de módulos
+    st.sidebar.markdown("#### Módulos del Sistema")
+    
+    pages = [
+        ("Home", "Home.py"),
+        ("Ingesta de Video", "pages/01_Ingesta_de_Video.py"),
+        ("Keypoints", "pages/02_Keypoints.py"),
+        ("Configuracion Zonas", "pages/03_Configuracion_Zonas.py"),
+        ("Analisis Final", "pages/04_Analisis_Final.py"),
+        ("Resultados y Estadisticas", "pages/05_Resultados_y_Estadisticas.py"),
+        ("Comparacion", "pages/06_Comparacion.py"),
+        ("Perfil", "pages/98_Perfil.py"),
+    ]
+    
+    for label, page_path in pages:
+        if st.sidebar.button(label, key=f"nav_{page_path}", use_container_width=True):
+            st.switch_page(page_path)
+    
+    st.sidebar.markdown("<hr style='margin: 1rem 0; opacity: 0.1;'>", unsafe_allow_html=True)

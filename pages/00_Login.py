@@ -15,7 +15,7 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import use_theme
 
-st.set_page_config(page_title="Login | Sistema EPM", page_icon="🔐", layout="centered")
+st.set_page_config(page_title="Login | Sistema EPM", page_icon="assets/logos/logo_ria.png", layout="centered")
 
 load_session()
 colors = use_theme()
@@ -151,14 +151,26 @@ if st.session_state.auth_mode == "login":
         if email and password:
             user_data = authenticate(email, password)
             if user_data:
-                st.session_state.logged_in = True
-                st.session_state.user = user_data["email"]
-                st.session_state.user_name = user_data["name"]
-                st.session_state.role = user_data["role"]
-                save_session()
-                st.success("Autenticación exitosa.")
-                time.sleep(1)
-                st.switch_page("Home.py")
+                # Verificar si la cuenta está verificada
+                if user_data.get("status") == "NOT_VERIFIED":
+                    st.warning("Tu cuenta no está verificada. Revisa tu correo para el código de verificación.")
+                    st.session_state.auth_mode = "verify"
+                    st.session_state.pending_verification_email = user_data["email"]
+                    time.sleep(1)
+                    st.rerun()
+                elif user_data.get("status") == "SUSPENDED":
+                    st.error("Tu cuenta ha sido suspendida. Contacta al administrador.")
+                elif user_data.get("status") == "ACTIVE":
+                    st.session_state.logged_in = True
+                    st.session_state.user = user_data["email"]
+                    st.session_state.user_name = user_data["name"]
+                    st.session_state.role = user_data["role"]
+                    save_session()
+                    st.success("Autenticación exitosa.")
+                    time.sleep(1)
+                    st.switch_page("Home.py")
+                else:
+                    st.error("Credenciales incorrectas o cuenta inactiva.")
             else:
                 st.error("Credenciales incorrectas o cuenta inactiva.")
         else:
@@ -171,59 +183,218 @@ if st.session_state.auth_mode == "login":
 
 elif st.session_state.auth_mode == "register":
     st.markdown('<div class="login-title">Crear Cuenta</div>', unsafe_allow_html=True)
-    st.markdown('<div class="login-subtitle">Acceso exclusivo para investigadores IPN</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-subtitle">Acceso exclusivo para comunidad IPN</div>', unsafe_allow_html=True)
     
-    with st.form("reg_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            full_name = st.text_input("Nombre Completo *")
-            boleta = st.text_input("Número de Boleta (ID) *")
-        with col2:
-            carrera = st.text_input("Carrera / Posgrado")
-            escuela = st.text_input("Escuela / Centro (ej. ESCOM)")
-        
-        st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
-        new_email = st.text_input("Correo Electrónico Institucional (@ipn.mx) *")
-        new_pass = st.text_input("Contraseña segura *", type="password")
-        
-        st.markdown("""
-            <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
-                <strong>Términos y Condiciones:</strong> Al registrarte en el Sistema EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
-            </div>
-        """, unsafe_allow_html=True)
-        accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
-        
-        reg_submit = st.form_submit_button("Solicitar Acceso", type="primary", use_container_width=True)
+    # Inicializar tipo de registro si no existe
+    if "register_type" not in st.session_state:
+        st.session_state.register_type = "estudiante"
+    
+    # Selector de tipo de usuario
+    st.markdown("<div style='margin-bottom: 1.5rem;'>", unsafe_allow_html=True)
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button(
+            "Estudiante", 
+            type="primary" if st.session_state.register_type == "estudiante" else "secondary",
+            use_container_width=True
+        ):
+            st.session_state.register_type = "estudiante"
+            st.rerun()
+    with col_btn2:
+        if st.button(
+            "Investigador / Docente", 
+            type="primary" if st.session_state.register_type == "investigador" else "secondary",
+            use_container_width=True
+        ):
+            st.session_state.register_type = "investigador"
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Formulario según el tipo seleccionado
+    if st.session_state.register_type == "estudiante":
+        with st.form("reg_form_estudiante"):
+            st.markdown(f"<div style='text-align: center; font-weight: 600; color: {colors['primary']}; margin-bottom: 1rem;'>REGISTRO DE ESTUDIANTE</div>", unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                full_name = st.text_input("Nombre Completo *")
+                boleta = st.text_input("Número de Boleta *")
+            with col2:
+                carrera = st.text_input("Carrera")
+                escuela = st.text_input("Escuela (ej. ESCOM)")
+            
+            st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
+            new_email = st.text_input("Correo Institucional (@alumno.ipn.mx) *")
+            new_pass = st.text_input("Contraseña segura *", type="password")
+            
+            st.markdown("""
+                <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
+                    <strong>Términos y Condiciones:</strong> Al registrarte en el Sistema EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
+                </div>
+            """, unsafe_allow_html=True)
+            accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
+            
+            reg_submit = st.form_submit_button("Solicitar Acceso", type="primary", use_container_width=True)
 
-    if reg_submit:
-        if not accepted:
-            st.error("⚠️ Debes aceptar los términos institucionales.")
-        elif not all([full_name, boleta, new_email, new_pass]):
-            st.warning("Completa los campos obligatorios (*).")
-        else:
-            # register_user guarda full_name, boleta, carrera, escuela, accepted_terms
-            success, msg = register_user(
-                email=new_email, 
-                password=new_pass, 
-                role="investigador", 
-                full_name=full_name,
-                boleta=boleta,
-                carrera=carrera,
-                escuela=escuela,
-                accepted_terms=accepted
-            )
-            if success:
-                st.success("✅ Registro enviado. Por favor verifica tu correo para activar la cuenta.")
-                time.sleep(2)
-                st.session_state.auth_mode = "login"
-                st.rerun()
+        if reg_submit:
+            if not accepted:
+                st.error("Debes aceptar los términos institucionales.")
+            elif not all([full_name, boleta, new_email, new_pass]):
+                st.warning("Completa los campos obligatorios (*).")
             else:
-                st.error(msg)
+                success, msg = register_user(
+                    email=new_email, 
+                    password=new_pass, 
+                    role="estudiante", 
+                    full_name=full_name,
+                    boleta=boleta,
+                    carrera=carrera,
+                    escuela=escuela,
+                    accepted_terms=accepted
+                )
+                if success:
+                    st.success("Registro enviado. Revisa tu correo para el código de verificación.")
+                    st.session_state.auth_mode = "verify"
+                    st.session_state.pending_verification_email = new_email
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(msg)
+    
+    else:  # investigador
+        with st.form("reg_form_investigador"):
+            st.markdown(f"<div style='text-align: center; font-weight: 600; color: {colors['primary']}; margin-bottom: 1rem;'>REGISTRO DE INVESTIGADOR / DOCENTE</div>", unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                full_name = st.text_input("Nombre Completo *")
+                num_empleado = st.text_input("Número de Empleado *")
+            with col2:
+                area = st.text_input("Área de Investigación")
+                centro = st.text_input("Centro / Unidad (ej. ESCOM)")
+            
+            st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
+            new_email = st.text_input("Correo Institucional (@ipn.mx) *")
+            new_pass = st.text_input("Contraseña segura *", type="password")
+            
+            st.markdown("""
+                <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
+                    <strong>Términos y Condiciones:</strong> Al registrarte en el Sistema EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
+                </div>
+            """, unsafe_allow_html=True)
+            accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
+            
+            reg_submit = st.form_submit_button("Solicitar Acceso", type="primary", use_container_width=True)
+
+        if reg_submit:
+            if not accepted:
+                st.error("Debes aceptar los términos institucionales.")
+            elif not all([full_name, num_empleado, new_email, new_pass]):
+                st.warning("Completa los campos obligatorios (*).")
+            else:
+                success, msg = register_user(
+                    email=new_email, 
+                    password=new_pass, 
+                    role="investigador", 
+                    full_name=full_name,
+                    num_empleado=num_empleado,
+                    area=area,
+                    centro=centro,
+                    accepted_terms=accepted
+                )
+                if success:
+                    st.success("Registro enviado. Revisa tu correo para el código de verificación.")
+                    st.session_state.auth_mode = "verify"
+                    st.session_state.pending_verification_email = new_email
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(msg)
             
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Volver al Inicio de Sesión", use_container_width=True):
         st.session_state.auth_mode = "login"
         st.rerun()
+
+elif st.session_state.auth_mode == "verify":
+    st.markdown('<div class="login-title">Verificar Cuenta</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-subtitle">Ingresa el código que enviamos a tu correo</div>', unsafe_allow_html=True)
+    
+    # Mostrar el email pendiente de verificación
+    if "pending_verification_email" in st.session_state:
+        email_to_verify = st.session_state.pending_verification_email
+        st.info(f"Código enviado a: {email_to_verify}")
+    else:
+        st.error("No hay email pendiente de verificación.")
+        st.session_state.auth_mode = "login"
+        st.rerun()
+    
+    with st.form("verify_form"):
+        otp_code = st.text_input("Código de Verificación (6 dígitos)", placeholder="123456", max_chars=6)
+        verify_submit = st.form_submit_button("Verificar Cuenta", type="primary", use_container_width=True)
+    
+    if verify_submit:
+        if otp_code and len(otp_code) == 6:
+            success, msg = verify_otp(email_to_verify, otp_code)
+            if success:
+                st.success(msg)
+                st.balloons()
+                time.sleep(2)
+                # Limpiar estado y volver al login
+                if "pending_verification_email" in st.session_state:
+                    del st.session_state.pending_verification_email
+                st.session_state.auth_mode = "login"
+                st.info("Ahora puedes iniciar sesión con tus credenciales.")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error(msg)
+        else:
+            st.warning("Ingresa un código de 6 dígitos.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Opción para reenviar código
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Reenviar Código", use_container_width=True):
+            # Importar función para reenviar código
+            from auth import request_password_reset
+            # Generar nuevo código y enviarlo
+            import random
+            from sqlalchemy import text
+            from db.connection import get_db_engine
+            from email_utils import send_verification_email
+            
+            new_otp = str(random.randint(100000, 999999))
+            engine = get_db_engine()
+            
+            try:
+                with engine.connect() as conn:
+                    with conn.begin():
+                        update = text("""
+                            UPDATE users 
+                            SET verification_code = :code, 
+                                verification_code_created_at = CURRENT_TIMESTAMP 
+                            WHERE username = :email
+                        """)
+                        conn.execute(update, {"code": new_otp, "email": email_to_verify})
+                        
+                        # Enviar nuevo correo
+                        sent, msg = send_verification_email(email_to_verify, new_otp)
+                        if sent:
+                            st.success("Nuevo código enviado a tu correo.")
+                        else:
+                            st.error(f"Error al enviar correo: {msg}")
+            except Exception as e:
+                st.error(f"Error al generar nuevo código: {e}")
+    
+    with col2:
+        if st.button("Volver al Login", use_container_width=True):
+            if "pending_verification_email" in st.session_state:
+                del st.session_state.pending_verification_email
+            st.session_state.auth_mode = "login"
+            st.rerun()
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(f"""

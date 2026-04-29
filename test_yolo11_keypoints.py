@@ -19,10 +19,10 @@ def test_yolo_model():
     print("=" * 60)
     
     print(f"\n📁 Modelo: {YOLO_POSE_MODEL}")
-    print(f"✅ Existe: {YOLO_POSE_MODEL.exists()}")
+    print(f"[OK] Existe: {YOLO_POSE_MODEL.exists()}")
     
     if not YOLO_POSE_MODEL.exists():
-        print("\n❌ ERROR: Modelo no encontrado")
+        print("\n[ERROR] ERROR: Modelo no encontrado")
         return
     
     print("\n[INFO] Cargando modelo YOLO11...")
@@ -56,6 +56,6 @@ if __name__ == "__main__":
     try:
         test_yolo_model()
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"\n[ERROR] ERROR: {e}")
         import traceback
         traceback.print_exc()

@@ -43,7 +43,7 @@ def trim_video():
     cap.release()
     out.release()
     cv2.destroyAllWindows()
-    print(f"\n✅ Created trimmed video: {OUTPUT_VIDEO} ({count} frames)")
+    print(f"\n[OK] Created trimmed video: {OUTPUT_VIDEO} ({count} frames)")
 
 if __name__ == "__main__":
     trim_video()

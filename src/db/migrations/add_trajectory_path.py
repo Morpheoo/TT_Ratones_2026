@@ -11,7 +11,7 @@ def migrate():
     print("Running migration: Add trajectory_path to analysis_results...")
     engine = get_db_engine()
     if not engine:
-        print("❌ Could not connect to database.")
+        print("[ERROR] Could not connect to database.")
         return
 
     with engine.connect() as conn:

@@ -87,7 +87,7 @@ def import_data():
                 else:
                     print(f"Video exists: {dest_video}")
             else:
-                 print(f"⚠️ Video not found for {video_name_base}")
+                 print(f"[WARN] Video not found for {video_name_base}")
                  
         except Exception as e:
             print(f"Error processing {csv_file}: {e}")
