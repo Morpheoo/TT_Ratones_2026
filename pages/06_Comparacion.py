@@ -22,8 +22,8 @@ importlib.reload(ui_theme)
 from ui_theme import use_theme, render_topbar, inject_sidebar_profile
 
 st.set_page_config(
-    page_title="Comparación | IPN - ESCOM", 
-    page_icon="assets/logos/logo_ria.png", 
+    page_title="Comparación | IPN - ESCOM",
+    page_icon="assets/logos/logo_ria.png",
     layout="wide"
 )
 
@@ -93,9 +93,9 @@ def get_all_experiments():
     engine = get_db_engine()
     if not engine:
         return pd.DataFrame()
-    
+
     query = text("""
-        SELECT 
+        SELECT
             e.id,
             e.rat_id,
             e.treatment,
@@ -112,10 +112,10 @@ def get_all_experiments():
         WHERE e.processed = TRUE AND ar.status = 'completed'
         ORDER BY e.experiment_date DESC, e.rat_id
     """)
-    
+
     with engine.connect() as conn:
         df = pd.read_sql(query, conn)
-    
+
     return df
 
 def create_comparison_label(row):
@@ -172,16 +172,16 @@ with col1:
         index=all_treatments.index(prev_treatment_g1) if prev_treatment_g1 in all_treatments else 0,
         key="selectbox_treatment_g1"
     )
-    
+
     # Filtrar experimentos por tratamiento del Grupo 1
     df_group1_available = df_experiments[df_experiments['treatment'] == group1_treatment].copy()
     group1_available_labels = df_group1_available['label'].tolist()
-    
+
     st.info(f"Experimentos disponibles: **{len(group1_available_labels)}**")
-    
+
     # Filtrar valores previos que aún son válidos para este tratamiento
     valid_prev_g1 = [label for label in prev_selected_g1 if label in group1_available_labels]
-    
+
     selected_group1_labels = st.multiselect(
         "Selecciona experimentos para Grupo 1:",
         options=group1_available_labels,
@@ -189,9 +189,9 @@ with col1:
         key="multiselect_g1",
         help="Puedes seleccionar múltiples experimentos. Usa Ctrl+Click o Cmd+Click"
     )
-    
+
     n_group1 = len(selected_group1_labels)
-    
+
     if n_group1 > 0:
         if 6 <= n_group1 <= 8:
             st.success(f"Experimentos seleccionados: **{n_group1}** ✓")
@@ -204,32 +204,32 @@ with col1:
 
 with col2:
     st.markdown("##### Grupo 2")
-    
+
     # Filtrar para no repetir el mismo tratamiento
     available_treatments_g2 = [t for t in all_treatments if t != group1_treatment]
     if not available_treatments_g2:
         st.error("No hay otro tratamiento disponible para comparar")
         st.stop()
-    
+
     # Asegurar que el tratamiento previo sea válido
     default_treatment_g2 = prev_treatment_g2 if prev_treatment_g2 in available_treatments_g2 else available_treatments_g2[0]
-    
+
     group2_treatment = st.selectbox(
         "Tratamiento para Grupo 2:",
         options=available_treatments_g2,
         index=available_treatments_g2.index(default_treatment_g2) if default_treatment_g2 in available_treatments_g2 else 0,
         key="selectbox_treatment_g2"
     )
-    
+
     # Filtrar experimentos por tratamiento del Grupo 2
     df_group2_available = df_experiments[df_experiments['treatment'] == group2_treatment].copy()
     group2_available_labels = df_group2_available['label'].tolist()
-    
+
     st.info(f"Experimentos disponibles: **{len(group2_available_labels)}**")
-    
+
     # Filtrar valores previos que aún son válidos para este tratamiento
     valid_prev_g2 = [label for label in prev_selected_g2 if label in group2_available_labels]
-    
+
     selected_group2_labels = st.multiselect(
         "Selecciona experimentos para Grupo 2:",
         options=group2_available_labels,
@@ -237,9 +237,9 @@ with col2:
         key="multiselect_g2",
         help="Puedes seleccionar múltiples experimentos. Usa Ctrl+Click o Cmd+Click"
     )
-    
+
     n_group2 = len(selected_group2_labels)
-    
+
     if n_group2 > 0:
         if 6 <= n_group2 <= 8:
             st.success(f"Experimentos seleccionados: **{n_group2}** ✓")
@@ -380,16 +380,16 @@ stats_data = []
 for metric_col, metric_name in metrics.items():
     for group_name in ['Grupo 1', 'Grupo 2']:
         group_data = df_comparison[df_comparison['Grupo'] == group_name][metric_col].dropna()
-        
+
         n = len(group_data)
         mean = group_data.mean() if n > 0 else 0
         std = group_data.std() if n > 1 else 0
         sem = std / (n ** 0.5) if n > 1 else 0  # Error estándar de la media
         min_val = group_data.min() if n > 0 else 0
         max_val = group_data.max() if n > 0 else 0
-        
+
         treatment = group1_treatment if group_name == 'Grupo 1' else group2_treatment
-        
+
         stats_data.append({
             'Variable': metric_name,
             'Grupo': group_name,
@@ -422,28 +422,28 @@ tab1, tab2 = st.tabs([
 
 with tab1:
     st.markdown("##### Comparación de Medias con Barras de Error")
-    
+
     # Selector de métrica
     selected_metric_name = st.selectbox(
         "Selecciona una métrica:",
         list(metrics.values()),
         key="metric_visual"
     )
-    
+
     # Obtener columna correspondiente
     metric_col = [k for k, v in metrics.items() if v == selected_metric_name][0]
-    
+
     # Filtrar datos para la métrica seleccionada
     df_plot = df_stats[df_stats['Variable'] == selected_metric_name].copy()
-    
+
     # Crear gráfico de barras con error
     fig_bars = go.Figure()
-    
+
     colors_group = {
         'Grupo 1': colors['primary'],
         'Grupo 2': colors['success']
     }
-    
+
     for grupo in ['Grupo 1', 'Grupo 2']:
         data_grupo = df_plot[df_plot['Grupo'] == grupo]
         if not data_grupo.empty:
@@ -460,7 +460,7 @@ with tab1:
                 text=data_grupo['Media'].round(2),
                 textposition='outside'
             ))
-    
+
     fig_bars.update_layout(
         title=f'{selected_metric_name} - Comparación de Grupos',
         yaxis_title=selected_metric_name,
@@ -469,9 +469,9 @@ with tab1:
         height=500,
         barmode='group'
     )
-    
+
     st.plotly_chart(fig_bars, use_container_width=True)
-    
+
     # Mostrar N de cada grupo
     col_n1, col_n2 = st.columns(2)
     with col_n1:
@@ -483,18 +483,18 @@ with tab1:
 
 with tab2:
     st.markdown("##### Comparación Detallada")
-    
+
     # Tabla comparativa lado a lado
     comparison_table = []
-    
+
     for metric_name in metrics.values():
         group1_data = df_stats[(df_stats['Variable'] == metric_name) & (df_stats['Grupo'] == 'Grupo 1')]
         group2_data = df_stats[(df_stats['Variable'] == metric_name) & (df_stats['Grupo'] == 'Grupo 2')]
-        
+
         if not group1_data.empty and not group2_data.empty:
             diff = group2_data['Media'].iloc[0] - group1_data['Media'].iloc[0]
             pct_diff = (diff / group1_data['Media'].iloc[0] * 100) if group1_data['Media'].iloc[0] != 0 else 0
-            
+
             comparison_table.append({
                 'Variable': metric_name,
                 f'Grupo 1 Media±DE': f"{group1_data['Media'].iloc[0]:.2f} ± {group1_data['Desv. Est.'].iloc[0]:.2f}",
@@ -502,7 +502,7 @@ with tab2:
                 'Diferencia': f"{diff:+.2f}",
                 '% Cambio': f"{pct_diff:+.1f}%"
             })
-    
+
     df_comparison_table = pd.DataFrame(comparison_table)
     st.dataframe(df_comparison_table, use_container_width=True, hide_index=True)
 
@@ -542,15 +542,15 @@ summary_data = []
 for metric_name in metrics.values():
     group1_data = df_stats[(df_stats['Variable'] == metric_name) & (df_stats['Grupo'] == 'Grupo 1')]
     group2_data = df_stats[(df_stats['Variable'] == metric_name) & (df_stats['Grupo'] == 'Grupo 2')]
-    
+
     if not group1_data.empty and not group2_data.empty:
         diff = group2_data['Media'].iloc[0] - group1_data['Media'].iloc[0]
         pct_diff = (diff / group1_data['Media'].iloc[0] * 100) if group1_data['Media'].iloc[0] != 0 else 0
-        
+
         # Calcular tamaño del efecto (Cohen's d)
         pooled_std = ((group1_data['Desv. Est.'].iloc[0]**2 + group2_data['Desv. Est.'].iloc[0]**2) / 2) ** 0.5
         cohens_d = diff / pooled_std if pooled_std > 0 else 0
-        
+
         summary_data.append({
             'Variable': metric_name,
             'Tratamiento_1': group1_treatment,
@@ -573,16 +573,16 @@ buffer = BytesIO()
 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
     # Hoja 1: Datos individuales
     df_individual_export.to_excel(writer, index=False, sheet_name='Datos_Individuales')
-    
+
     # Hoja 2: Estadísticas por grupo
     df_stats_export.to_excel(writer, index=False, sheet_name='Estadisticas_Descriptivas')
-    
+
     # Hoja 3: Resumen comparativo
     df_summary_export.to_excel(writer, index=False, sheet_name='Resumen_Comparativo')
-    
+
     # Hoja 4: Metadata
     metadata = pd.DataFrame({
-        'Campo': ['Fecha_Exportacion', 'Grupo_1', 'Grupo_2', 'N_Grupo_1', 'N_Grupo_2', 
+        'Campo': ['Fecha_Exportacion', 'Grupo_1', 'Grupo_2', 'N_Grupo_1', 'N_Grupo_2',
                   'Usuario', 'Sistema'],
         'Valor': [
             pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -595,14 +595,14 @@ with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
         ]
     })
     metadata.to_excel(writer, index=False, sheet_name='Metadata')
-    
+
     # Ajustar ancho de columnas automáticamente en todas las hojas
     for sheet_name in writer.sheets:
         worksheet = writer.sheets[sheet_name]
         for column in worksheet.columns:
             max_length = 0
             column_letter = column[0].column_letter
-            
+
             for cell in column:
                 try:
                     if cell.value:
@@ -611,7 +611,7 @@ with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                             max_length = cell_length
                 except:
                     pass
-            
+
             # Ajustar ancho con un margen adicional
             adjusted_width = min(max_length + 2, 50)  # Máximo 50 caracteres de ancho
             worksheet.column_dimensions[column_letter].width = adjusted_width
@@ -647,7 +647,7 @@ st.markdown("#### Guía para Análisis Estadístico")
 
 with st.expander(" Recomendaciones para Pruebas Estadísticas"):
     col_guide1, col_guide2 = st.columns(2)
-    
+
     with col_guide1:
         st.markdown("**Pruebas Paramétricas:**")
         st.markdown("""
@@ -655,12 +655,12 @@ with st.expander(" Recomendaciones para Pruebas Estadísticas"):
           - Verificar normalidad (Shapiro-Wilk)
           - Verificar homogeneidad de varianzas (Levene)
           - Si N₁ ≈ N₂ y datos normales
-        
+
         - **ANOVA de una vía** (>2 grupos)
           - Comparar múltiples tratamientos
           - Post-hoc: Tukey, Bonferroni
         """)
-    
+
     with col_guide2:
         st.markdown("**Pruebas No Paramétricas:**")
         st.markdown("""
@@ -668,12 +668,12 @@ with st.expander(" Recomendaciones para Pruebas Estadísticas"):
           - Alternativa a t de Student
           - No requiere normalidad
           - Datos ordinales o no normales
-        
+
         - **Kruskal-Wallis** (>2 grupos)
           - Alternativa a ANOVA
           - Post-hoc: Dunn
         """)
-    
+
     st.markdown("---")
     st.markdown("**Interpretación del Tamaño del Efecto (Cohen's d):**")
     st.markdown("""
@@ -682,7 +682,7 @@ with st.expander(" Recomendaciones para Pruebas Estadísticas"):
     - **0.5 ≤ |d| < 0.8:** Efecto mediano
     - **|d| ≥ 0.8:** Efecto grande
     """)
-    
+
     st.markdown("---")
     st.markdown("**Software Recomendado:**")
     st.markdown("""

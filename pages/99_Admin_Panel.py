@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import sys
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 # ================= 0. SETUP & PERSISTENCE =================
 st.set_page_config(page_title="Admin Panel | IPN", layout="wide", page_icon="assets/logos/logo_ria.png")
@@ -94,6 +94,22 @@ def safe_df(df):
                 df[col] = df[col].astype(str)
     return df
 
+
+def delete_admin_experiments(engine, experiment_ids):
+    experiment_ids = sorted(
+        {int(exp_id) for exp_id in experiment_ids if str(exp_id).isdigit() and int(exp_id) > 0}
+    )
+    if not experiment_ids:
+        return 0
+
+    delete_query = text("DELETE FROM experiments WHERE id IN :experiment_ids").bindparams(
+        bindparam("experiment_ids", expanding=True)
+    )
+    with engine.connect() as conn:
+        result = conn.execute(delete_query, {"experiment_ids": experiment_ids})
+        conn.commit()
+    return int(result.rowcount or 0)
+
 # ================= 3. USER MANAGEMENT =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("#### Directorio de Usuarios")
@@ -138,16 +154,94 @@ st.markdown('</div>', unsafe_allow_html=True)
 # ================= 4. EXPERIMENT AUDIT =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("#### Auditoría de Experimentos")
+st.markdown("#### Auditoria de Experimentos")
+admin_delete_notice = st.session_state.pop("admin_delete_notice", None)
+if admin_delete_notice:
+    st.success(admin_delete_notice)
+
 with engine.connect() as conn:
     df_exp = safe_df(pd.read_sql(
-        text("SELECT id, rat_id, treatment, responsible, processed FROM experiments ORDER BY id DESC LIMIT 50"),
+        text(
+            """
+            SELECT
+                e.id,
+                e.rat_id,
+                e.treatment,
+                e.experiment_date,
+                e.responsible,
+                e.processed,
+                COALESCE(ar.status, CASE WHEN e.processed THEN 'completed' ELSE 'pending' END) AS status
+            FROM experiments e
+            LEFT JOIN (
+                SELECT DISTINCT ON (experiment_id)
+                    experiment_id,
+                    status,
+                    timestamp,
+                    id
+                FROM analysis_results
+                ORDER BY experiment_id, timestamp DESC, id DESC
+            ) ar
+                ON ar.experiment_id = e.id
+            ORDER BY e.id DESC
+            LIMIT 200
+            """
+        ),
         conn
     ))
 
 if df_exp.empty:
     st.info("No hay experimentos registrados en la plataforma.")
 else:
-    st.dataframe(df_exp, use_container_width=True, hide_index=True)
+    selected_admin_ids = {
+        int(exp_id)
+        for exp_id in st.session_state.get("admin_selected_experiment_ids", [])
+        if str(exp_id).isdigit()
+    }
+    visible_admin_ids = {int(exp_id) for exp_id in df_exp["id"].tolist()}
+    selected_admin_ids = selected_admin_ids.intersection(visible_admin_ids)
+
+    admin_selection_df = df_exp.copy()
+    admin_selection_df.insert(0, "Seleccionar", admin_selection_df["id"].astype(int).isin(selected_admin_ids))
+    edited_admin_selection = st.data_editor(
+        admin_selection_df,
+        use_container_width=True,
+        hide_index=True,
+        disabled=[column for column in admin_selection_df.columns if column != "Seleccionar"],
+        column_config={
+            "Seleccionar": st.column_config.CheckboxColumn(
+                "Sel.",
+                help="Marca experimentos para borrarlos como administrador.",
+                default=False,
+                width="small",
+            )
+        },
+        key="admin_experiment_selection_editor",
+    )
+    selected_admin_ids = edited_admin_selection.loc[
+        edited_admin_selection["Seleccionar"],
+        "id",
+    ].astype(int).tolist()
+    st.session_state["admin_selected_experiment_ids"] = selected_admin_ids
+
+    delete_cols = st.columns([1.4, 1])
+    with delete_cols[0]:
+        admin_delete_confirm = st.checkbox(
+            "Confirmo que deseo borrar permanentemente los experimentos seleccionados.",
+            key="admin_delete_confirm",
+        )
+    with delete_cols[1]:
+        if st.button(
+            "BORRAR SELECCIONADOS",
+            type="secondary",
+            use_container_width=True,
+            disabled=not selected_admin_ids or not admin_delete_confirm,
+            key="btn_admin_delete_experiments",
+        ):
+            deleted_count = delete_admin_experiments(engine, selected_admin_ids)
+            st.session_state["admin_selected_experiment_ids"] = []
+            st.session_state["admin_delete_notice"] = f"Se borraron {deleted_count} experimento(s)."
+            st.rerun()
+
     if st.button("LIMPIAR REGISTROS HUERFANOS", type="secondary"):
         with engine.connect() as conn:
             conn.execute(text("DELETE FROM experiments WHERE processed = FALSE"))

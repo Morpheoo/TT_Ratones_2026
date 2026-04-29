@@ -12,7 +12,17 @@ import numpy as np
 import json
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "data", "models", "yolo", "yolo11s_pose_raton_v12.pt")
+YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
+TRACKING_CONFIDENCE_MIN = 0.25
+TRACKING_DOT_COLOR = (190, 70, 210)  # BGR morado, visible sobre rata blanca sin invadir.
+TRACKING_DOT_OUTLINE_COLOR = (250, 220, 255)
+THIGMO_CONFIRM_THRESHOLD = 0.30
+THIGMO_POSSIBLE_THRESHOLD = 0.25
+THIGMO_MIN_EVENT_SECONDS = 0.50
+GROOMING_CONFIRM_THRESHOLD = 0.25
+GROOMING_POSSIBLE_THRESHOLD = 0.18
+GROOMING_MIN_EVENT_SECONDS = 0.30
+BEHAVIOR_SMOOTHING_FRAMES = 15
 SIMBA_MODELS_DIR = os.path.join(
     PROJECT_DIR,
     "data",
@@ -63,12 +73,13 @@ def get_yolo_class():
 
 def resolve_behavior_model(requested_path: str, generated_name: str, fallback_names: list[str]) -> str:
     """
-    Prefiere los modelos re-entrenados en models/generated_models.
-    Si no existen, cae al path pedido y luego a modelos históricos de validations.
+    Respeta primero el modelo pedido por el pipeline.
+    Esto evita mezclar modelos DLC con features YOLO cuando el backend activo es YOLO Pose.
     """
-    candidate_paths = [os.path.join(GENERATED_MODELS_DIR, generated_name)]
+    candidate_paths = []
     if requested_path:
         candidate_paths.append(requested_path)
+    candidate_paths.append(os.path.join(GENERATED_MODELS_DIR, generated_name))
     for fallback_name in fallback_names:
         candidate_paths.append(os.path.join(VALIDATION_MODELS_DIR, fallback_name))
 
@@ -198,6 +209,89 @@ def load_and_clean_features(df_master, clf):
         print("[MODEL] El modelo no tiene atributo feature_names_in_. Se usará el dataframe tal cual.")
     return df_reducido
 
+
+def _resolve_tracking_columns(df: pd.DataFrame) -> tuple[str, str, str | None, str] | None:
+    """
+    Devuelve las columnas de pose que representan el centro corporal para tracking.
+    En el backend YOLO Pose, Center_x/Center_y viene del keypoint `torso`.
+    """
+    lookup = {str(column).lower(): str(column) for column in df.columns}
+    candidates = [
+        ("Center_x", "Center_y", ["Center_p", "Center_likelihood"], "Center/torso"),
+        ("torso_x", "torso_y", ["torso_p", "torso_likelihood"], "torso"),
+        ("mouse_center_x", "mouse_center_y", ["mouse_center_p", "mouse_center_likelihood"], "mouse_center"),
+    ]
+
+    for x_name, y_name, p_names, label in candidates:
+        x_col = lookup.get(x_name.lower())
+        y_col = lookup.get(y_name.lower())
+        if not x_col or not y_col:
+            continue
+        p_col = next((lookup.get(p_name.lower()) for p_name in p_names if lookup.get(p_name.lower())), None)
+        return x_col, y_col, p_col, label
+    return None
+
+
+def build_pose_tracking(df_master: pd.DataFrame) -> dict[str, object] | None:
+    """
+    Construye una trayectoria desde la pose ya calculada.
+    Para YOLO Pose, el bridge mapea `torso` -> `Center`, por eso este punto
+    reemplaza al centro del bbox del tracker YOLO antiguo.
+    """
+    resolved = _resolve_tracking_columns(df_master)
+    if resolved is None:
+        print("[TRACKING] No se encontraron columnas de centro corporal en features. Se usara fallback bbox YOLO.")
+        return None
+
+    x_col, y_col, p_col, label = resolved
+    x_values = pd.to_numeric(df_master[x_col], errors="coerce").astype(float)
+    y_values = pd.to_numeric(df_master[y_col], errors="coerce").astype(float)
+    valid = np.isfinite(x_values) & np.isfinite(y_values) & ~((x_values == 0) & (y_values == 0))
+
+    if p_col:
+        p_values = pd.to_numeric(df_master[p_col], errors="coerce").astype(float)
+        valid = valid & np.isfinite(p_values) & (p_values >= TRACKING_CONFIDENCE_MIN)
+
+    valid_count = int(valid.sum())
+    total_count = int(len(df_master))
+    if valid_count == 0:
+        print(f"[TRACKING] Columnas {x_col}/{y_col} encontradas, pero sin frames validos. Se usara fallback bbox YOLO.")
+        return None
+
+    tracking_df = pd.DataFrame({"x": x_values.where(valid), "y": y_values.where(valid)})
+    tracking_df = tracking_df.interpolate(method="linear", limit=15, limit_direction="both")
+    interpolated_valid = np.isfinite(tracking_df["x"]) & np.isfinite(tracking_df["y"])
+
+    print(
+        f"[TRACKING] Usando pose para tracking: {label} ({x_col}, {y_col}) | "
+        f"{valid_count}/{total_count} frames validos"
+    )
+    if p_col:
+        print(f"[TRACKING] Umbral de confianza {p_col}: >= {TRACKING_CONFIDENCE_MIN}")
+
+    return {
+        "x": tracking_df["x"].to_numpy(dtype=float),
+        "y": tracking_df["y"].to_numpy(dtype=float),
+        "valid": interpolated_valid.to_numpy(dtype=bool),
+        "source": label,
+    }
+
+
+def get_yolo_bbox_center(frame, yolo_model):
+    best_box = None
+    yolo_results = yolo_model(frame, verbose=False)
+    for box in yolo_results[0].boxes:
+        if box.conf[0] > 0.35:
+            if best_box is None or box.conf[0] > best_box.conf[0]:
+                best_box = box
+
+    if best_box is None:
+        return None, None
+
+    x1, y1, x2, y2 = map(int, best_box.xyxy[0])
+    return int((x1 + x2) / 2), int((y1 + y2) / 2)
+
+
 def draw_hud(frame, time_str, fps, width, height,
              # Datos Thigmotaxis
              thigmo_prob=0.0, thigmo_status="Normal", thigmo_color=(255,100,0), thigmo_acc=0.0, thigmo_events=[],
@@ -306,7 +400,17 @@ def export_timelog(events, output_path, total_frames, current_start, behavior_na
         df_log.to_csv(log_path, index=False)
         print(f"[OK] ¡Reporte científico guardado: {log_path}!")
 
-def state_machine_update(prob_val, current_sec, frames_acc, events_list, current_start, is_confirming, umbral_confrm=0.35, umbral_posible=0.30):
+def state_machine_update(
+    prob_val,
+    current_sec,
+    frames_acc,
+    events_list,
+    current_start,
+    is_confirming,
+    umbral_confrm=0.35,
+    umbral_posible=0.30,
+    min_event_seconds=0.50,
+):
     """
     Maquina de estados generalizada para un comportamiento.
     Maneja el paso de Ausente -> Posible -> Confirmado
@@ -319,7 +423,7 @@ def state_machine_update(prob_val, current_sec, frames_acc, events_list, current
         frames_acc += 1
         
         if not is_confirming:
-            if current_start is not None and (current_sec - current_start > 0.5):
+            if current_start is not None and (current_sec - current_start >= min_event_seconds):
                 events_list.append((current_start, current_sec, "Confirmada"))
             current_start = current_sec
             is_confirming = True
@@ -330,7 +434,7 @@ def state_machine_update(prob_val, current_sec, frames_acc, events_list, current
         bar_color = (0, 255, 255) # Amarillo/Naranja
         
         if is_confirming:
-            if current_start is not None and (current_sec - current_start > 0.5):
+            if current_start is not None and (current_sec - current_start >= min_event_seconds):
                 events_list.append((current_start, current_sec, "Confirmada"))
             current_start = current_sec
             is_confirming = False
@@ -340,7 +444,7 @@ def state_machine_update(prob_val, current_sec, frames_acc, events_list, current
         bar_color = (255, 100, 0) # Azul
         
         if current_start is not None:
-            if current_sec - current_start > 0.5:
+            if current_sec - current_start >= min_event_seconds:
                 events_list.append((current_start, current_sec, "Confirmada" if is_confirming else "Posible"))
             current_start = None
             is_confirming = False
@@ -405,16 +509,18 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
     # --- SUAVIZADO Y FILTROS (Moving Average) ---
     print("Suavizando probabilidades para evitar parpadeo de microsegundos...")
     # Thigmotaxis: Filtro de 15 frames (0.5s). Evita alertas falsas breves.
-    probs_thigmo = pd.Series(probs_thigmo).rolling(window=15, min_periods=1, center=True).mean().values
+    probs_thigmo = pd.Series(probs_thigmo).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
     
     # Grooming: Filtro de 15 frames (0.5s). 
-    probs_groom = pd.Series(probs_groom).rolling(window=15, min_periods=1, center=True).mean().values
+    probs_groom = pd.Series(probs_groom).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
 
     # Pre-calcular el movimiento promedio de la nariz para evitar "falsos estáticos"
     if 'Movement_mouse_nose' in df_master.columns:
-        mov_nose = pd.Series(df_master['Movement_mouse_nose'].values).rolling(window=15, min_periods=1, center=True).mean().values
+        mov_nose = pd.Series(df_master['Movement_mouse_nose'].values).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
     else:
         mov_nose = np.ones(len(probs_groom)) * 10.0 # Dummy fallback
+
+    tracking_data = build_pose_tracking(df_master)
 
     # Preparamos los cronómetros de SimBA (por si acaso los queremos en el fondo)
     roi_cols = [c for c in df_master.columns if 'Center in zone' in c]
@@ -471,10 +577,14 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
             return
         maze_rois, config_cats = roi_result
 
-    print("Cargando modelo de seguimiento YOLO11 (Tracker Principal)...")
-    if not os.path.exists(YOLO_MODEL_PATH):
-        raise FileNotFoundError(f"No se encontro el modelo YOLO en: {YOLO_MODEL_PATH}")
-    yolo_model = get_yolo_class()(YOLO_MODEL_PATH)
+    yolo_model = None
+    if tracking_data is None:
+        print("Cargando modelo de seguimiento YOLO11 (fallback bbox)...")
+        if not os.path.exists(YOLO_MODEL_PATH):
+            raise FileNotFoundError(f"No se encontro el modelo YOLO en: {YOLO_MODEL_PATH}")
+        yolo_model = get_yolo_class()(YOLO_MODEL_PATH)
+    else:
+        print("[TRACKING] Tracker bbox YOLO desactivado; se usara la pose precomputada.")
 
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -514,31 +624,22 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
         if frame_idx < len(probs_groom):
             p_groom = probs_groom[frame_idx]
 
-            # Tracker YOLO
-            yolo_results = yolo_model(frame, verbose=False)
-            yolo_cx, yolo_cy = None, None
-            best_box = None
-            
-            for box in yolo_results[0].boxes:
-                if box.conf[0] > 0.35:
-                    if best_box is None or box.conf[0] > best_box.conf[0]:
-                        best_box = box
+            track_cx, track_cy = None, None
+            if tracking_data is not None and frame_idx < len(tracking_data["x"]):
+                if bool(tracking_data["valid"][frame_idx]):
+                    track_cx = int(round(float(tracking_data["x"][frame_idx])))
+                    track_cy = int(round(float(tracking_data["y"][frame_idx])))
+            elif yolo_model is not None:
+                track_cx, track_cy = get_yolo_bbox_center(frame, yolo_model)
 
-            if best_box is not None:
-                x1, y1, x2, y2 = map(int, best_box.xyxy[0])
-                yolo_cx = int((x1 + x2) / 2)
-                yolo_cy = int((y1 + y2) / 2)
-
-            # Punto Rojo YOLO y Detección en Tiempo Real de Zona
+            # Punto de tracking y deteccion en tiempo real de zona
             current_zone = "Ninguna"
             p_thigmo = 0.0
-            if yolo_cx is not None and yolo_cy is not None:
-                dot_color = (255, 255, 255)
+            if track_cx is not None and track_cy is not None:
                 for nombre, roi in maze_rois.items():
-                    if is_point_in_roi(yolo_cx, yolo_cy, roi):
+                    if is_point_in_roi(track_cx, track_cy, roi):
                         arm_timers[nombre] += 1
                         current_zone = nombre
-                        dot_color = next((c["color"] for c in config_cats if c["id"] == nombre), (255,255,255))
                         break
                 
                 # Usando la probabilidad ML original del modelo SimBA
@@ -554,13 +655,14 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
                 events_list=thigmo_events, 
                 current_start=thigmo_start, 
                 is_confirming=thigmo_is_conf,
-                umbral_confrm=0.30, # Ajustado al umbral validado del modelo
-                umbral_posible=0.25
+                umbral_confrm=THIGMO_CONFIRM_THRESHOLD,
+                umbral_posible=THIGMO_POSSIBLE_THRESHOLD,
+                min_event_seconds=THIGMO_MIN_EVENT_SECONDS
             )
             if t_col == (0, 0, 255): t_col = (0, 0, 255) # Thigmo rojo
             elif t_col == (0, 255, 255): t_col = (0, 165, 255) # Thigmo naranja
 
-            # --- EVALUAR GROOMING (Umbral ajustado a la realidad: 50%) ---
+            # --- EVALUAR GROOMING (calibrado para YOLO Pose, sin inflar a falsos positivos) ---
             (g_txt, g_col, g_status, groom_frames, groom_events, 
              groom_start, groom_is_conf) = state_machine_update(
                 prob_val=p_groom, 
@@ -569,8 +671,9 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
                 events_list=groom_events, 
                 current_start=groom_start, 
                 is_confirming=groom_is_conf,
-                umbral_confrm=0.38, # Alineado al threshold validado del modelo
-                umbral_posible=0.30
+                umbral_confrm=GROOMING_CONFIRM_THRESHOLD,
+                umbral_posible=GROOMING_POSSIBLE_THRESHOLD,
+                min_event_seconds=GROOMING_MIN_EVENT_SECONDS
             )
             # Personalizamos colores visuales del Grooming (Violeta/Magenta)
             if g_col == (0, 0, 255): g_col = (255, 0, 255) # Confirmado es Violeta
@@ -588,15 +691,15 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
             # 2. Muros / Paredes Físicas (Ocultos a peticion del usuario)
             pass
 
-            if yolo_cx is not None and yolo_cy is not None:
-                cv2.circle(frame, (yolo_cx, yolo_cy), 3, dot_color, -1)
-                cv2.circle(frame, (yolo_cx, yolo_cy), 5, (255, 255, 255), 1)
+            if track_cx is not None and track_cy is not None:
+                cv2.circle(frame, (track_cx, track_cy), 2, TRACKING_DOT_COLOR, -1, lineType=cv2.LINE_AA)
+                cv2.circle(frame, (track_cx, track_cy), 4, TRACKING_DOT_OUTLINE_COLOR, 1, lineType=cv2.LINE_AA)
                 
             # Log Data
             trajectory_data.append({
                 "Tiempo (s)": current_sec,
-                "x": yolo_cx if yolo_cx is not None else 0,
-                "y": yolo_cy if yolo_cy is not None else 0,
+                "x": track_cx if track_cx is not None else 0,
+                "y": track_cy if track_cy is not None else 0,
                 "Zona": current_zone,
                 "Grooming": 1 if g_status == 2 else 0,
                 "Thigmotaxis": 1 if t_status == 2 else 0,

@@ -169,7 +169,7 @@ def run_yolo11_inference(
 ) -> pd.DataFrame:
     """
     Ejecuta inferencia de YOLO11 Pose en el video.
-    
+
     Returns:
         DataFrame con columnas multi-nivel compatibles con DeepLabCut/SimBA:
         - Nivel 0: scorer (nombre del modelo)
@@ -185,39 +185,38 @@ def run_yolo11_inference(
 
     log(f"[INFO] Loading YOLO11 model: {model_path}")
     model = YOLO(model_path)
-    
-    # Nombres de keypoints del modelo YOLO11 Pose
-    # Tu modelo tiene 8 keypoints (kpt_shape: [8, 3])
-    # Nombres genéricos - ajustar según la documentación de tu modelo
+
+    # Nombres reales del modelo YOLO Pose v4 del proyecto.
+    # Mantener este orden sincronizado con src/scripts/yolo_pose_to_csv.py.
     keypoint_names = [
-        "nose",
-        "neck",
-        "body_center",
-        "tail_base",
-        "left_front_paw",
-        "right_front_paw",
-        "left_back_paw",
-        "right_back_paw",
+        "nariz",
+        "torso",
+        "cola-base",
+        "oreja-izq",
+        "oreja-der",
+        "pata-izq",
+        "pata-der",
+        "punta-cola",
     ]
-    
+
     log(f"[INFO] Device: {device}")
     log(f"[INFO] Confidence threshold: {conf_threshold}")
     log("[STEP] INFERENCE")
-    
+
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():
         raise RuntimeError(f"Could not open video: {video_path}")
-    
+
     total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = capture.get(cv2.CAP_PROP_FPS)
-    
+
     log(f"[INFO] Video frames: {total_frames}, FPS: {fps}")
-    
+
     inference_heartbeat = start_heartbeat("inference")
-    
+
     # Almacenar resultados
     all_results = []
-    
+
     try:
         # Procesar video con YOLO
         results = model.predict(
@@ -227,18 +226,18 @@ def run_yolo11_inference(
             device=device,
             verbose=False,
         )
-        
+
         frame_idx = 0
         progress_step = max(1, total_frames // 20)
-        
+
         for result in results:
             frame_data = {"frame": frame_idx}
-            
+
             # Extraer keypoints si hay detecciones
             if result.keypoints is not None and len(result.keypoints) > 0:
                 # Tomar la detección con mayor confianza (primer resultado)
                 keypoints = result.keypoints.data[0].cpu().numpy()  # Shape: (num_keypoints, 3) [x, y, conf]
-                
+
                 for i, kp_name in enumerate(keypoint_names):
                     if i < len(keypoints):
                         x, y, conf = keypoints[i]
@@ -256,48 +255,48 @@ def run_yolo11_inference(
                     frame_data[f"{kp_name}_x"] = np.nan
                     frame_data[f"{kp_name}_y"] = np.nan
                     frame_data[f"{kp_name}_likelihood"] = 0.0
-            
+
             all_results.append(frame_data)
             frame_idx += 1
-            
+
             if frame_idx % progress_step == 0 or frame_idx == total_frames:
                 pct = int((frame_idx / total_frames) * 100)
                 log(f"[INFERENCE] {frame_idx}/{total_frames} ({pct}%)")
-        
+
     finally:
         inference_heartbeat.set()
         capture.release()
-    
+
     # Crear DataFrame
     df = pd.DataFrame(all_results)
-    
+
     # Reorganizar en formato multi-nivel compatible con DLC
     # Nivel 0: scorer
     # Nivel 1: bodyparts
     # Nivel 2: coords
-    scorer_name = "YOLO11s_raton_v12"
-    
+    scorer_name = "YOLO11s-pose-v4"
+
     # Crear columnas multi-nivel (sin incluir 'frame')
     multi_columns = []
     for kp_name in keypoint_names:
         multi_columns.append((scorer_name, kp_name, "x"))
         multi_columns.append((scorer_name, kp_name, "y"))
         multi_columns.append((scorer_name, kp_name, "likelihood"))
-    
+
     # Reorganizar columnas del DataFrame (sin 'frame')
     cols_flat = []
     for kp_name in keypoint_names:
         cols_flat.extend([f"{kp_name}_x", f"{kp_name}_y", f"{kp_name}_likelihood"])
-    
+
     # Separar frame como índice
     df_indexed = df.set_index('frame')
     df_indexed = df_indexed[cols_flat]
-    
+
     # Renombrar columnas a multi-nivel
     df_indexed.columns = pd.MultiIndex.from_tuples(multi_columns)
-    
+
     log(f"[INFO] Extracted keypoints for {len(df_indexed)} frames")
-    
+
     return df_indexed
 
 
@@ -321,7 +320,7 @@ def analyze_video(
 
     if not os.path.exists(video_path):
         raise FileNotFoundError(f"Video file not found: {video_path}")
-    
+
     if not YOLO_POSE_MODEL.exists():
         raise FileNotFoundError(f"YOLO11 model not found: {YOLO_POSE_MODEL}")
 
@@ -368,7 +367,7 @@ def analyze_video(
     # Guardar resultados
     base_name = os.path.splitext(os.path.basename(analysis_video))[0]
     output_csv = os.path.join(os.path.dirname(analysis_video), f"{base_name}_YOLO11_pose.csv")
-    
+
     log(f"[INFO] Saving pose file: {output_csv}")
     # Guardar con índice para mantener compatibilidad con formato DeepLabCut
     df_poses.to_csv(output_csv, index=True)

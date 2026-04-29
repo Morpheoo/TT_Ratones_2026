@@ -30,7 +30,7 @@ for directory in [DATA_DIR, VIDEOS_DIR, MODELS_DIR, LOGS_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 # ============================================
-# SIMBA
+# SIMBA — Proyecto DLC (operativo actual)
 # ============================================
 
 SIMBA_BASE = DATA_DIR / "simba_projects" / "New folder" / "thigmotaxis_optimizado"
@@ -49,6 +49,18 @@ SIMBA_FEATURES_CSV = SIMBA_PROJECT_DIR / "csv" / "features_extracted"
 SIMBA_VIDEOS = SIMBA_PROJECT_DIR / "videos"
 
 # ============================================
+# SIMBA — Proyecto YOLO (grooming_thigmotaxis_yolo)
+# ============================================
+
+SIMBA_YOLO_BASE = DATA_DIR / "simba_projects" / "grooming_thigmotaxis_yolo"
+SIMBA_YOLO_PROJECT_DIR = SIMBA_YOLO_BASE / "project_folder"
+SIMBA_YOLO_MODELS_DIR = SIMBA_YOLO_BASE / "models"
+SIMBA_YOLO_GENERATED_MODELS_DIR = SIMBA_YOLO_MODELS_DIR / "generated_models"
+
+GROOMING_MODEL_YOLO = SIMBA_YOLO_GENERATED_MODELS_DIR / "Grooming.sav"
+THIGMOTAXIS_MODEL_YOLO = SIMBA_YOLO_GENERATED_MODELS_DIR / "Thigmotaxis.sav"
+
+# ============================================
 # DEEPLABCUT
 # ============================================
 
@@ -60,7 +72,7 @@ DLC_MODEL_PATH = DLC_MODEL_DIR / "DLC_ma_supertopview5k_resnet_50_iteration-0_sh
 # ============================================
 
 YOLO_MODELS_DIR = MODELS_DIR / "yolo"
-YOLO_POSE_MODEL = YOLO_MODELS_DIR / "yolo11s_pose_raton_v12.pt"
+YOLO_POSE_MODEL = PROJECT_ROOT / "runs" / "pose" / "yolo11s_pose_raton_v4" / "weights" / "best.pt"
 
 # Legacy fallback
 YOLO_MODEL = PROJECT_ROOT / os.getenv("YOLO_MODEL", "yolo_tracker.pt")
@@ -75,24 +87,24 @@ def get_ffmpeg_path():
     env_path = os.getenv("FFMPEG_PATH")
     if env_path and os.path.exists(env_path):
         return env_path
-    
+
     # 2. Intentar desde PATH del sistema
     import shutil
     system_ffmpeg = shutil.which("ffmpeg")
     if system_ffmpeg:
         return system_ffmpeg
-    
+
     # 3. Buscar en ubicaciones comunes de Windows
     common_paths = [
         r"C:\ffmpeg\bin\ffmpeg.exe",
         r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
         Path.home() / "ffmpeg" / "bin" / "ffmpeg.exe",
     ]
-    
+
     for path in common_paths:
         if os.path.exists(path):
             return str(path)
-    
+
     # 4. No encontrado
     return None
 
@@ -113,7 +125,7 @@ def get_model_path(model_name: str) -> Path:
 def validate_paths():
     """Valida que las rutas críticas existan."""
     issues = []
-    
+
     if not GROOMING_MODEL.exists():
         issues.append(f"[ERROR] Modelo Grooming no encontrado: {GROOMING_MODEL}")
     
@@ -153,7 +165,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("VALIDACIÓN DE RUTAS")
     print("=" * 60)
-    
+
     issues = validate_paths()
     if issues:
         for issue in issues:

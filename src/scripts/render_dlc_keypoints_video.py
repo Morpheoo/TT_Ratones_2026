@@ -94,10 +94,10 @@ def _extract_bodyparts(df_pose: pd.DataFrame) -> list[str]:
                         bodyparts_set.add(bodypart)
                         break
         return sorted(list(bodyparts_set))
-    
+
     if df_pose.columns.nlevels < 2:
         raise ValueError("Expected at least 2 levels in MultiIndex columns.")
-    
+
     # Para formato DeepLabCut: nivel 1 son los bodyparts
     # Para formato YOLO11: nivel 1 también son los bodyparts
     bodyparts = df_pose.columns.get_level_values(1).unique().tolist()
@@ -118,7 +118,7 @@ def _build_bodypart_palette(bodyparts: list[str]) -> dict[str, tuple[int, int, i
 
 def _resolve_column(df_pose: pd.DataFrame, bodypart: str, coord: str):
     """Resuelve la columna para un bodypart y coordenada, soportando múltiples formatos."""
-    
+
     # Caso 1: No es multi-índice (formato simple)
     if not isinstance(df_pose.columns, pd.MultiIndex):
         # Buscar columna con formato bodypart_coord
@@ -127,19 +127,19 @@ def _resolve_column(df_pose: pd.DataFrame, bodypart: str, coord: str):
             if col_name in df_pose.columns:
                 return col_name
         return None
-    
+
     # Caso 2: Multi-índice
     if bodypart not in df_pose.columns.get_level_values(1):
         return None
 
     # Obtener el scorer (nivel 0)
     scorer = df_pose.columns[df_pose.columns.get_level_values(1) == bodypart][0][0]
-    
+
     # Probar diferentes variantes de coordenadas
     coord_candidates = [coord]
     if coord == "likelihood":
         coord_candidates.extend(["p", "conf", "confidence"])
-    
+
     for coord_name in coord_candidates:
         if df_pose.columns.nlevels == 3:
             # Formato DeepLabCut: (scorer, bodypart, coord)
@@ -151,7 +151,7 @@ def _resolve_column(df_pose: pd.DataFrame, bodypart: str, coord: str):
             column = (bodypart, coord_name)
             if column in df_pose.columns:
                 return column
-    
+
     return None
 
 

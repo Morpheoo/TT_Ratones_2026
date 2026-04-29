@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 # ================= 0. SETUP & PERSISTENCE =================
 sys.path.append(os.getcwd())
@@ -99,6 +99,36 @@ def normalize_dataframe_for_streamlit(df):
     return df
 
 
+def get_latest_completed_id(df):
+    if df.empty or "id" not in df.columns:
+        return None
+
+    status_series = df.get("analysis_status", pd.Series([""] * len(df))).astype(str).str.lower()
+    completed = df[status_series == "completed"].copy()
+    candidates = completed if not completed.empty else df.copy()
+    candidates["id"] = pd.to_numeric(candidates["id"], errors="coerce")
+    candidates = candidates.dropna(subset=["id"])
+    if candidates.empty:
+        return None
+    return int(candidates["id"].max())
+
+
+def filter_history_scope(df_hist, scope):
+    if df_hist.empty:
+        return df_hist
+
+    if scope == "Ultimo completado":
+        latest_completed_id = get_latest_completed_id(df_hist)
+        if latest_completed_id is None:
+            return df_hist.iloc[0:0].copy()
+        return df_hist[pd.to_numeric(df_hist["id"], errors="coerce") == latest_completed_id].copy()
+    if scope == "Completados":
+        return df_hist[df_hist["analysis_status"].astype(str).str.lower() == "completed"].copy()
+    if scope == "Pendientes":
+        return df_hist[df_hist["analysis_status"].astype(str).str.lower() == "pending"].copy()
+    return df_hist.copy()
+
+
 def apply_plot_style(fig, *, height=360, show_y_grid=True):
     fig.update_layout(
         height=height,
@@ -148,6 +178,7 @@ def load_history_dataframe(engine):
                 e.experiment_date,
                 e.responsible,
                 e.video_path,
+                e.created_by,
                 e.created_at,
                 COALESCE(ar.time_open_arms, 0) AS open_t,
                 COALESCE(ar.time_closed_arms, 0) AS closed_t,
@@ -184,6 +215,58 @@ def load_history_dataframe(engine):
     return normalize_dataframe_for_streamlit(df_hist)
 
 
+def delete_owned_experiments(engine, experiment_ids, username):
+    experiment_ids = sorted({int(exp_id) for exp_id in experiment_ids if int(exp_id) > 0})
+    if not experiment_ids:
+        return 0, [], "No hay experimentos validos seleccionados para borrar."
+    if not username:
+        return 0, experiment_ids, "No se encontro el usuario activo en sesion."
+
+    select_query = text(
+        """
+        SELECT
+            e.id,
+            COALESCE(u.username, '') AS owner_email
+        FROM experiments e
+        LEFT JOIN users u
+            ON e.created_by = u.id
+        WHERE e.id IN :experiment_ids
+        """
+    ).bindparams(bindparam("experiment_ids", expanding=True))
+
+    delete_query = text(
+        """
+        DELETE FROM experiments
+        WHERE id IN :experiment_ids
+          AND created_by = (
+              SELECT id
+              FROM users
+              WHERE username = :username
+              LIMIT 1
+          )
+        """
+    ).bindparams(bindparam("experiment_ids", expanding=True))
+
+    with engine.connect() as conn:
+        rows = conn.execute(select_query, {"experiment_ids": experiment_ids}).mappings().all()
+        owned_ids = [int(row["id"]) for row in rows if row["owner_email"] == username]
+        skipped_ids = [exp_id for exp_id in experiment_ids if exp_id not in owned_ids]
+
+        deleted_count = 0
+        if owned_ids:
+            result = conn.execute(
+                delete_query,
+                {
+                    "experiment_ids": owned_ids,
+                    "username": username,
+                },
+            )
+            deleted_count = int(result.rowcount or 0)
+        conn.commit()
+
+    return deleted_count, skipped_ids, ""
+
+
 def build_session_fallback_dataframe():
     trajectory_path = st.session_state.get("ultimo_trajectory_file")
     video_path = st.session_state.get("ruta_video_actual")
@@ -193,6 +276,8 @@ def build_session_fallback_dataframe():
     rat_id = st.session_state.get("id_raton_actual") or (Path(video_path).stem if video_path else "sesion_actual")
     treatment = st.session_state.get("treatment") or "Control"
     responsible = st.session_state.get("ingesta_responsable_actual") or st.session_state.get("user_name", "Investigador")
+    bundle = load_trajectory_bundle(trajectory_path)
+    summary = bundle["summary"] if bundle else {}
 
     return pd.DataFrame(
         [
@@ -203,13 +288,14 @@ def build_session_fallback_dataframe():
                 "experiment_date": str(pd.Timestamp.now().date()),
                 "responsible": responsible,
                 "video_path": video_path or "",
+                "created_by": None,
                 "created_at": str(pd.Timestamp.now()),
-                "open_t": 0.0,
-                "closed_t": 0.0,
-                "center_t": 0.0,
-                "grooming_t": 0.0,
-                "thigmo_t": 0.0,
-                "analysis_status": "session_only",
+                "open_t": float(summary.get("open_t", 0.0)),
+                "closed_t": float(summary.get("closed_t", 0.0)),
+                "center_t": float(summary.get("center_t", 0.0)),
+                "grooming_t": float(summary.get("grooming_t", 0.0)),
+                "thigmo_t": float(summary.get("thigmo_t", 0.0)),
+                "analysis_status": "completed",
                 "trajectory_path": trajectory_path,
                 "owner_email": st.session_state.get("user", ""),
             }
@@ -377,16 +463,18 @@ def build_opencv_heatmap_image(heatmap_df, width, height):
 
 def render_global_kpis(df_hist):
     m1, m2, m3, m4 = st.columns(4)
+    open_mean = df_hist["open_t"].mean() if not df_hist.empty and "open_t" in df_hist.columns else 0.0
+    grooming_mean = df_hist["grooming_t"].mean() if not df_hist.empty and "grooming_t" in df_hist.columns else 0.0
 
     with m1:
         st.metric("Total experimentos", len(df_hist))
     with m2:
-        latest_date = str(df_hist["experiment_date"].max()) if "experiment_date" in df_hist.columns else "N/A"
+        latest_date = str(df_hist["experiment_date"].max()) if not df_hist.empty and "experiment_date" in df_hist.columns else "N/A"
         st.metric("Ultimo registro", latest_date)
     with m3:
-        st.metric("Prom. abiertos", format_seconds(df_hist["open_t"].mean()))
+        st.metric("Prom. abiertos", format_seconds(open_mean))
     with m4:
-        st.metric("Prom. grooming", format_seconds(df_hist["grooming_t"].mean()))
+        st.metric("Prom. grooming", format_seconds(grooming_mean))
 
 
 def render_global_chart(df_view):
@@ -420,10 +508,12 @@ def render_global_chart(df_view):
     )
     fig.update_traces(marker_line_color=colors["bg_card"], marker_line_width=1.2)
     apply_plot_style(fig, height=360)
-    st.plotly_chart(fig, use_container_width=True)
+    selected_signature = "_".join(str(exp_id) for exp_id in df_view["id"].astype(int).tolist())
+    st.plotly_chart(fig, use_container_width=True, key=f"global_chart_{selected_signature}")
 
 
 def render_detail_panel(record, trajectory_bundle):
+    record_id = int(record.get("id", 0) or 0)
     metric_open = coalesce_metric(record, trajectory_bundle, "open_t")
     metric_closed = coalesce_metric(record, trajectory_bundle, "closed_t")
     metric_center = coalesce_metric(record, trajectory_bundle, "center_t")
@@ -471,7 +561,7 @@ def render_detail_panel(record, trajectory_bundle):
         )
         fig_pie.update_traces(textfont=dict(color="white"), marker=dict(line=dict(color=colors["bg_card"], width=2)))
         apply_plot_style(fig_pie, height=360, show_y_grid=False)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, use_container_width=True, key=f"detail_distribution_{record_id}")
 
     with chart_right:
         st.markdown("##### Conductas acumuladas")
@@ -491,7 +581,7 @@ def render_detail_panel(record, trajectory_bundle):
         fig_behavior.update_traces(marker_line_color=colors["bg_card"], marker_line_width=1.2)
         apply_plot_style(fig_behavior, height=360)
         fig_behavior.update_layout(showlegend=False)
-        st.plotly_chart(fig_behavior, use_container_width=True)
+        st.plotly_chart(fig_behavior, use_container_width=True, key=f"detail_behavior_{record_id}")
 
     if not trajectory_bundle:
         st.info("No se encontro el archivo de trayectoria final para generar mapas y series temporales.")
@@ -518,7 +608,7 @@ def render_detail_panel(record, trajectory_bundle):
         fig_zone.update_traces(marker_line_color=colors["bg_card"], marker_line_width=1.2)
         apply_plot_style(fig_zone, height=360)
         fig_zone.update_layout(xaxis_title="Segundos", yaxis_title=None)
-        st.plotly_chart(fig_zone, use_container_width=True)
+        st.plotly_chart(fig_zone, use_container_width=True, key=f"detail_zones_{record_id}")
 
     with lower_right:
         st.markdown("##### Serie temporal conductual")
@@ -531,7 +621,7 @@ def render_detail_panel(record, trajectory_bundle):
         )
         apply_plot_style(fig_timeline, height=360)
         fig_timeline.update_layout(hovermode="x unified", xaxis_title="Tiempo (s)", yaxis_title="Segundos acumulados")
-        st.plotly_chart(fig_timeline, use_container_width=True)
+        st.plotly_chart(fig_timeline, use_container_width=True, key=f"detail_timeline_{record_id}")
 
     st.markdown("##### Mapa de calor OpenCV")
     heatmap_image = build_opencv_heatmap_image(
@@ -574,6 +664,9 @@ st.markdown(
     tiempo total en brazos abiertos, brazos cerrados, centro, grooming y thigmotaxis.
     """
 )
+delete_notice = st.session_state.pop("results_delete_notice", None)
+if delete_notice:
+    st.success(delete_notice)
 st.divider()
 
 # ================= 4. DASHBOARD CONTENT =================
@@ -589,24 +682,32 @@ try:
         for column in numeric_cols:
             df_hist[column] = pd.to_numeric(df_hist[column], errors="coerce").fillna(0.0)
 
-        render_global_kpis(df_hist)
-        st.markdown("<br>", unsafe_allow_html=True)
-
         st.markdown('<div class="content-card">', unsafe_allow_html=True)
         st.markdown("#### Historial experimental")
+        scope_options = ["Ultimo completado", "Completados", "Todos", "Pendientes"]
+        history_scope = st.selectbox(
+            "Vista del historial",
+            scope_options,
+            index=0,
+            key="results_history_scope",
+        )
+        df_scope = filter_history_scope(df_hist, history_scope)
+
+        render_global_kpis(df_scope if not df_scope.empty else df_hist.iloc[0:0].copy())
+        st.markdown("<br>", unsafe_allow_html=True)
         st.info("Filtra registros y luego selecciona uno para ver detalles y graficas.")
 
         filter_col1, filter_col2, filter_col3 = st.columns(3)
         with filter_col1:
             q_search = st.text_input("Buscar sujeto o responsable")
         with filter_col2:
-            treatments = ["Todos"] + sorted([value for value in df_hist["treatment"].dropna().unique().tolist() if value])
+            treatments = ["Todos"] + sorted([value for value in df_scope["treatment"].dropna().unique().tolist() if value])
             q_treat = st.selectbox("Filtrar por tratamiento", treatments)
         with filter_col3:
-            statuses = ["Todos"] + sorted([value for value in df_hist["analysis_status"].dropna().unique().tolist() if value])
+            statuses = ["Todos"] + sorted([value for value in df_scope["analysis_status"].dropna().unique().tolist() if value])
             q_status = st.selectbox("Estado", statuses)
 
-        df_view = df_hist.copy()
+        df_view = df_scope.copy()
         if q_search:
             mask = (
                 df_view["rat_id"].astype(str).str.contains(q_search, case=False, na=False)
@@ -646,22 +747,99 @@ try:
                 "analysis_status": "Estado",
             }
         )
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        selected_before = {
+            int(exp_id)
+            for exp_id in st.session_state.get("results_selected_ids", [])
+            if str(exp_id).isdigit()
+        }
+        visible_ids = {int(exp_id) for exp_id in display_df["ID"].tolist()}
+        selected_before = selected_before.intersection(visible_ids)
+        if not selected_before and len(visible_ids) == 1:
+            selected_before = visible_ids
+
+        selection_df = display_df.copy()
+        selection_df.insert(0, "Seleccionar", selection_df["ID"].astype(int).isin(selected_before))
+        edited_selection = st.data_editor(
+            selection_df,
+            use_container_width=True,
+            hide_index=True,
+            disabled=[column for column in selection_df.columns if column != "Seleccionar"],
+            column_config={
+                "Seleccionar": st.column_config.CheckboxColumn(
+                    "Sel.",
+                    help="Marca uno o varios experimentos para compararlos y ver sus detalles.",
+                    default=False,
+                    width="small",
+                )
+            },
+            key="results_selection_editor",
+        )
+        selected_ids = edited_selection.loc[
+            edited_selection["Seleccionar"],
+            "ID",
+        ].astype(int).tolist()
+        st.session_state["results_selected_ids"] = selected_ids
+
+        current_user = str(st.session_state.get("user", "") or "")
+        selected_view = df_view[df_view["id"].astype(int).isin(selected_ids)].copy()
+        owned_selected_ids = []
+        blocked_selected_ids = []
+        for row in selected_view.itertuples(index=False):
+            row_id = int(row.id)
+            owner_email = str(getattr(row, "owner_email", "") or "")
+            if row_id > 0 and owner_email == current_user:
+                owned_selected_ids.append(row_id)
+            elif row_id > 0:
+                blocked_selected_ids.append(row_id)
+
+        if selected_ids:
+            st.caption(f"Seleccionados para visualizar: {len(selected_ids)}")
+            if blocked_selected_ids:
+                st.warning(
+                    "Hay experimentos seleccionados que pertenecen a otros investigadores. "
+                    "Puedes visualizarlos si aparecen en tu historial, pero no borrarlos."
+                )
+
+            delete_confirmed = st.checkbox(
+                "Confirmo que deseo borrar los experimentos seleccionados que me pertenecen.",
+                key="results_delete_confirm",
+            )
+            if st.button(
+                "BORRAR MIS EXPERIMENTOS SELECCIONADOS",
+                type="secondary",
+                use_container_width=True,
+                disabled=not owned_selected_ids or not delete_confirmed,
+                key="btn_delete_selected_results",
+            ):
+                deleted_count, skipped_ids, delete_error = delete_owned_experiments(
+                    engine,
+                    selected_ids,
+                    current_user,
+                )
+                if delete_error:
+                    st.error(delete_error)
+                else:
+                    st.session_state["results_selected_ids"] = []
+                    notice = f"Se borraron {deleted_count} experimento(s) propios."
+                    if skipped_ids:
+                        notice += f" Se omitieron {len(skipped_ids)} registro(s) sin permiso de borrado."
+                    st.session_state["results_delete_notice"] = notice
+                    st.rerun()
+        else:
+            st.caption("Marca una o varias casillas para visualizar comparativas y detalles.")
         st.markdown("</div>", unsafe_allow_html=True)
 
         if not df_view.empty:
-            render_global_chart(df_view)
-            st.markdown("<br>", unsafe_allow_html=True)
+            if selected_ids and not selected_view.empty:
+                render_global_chart(selected_view)
+                st.markdown("<br>", unsafe_allow_html=True)
 
-            options = {
-                f"#{row.id} | {row.rat_id} | {row.experiment_date}": int(row.id)
-                for row in df_view.itertuples(index=False)
-            }
-            selected_label = st.selectbox("Selecciona un registro para analisis detallado", list(options.keys()))
-            selected_id = options[selected_label]
-            selected_exp = df_view[df_view["id"] == selected_id].iloc[0].to_dict()
-            trajectory_bundle = load_trajectory_bundle(resolve_trajectory_path(selected_exp))
-            render_detail_panel(selected_exp, trajectory_bundle)
+                for selected_exp in selected_view.to_dict(orient="records"):
+                    trajectory_bundle = load_trajectory_bundle(resolve_trajectory_path(selected_exp))
+                    render_detail_panel(selected_exp, trajectory_bundle)
+                    st.markdown("<br>", unsafe_allow_html=True)
+            else:
+                st.info("Selecciona al menos un experimento en la tabla para ver sus graficas y detalles.")
         else:
             st.warning("No hay registros que coincidan con los filtros actuales.")
 except Exception as error:

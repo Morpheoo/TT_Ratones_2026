@@ -563,7 +563,7 @@ def render_topbar(title="Sistema Técnico para Análisis Automatizado de Comport
         logos_html = (
             f'<img src="{ipn_b64}" style="height: 100px; margin-right: 12px; opacity: 0.95;">'
             f'<div style="width: 1px; height: 50px; background: {colors["border"]}; margin: 0 10px;"></div>'
-            f'<img src="{escom_b64}" style="height: 65px; margin-left: 12px; opacity: 0.95;" title="ESCOM">'
+            f'<img src="{escom_b64}" style="height: 58px; margin-left: 12px; opacity: 0.95;" title="ESCOM">'
         )
     else:
         logos_html = f'<span style="background: {colors["primary"]}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">ESCOM</span> IPN'
