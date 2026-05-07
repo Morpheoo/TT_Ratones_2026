@@ -1,5 +1,17 @@
-# Requirements para venv_311 (Streamlit + App Principal)
-# Sin PyTorch pesado con CUDA (eso va en venv_310)
+# =============================================================
+# Requirements para venv_311 (Python 3.11)
+# Streamlit + YOLO Pose + B-SOiD (este venv SI usa GPU)
+#
+# IMPORTANTE: torch + torchvision NO estan en este archivo.
+# Los instala install.bat separadamente con el wheel correcto:
+#   - NVIDIA RTX 20/30/40/50 -> torch 2.7.1+cu128 (CUDA 12.8)
+#   - AMD / sin GPU          -> torch 2.7.1+cpu
+# Si vas a instalar manualmente, corre primero:
+#   pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 \
+#     --index-url https://download.pytorch.org/whl/cu128
+# y despues:
+#   pip install -r requirements_venv311.txt
+# =============================================================
 
 altair==6.0.0
 attrs==25.4.0
