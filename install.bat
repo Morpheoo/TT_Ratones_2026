@@ -201,9 +201,15 @@ if !VALIDA_EXIT! equ 0 (
     echo   INSTALACION COMPLETA Y VALIDADA
     echo ============================================================
     echo.
+    choice /C YN /M "Crear acceso directo en el Escritorio"
+    if !errorlevel! equ 1 (
+        call crear_acceso_directo.bat
+    )
+    echo.
     echo   Para iniciar la aplicacion:
     echo     1. Abre Docker Desktop ^(si vas a usar historial^)
-    echo     2. Ejecuta launcher.bat
+    echo     2. Doble clic al acceso directo del Escritorio,
+    echo        o ejecuta launcher.bat desde esta carpeta.
     echo.
 ) else (
     echo   INSTALACION COMPLETA, PERO LA VALIDACION REPORTO PROBLEMAS

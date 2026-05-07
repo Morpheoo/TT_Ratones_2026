@@ -138,7 +138,25 @@ descarga las imagenes (~200 MB).
 
 ---
 
-## 6. Iniciar la aplicacion
+## 6. Acceso directo en el Escritorio (opcional)
+
+`install.bat` te pregunta al final si querer crear un acceso directo
+con el icono del proyecto. Si lo saltaste o queres recrearlo:
+
+```bash
+crear_acceso_directo.bat
+```
+
+Crea un acceso directo "TT Ratones 2026" en tu Escritorio que apunta a
+`launcher.bat`, con el icono `logo_ria.ico`. Funciona tanto si tu
+Escritorio esta en `C:\Users\<tu>\Desktop` como si Windows lo redirige
+a OneDrive (Windows 11 hace esto por defecto).
+
+---
+
+## 7. Iniciar la aplicacion
+
+Doble clic al acceso directo del Escritorio, o desde la raiz del proyecto:
 
 ```bash
 launcher.bat
@@ -154,7 +172,7 @@ Login por defecto: ver `.env` o el panel de administracion.
 
 ---
 
-## 7. Procesar un video (linea de comandos, sin UI)
+## 8. Procesar un video (linea de comandos, sin UI)
 
 Si queres procesar videos sin abrir Streamlit, desde la raiz:
 
@@ -182,7 +200,7 @@ Outputs en `resultados_yolo/MI_VIDEO/`:
 
 ---
 
-## 8. Validar la instalacion en cualquier momento
+## 9. Validar la instalacion en cualquier momento
 
 ```bash
 venv_311\Scripts\python.exe validar_instalacion.py
@@ -200,15 +218,16 @@ Exit code 0 si todo OK, 1 si hay fallas criticas.
 
 ---
 
-## 9. Flujo diario (despues de instalado)
+## 10. Flujo diario (despues de instalado)
 
 1. Abre Docker Desktop (si vas a usar la UI con historial).
-2. Doble clic en `launcher.bat`.
+2. Doble clic al acceso directo "TT Ratones 2026" del Escritorio
+   (o `launcher.bat` desde la carpeta del proyecto).
 3. La app se abre en tu navegador.
 
 ---
 
-## 10. Troubleshooting comun
+## 11. Troubleshooting comun
 
 ### "py: command not found"
 No instalaste Python 3.10/3.11 con la opcion "Add to PATH". Reinstalalos.
@@ -240,7 +259,7 @@ Volve al paso 3: copia el USB sobre la raiz del proyecto y vuelve a validar.
 
 ---
 
-## 11. Estructura del proyecto despues del setup
+## 12. Estructura del proyecto despues del setup
 
 ```
 TT_Ratones_2026/
@@ -266,7 +285,7 @@ TT_Ratones_2026/
 
 ---
 
-## 12. Documentacion adicional
+## 13. Documentacion adicional
 
 - `reportes/01_ESTADO_ACTUAL.md` - estado del proyecto y metricas LOO blind
 - `reportes/02_PIPELINE_TECNICO.md` - como funciona el pipeline end-to-end
