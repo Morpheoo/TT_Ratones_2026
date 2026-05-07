@@ -22,7 +22,15 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import render_topbar, use_theme, inject_sidebar_profile
 from video_context_banner import render_video_banner
-from config import GROOMING_MODEL, SIMBA_BASE, SIMBA_PROJECT_DIR, THIGMOTAXIS_MODEL, SIMBA_YOLO_BASE
+from config import (
+    GROOMING_MODEL,
+    GROOMING_MODEL_YOLO,
+    SIMBA_BASE,
+    SIMBA_PROJECT_DIR,
+    SIMBA_YOLO_BASE,
+    THIGMOTAXIS_MODEL,
+    THIGMOTAXIS_MODEL_YOLO,
+)
 
 st.set_page_config(page_title="Analisis Final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
@@ -119,12 +127,18 @@ def parse_pipeline_progress(lines, current_progress):
         elif "[STEP] DLC" in line:
             progress = max(progress, 0.14)
             status = "Extrayendo keypoints con DeepLabCut..."
+        elif "[STEP] YOLO_POSE" in line:
+            progress = max(progress, 0.18)
+            status = "Extrayendo keypoints con YOLO Pose..."
         elif "[STEP] BBOX" in line:
             progress = max(progress, 0.46)
             status = "Aplicando filtro anatomico bbox..."
         elif "[STEP] SIMBA_FEATURES" in line:
             progress = max(progress, 0.68)
             status = "Importando pose al proyecto SimBA..."
+        elif "[STEP] GROOMING_LSTM" in line:
+            progress = max(progress, 0.76)
+            status = "Aplicando memoria temporal LSTM a Grooming..."
         elif "[STEP] FINAL_VIDEO" in line:
             progress = max(progress, 0.82)
             status = "Renderizando video multimodal final..."
@@ -335,6 +349,8 @@ def _sync_analysis_outputs(outputs):
         "final_trajectory": "ultimo_trajectory_file",
         "grooming_timelog": "ultimo_grooming_timelog",
         "final_grooming_timelog": "ultimo_grooming_timelog",
+        "grooming_lstm_csv": "ultimo_grooming_lstm_csv",
+        "final_grooming_lstm_csv": "ultimo_grooming_lstm_csv",
         "thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
         "final_thigmotaxis_timelog": "ultimo_thigmotaxis_timelog",
         "yolo_keypoints_video": "ultimo_yolo_kp_video",
@@ -417,6 +433,7 @@ def reset_analysis_runtime_state():
         "ultimo_multimodal_video",
         "ultimo_trajectory_file",
         "ultimo_grooming_timelog",
+        "ultimo_grooming_lstm_csv",
         "ultimo_thigmotaxis_timelog",
         "analysis_db_notice",
         "analysis_persist_key",
@@ -545,6 +562,7 @@ def build_pipeline_command(batch_size, device_option, zones_file):
         "--start-seconds",
         str(start_seconds),
         "--backend", "yolo",
+        "--grooming-source", "rescue",
     ]
     if end_seconds is not None:
         command.extend(["--end-seconds", str(int(end_seconds))])
@@ -898,7 +916,7 @@ def resolve_status_flags():
     return {
         "has_video": bool(active_video and os.path.exists(active_video)),
         "has_zonas": bool(st.session_state.get("zonas_configuradas")),
-        "has_models": GROOMING_MODEL.exists() and THIGMOTAXIS_MODEL.exists(),
+        "has_models": GROOMING_MODEL_YOLO.exists() and THIGMOTAXIS_MODEL_YOLO.exists(),
         "has_pose": bool(pose_candidate and os.path.exists(pose_candidate)),
         "has_features": bool(feature_candidate and os.path.exists(feature_candidate)),
         "has_final_video": bool(final_video and os.path.exists(final_video)),
@@ -911,7 +929,7 @@ st.markdown("### Modulo 04: Analisis Final Conductual")
 st.markdown(
     """
     Ejecuta el flujo operativo completo del proyecto activo:
-    recorte temporal, DeepLabCut, filtro bbox, importacion a SimBA y render multimodal final.
+    YOLO Pose, SimBA, RF calibrado, rescate temporal LSTM para Grooming y render multimodal final.
     """
 )
 st.caption(
@@ -1035,7 +1053,8 @@ with left_col:
             ["Auto (Recomendado)", "CPU (Forzar)"],
             index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
         )
-        st.caption("El pipeline reutiliza pose, filtro bbox y video final si ya existen y siguen vigentes.")
+        st.caption("Grooming usa RF calibrado con rescate temporal LSTM cuando el RF queda en zona gris.")
+        st.caption("El pipeline reutiliza pose, features, LSTM y video final si ya existen y siguen vigentes.")
 
     can_run = status_flags["has_video"] and status_flags["has_zonas"] and status_flags["has_models"]
     if not status_flags["has_zonas"]:

@@ -19,9 +19,9 @@ TRACKING_DOT_OUTLINE_COLOR = (250, 220, 255)
 THIGMO_CONFIRM_THRESHOLD = 0.30
 THIGMO_POSSIBLE_THRESHOLD = 0.25
 THIGMO_MIN_EVENT_SECONDS = 0.50
-GROOMING_CONFIRM_THRESHOLD = 0.25
-GROOMING_POSSIBLE_THRESHOLD = 0.18
-GROOMING_MIN_EVENT_SECONDS = 0.30
+GROOMING_CONFIRM_THRESHOLD = 0.41
+GROOMING_POSSIBLE_THRESHOLD = 0.30
+GROOMING_MIN_EVENT_SECONDS = 0.50
 BEHAVIOR_SMOOTHING_FRAMES = 15
 SIMBA_MODELS_DIR = os.path.join(
     PROJECT_DIR,
@@ -451,7 +451,25 @@ def state_machine_update(
             
     return status_text, bar_color, pred_status, frames_acc, events_list, current_start, is_confirming
 
-def generate_video(video_path: str, features_path: str, output_path: str, zonas_json_str: str = "", model_thigmo: str = "", model_grooming: str = ""):
+def generate_video(
+    video_path: str,
+    features_path: str,
+    output_path: str,
+    zonas_json_str: str = "",
+    model_thigmo: str = "",
+    model_grooming: str = "",
+    thigmo_confirm_threshold: float = THIGMO_CONFIRM_THRESHOLD,
+    thigmo_possible_threshold: float = THIGMO_POSSIBLE_THRESHOLD,
+    thigmo_min_event_seconds: float = THIGMO_MIN_EVENT_SECONDS,
+    grooming_confirm_threshold: float = GROOMING_CONFIRM_THRESHOLD,
+    grooming_possible_threshold: float = GROOMING_POSSIBLE_THRESHOLD,
+    grooming_min_event_seconds: float = GROOMING_MIN_EVENT_SECONDS,
+    smoothing_frames: int = BEHAVIOR_SMOOTHING_FRAMES,
+    lstm_grooming_csv: str = "",
+    grooming_source: str = "rf",
+    lstm_rescue_rf_threshold: float = 0.22,
+    lstm_rescue_threshold: float = 0.11,
+):
     import sys
     import os
     
@@ -506,17 +524,58 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
         print("[IA] Modelo de Grooming no encontrado. Se usará 0.0")
         probs_groom = np.zeros(len(df_master))
 
+    if lstm_grooming_csv:
+        if not os.path.exists(lstm_grooming_csv):
+            raise FileNotFoundError(f"CSV LSTM Grooming no encontrado: {lstm_grooming_csv}")
+        lstm_df = pd.read_csv(lstm_grooming_csv)
+        if "Probability_Grooming_LSTM" not in lstm_df.columns:
+            raise ValueError(f"El CSV LSTM no contiene Probability_Grooming_LSTM: {lstm_grooming_csv}")
+        probs_lstm = lstm_df["Probability_Grooming_LSTM"].fillna(0.0).to_numpy()[: len(df_master)]
+        if len(probs_lstm) < len(df_master):
+            probs_lstm = np.pad(probs_lstm, (0, len(df_master) - len(probs_lstm)), mode="edge")
+        grooming_source = grooming_source.lower().strip()
+        if grooming_source == "lstm":
+            probs_groom = probs_lstm
+            print(f"[LSTM] Grooming reemplaza RF usando: {lstm_grooming_csv}")
+        elif grooming_source == "ensemble":
+            probs_groom = (np.asarray(probs_groom, dtype=float) + probs_lstm) / 2.0
+            print(f"[LSTM] Grooming ensemble RF+LSTM usando: {lstm_grooming_csv}")
+        elif grooming_source == "rescue":
+            probs_rf = np.asarray(probs_groom, dtype=float)
+            rescue_mask = (
+                (probs_rf >= float(lstm_rescue_rf_threshold))
+                & (probs_rf < float(grooming_confirm_threshold))
+                & (probs_lstm >= float(lstm_rescue_threshold))
+            )
+            probs_groom = probs_rf.copy()
+            probs_groom[rescue_mask] = np.maximum(probs_groom[rescue_mask], float(grooming_confirm_threshold))
+            print(
+                f"[LSTM] Grooming rescue RF+LSTM usando: {lstm_grooming_csv} | "
+                f"frames_rescatados={int(rescue_mask.sum())} | "
+                f"rf_floor={lstm_rescue_rf_threshold:.3f} | lstm_threshold={lstm_rescue_threshold:.3f}"
+            )
+        else:
+            print("[LSTM] CSV cargado, pero grooming_source=rf; se mantiene RF.")
+
     # --- SUAVIZADO Y FILTROS (Moving Average) ---
+    smoothing_frames = max(1, int(smoothing_frames))
     print("Suavizando probabilidades para evitar parpadeo de microsegundos...")
-    # Thigmotaxis: Filtro de 15 frames (0.5s). Evita alertas falsas breves.
-    probs_thigmo = pd.Series(probs_thigmo).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
+    print(
+        "[CALIB] "
+        f"Thigmo confirm={thigmo_confirm_threshold:.3f}, possible={thigmo_possible_threshold:.3f}, "
+        f"min={thigmo_min_event_seconds:.2f}s | "
+        f"Grooming confirm={grooming_confirm_threshold:.3f}, possible={grooming_possible_threshold:.3f}, "
+        f"min={grooming_min_event_seconds:.2f}s | smoothing={smoothing_frames} frames"
+    )
+    # Thigmotaxis: filtro temporal. Evita alertas falsas breves.
+    probs_thigmo = pd.Series(probs_thigmo).rolling(window=smoothing_frames, min_periods=1, center=True).mean().values
     
     # Grooming: Filtro de 15 frames (0.5s). 
-    probs_groom = pd.Series(probs_groom).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
+    probs_groom = pd.Series(probs_groom).rolling(window=smoothing_frames, min_periods=1, center=True).mean().values
 
     # Pre-calcular el movimiento promedio de la nariz para evitar "falsos estáticos"
     if 'Movement_mouse_nose' in df_master.columns:
-        mov_nose = pd.Series(df_master['Movement_mouse_nose'].values).rolling(window=BEHAVIOR_SMOOTHING_FRAMES, min_periods=1, center=True).mean().values
+        mov_nose = pd.Series(df_master['Movement_mouse_nose'].values).rolling(window=smoothing_frames, min_periods=1, center=True).mean().values
     else:
         mov_nose = np.ones(len(probs_groom)) * 10.0 # Dummy fallback
 
@@ -655,9 +714,9 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
                 events_list=thigmo_events, 
                 current_start=thigmo_start, 
                 is_confirming=thigmo_is_conf,
-                umbral_confrm=THIGMO_CONFIRM_THRESHOLD,
-                umbral_posible=THIGMO_POSSIBLE_THRESHOLD,
-                min_event_seconds=THIGMO_MIN_EVENT_SECONDS
+                umbral_confrm=thigmo_confirm_threshold,
+                umbral_posible=thigmo_possible_threshold,
+                min_event_seconds=thigmo_min_event_seconds
             )
             if t_col == (0, 0, 255): t_col = (0, 0, 255) # Thigmo rojo
             elif t_col == (0, 255, 255): t_col = (0, 165, 255) # Thigmo naranja
@@ -671,9 +730,9 @@ def generate_video(video_path: str, features_path: str, output_path: str, zonas_
                 events_list=groom_events, 
                 current_start=groom_start, 
                 is_confirming=groom_is_conf,
-                umbral_confrm=GROOMING_CONFIRM_THRESHOLD,
-                umbral_posible=GROOMING_POSSIBLE_THRESHOLD,
-                min_event_seconds=GROOMING_MIN_EVENT_SECONDS
+                umbral_confrm=grooming_confirm_threshold,
+                umbral_posible=grooming_possible_threshold,
+                min_event_seconds=grooming_min_event_seconds
             )
             # Personalizamos colores visuales del Grooming (Violeta/Magenta)
             if g_col == (0, 0, 255): g_col = (255, 0, 255) # Confirmado es Violeta
@@ -748,6 +807,17 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=str, required=True, help="Nombre deseado para el archivo multihud final.")
     parser.add_argument("--zonas_json", type=str, required=False, default="", help="Zonas en formato JSON para evitar prompt interactivo.")
     parser.add_argument("--zonas_file", type=str, required=False, default="", help="Ruta a un JSON de zonas para evitar pasar el payload completo por CLI.")
+    parser.add_argument("--thigmo-confirm-threshold", type=float, default=THIGMO_CONFIRM_THRESHOLD, help="Umbral para confirmar Thigmotaxis.")
+    parser.add_argument("--thigmo-possible-threshold", type=float, default=THIGMO_POSSIBLE_THRESHOLD, help="Umbral para marcar Thigmotaxis posible.")
+    parser.add_argument("--thigmo-min-event-seconds", type=float, default=THIGMO_MIN_EVENT_SECONDS, help="Duracion minima de un evento Thigmotaxis.")
+    parser.add_argument("--grooming-confirm-threshold", type=float, default=GROOMING_CONFIRM_THRESHOLD, help="Umbral para confirmar Grooming.")
+    parser.add_argument("--grooming-possible-threshold", type=float, default=GROOMING_POSSIBLE_THRESHOLD, help="Umbral para marcar Grooming posible.")
+    parser.add_argument("--grooming-min-event-seconds", type=float, default=GROOMING_MIN_EVENT_SECONDS, help="Duracion minima de un evento Grooming.")
+    parser.add_argument("--behavior-smoothing-frames", type=int, default=BEHAVIOR_SMOOTHING_FRAMES, help="Ventana de suavizado para probabilidades.")
+    parser.add_argument("--lstm-grooming-csv", type=str, default="", help="CSV generado por infer_grooming_lstm.py.")
+    parser.add_argument("--grooming-source", choices=["rf", "lstm", "ensemble", "rescue"], default="rf", help="Fuente de probabilidad para Grooming.")
+    parser.add_argument("--lstm-rescue-rf-threshold", type=float, default=0.22, help="Piso RF para que LSTM pueda rescatar Grooming.")
+    parser.add_argument("--lstm-rescue-threshold", type=float, default=0.11, help="Umbral LSTM para rescate temporal de Grooming.")
     
     args = parser.parse_args()
     zonas_json_payload = args.zonas_json
@@ -755,4 +825,22 @@ if __name__ == "__main__":
         with open(args.zonas_file, "r", encoding="utf-8") as file_handle:
             zonas_json_payload = file_handle.read()
     # model_thigmo y model_grooming are passed directly to override geometry
-    generate_video(args.video, args.features, args.output, zonas_json_payload, args.model_thigmo, args.model_grooming)
+    generate_video(
+        args.video,
+        args.features,
+        args.output,
+        zonas_json_payload,
+        args.model_thigmo,
+        args.model_grooming,
+        thigmo_confirm_threshold=args.thigmo_confirm_threshold,
+        thigmo_possible_threshold=args.thigmo_possible_threshold,
+        thigmo_min_event_seconds=args.thigmo_min_event_seconds,
+        grooming_confirm_threshold=args.grooming_confirm_threshold,
+        grooming_possible_threshold=args.grooming_possible_threshold,
+        grooming_min_event_seconds=args.grooming_min_event_seconds,
+        smoothing_frames=args.behavior_smoothing_frames,
+        lstm_grooming_csv=args.lstm_grooming_csv,
+        grooming_source=args.grooming_source,
+        lstm_rescue_rf_threshold=args.lstm_rescue_rf_threshold,
+        lstm_rescue_threshold=args.lstm_rescue_threshold,
+    )
