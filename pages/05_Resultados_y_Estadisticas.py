@@ -541,6 +541,13 @@ def render_detail_panel(record, trajectory_bundle):
     k4.metric("Grooming", format_seconds(metric_groom))
     k5.metric("Thigmotaxis", format_seconds(metric_thigmo))
 
+    # Mostrar ruta del video analizado
+    video_path = record.get('video_path', '')
+    if video_path:
+        st.markdown("---")
+        st.markdown("**Ruta del video analizado:**")
+        st.code(video_path, language=None)
+
     chart_left, chart_right = st.columns(2)
     with chart_left:
         st.markdown("##### Distribucion espacial")

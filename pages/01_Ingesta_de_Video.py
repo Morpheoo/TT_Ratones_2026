@@ -15,6 +15,9 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import render_topbar, use_theme, inject_sidebar_profile
 
+# Importar sistema de tratamientos
+from treatments import initialize_treatments_table, get_all_treatments, add_treatment, delete_treatment
+
 st.set_page_config(page_title="Ingesta de Video | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
@@ -168,6 +171,14 @@ CARPETA_VIDEOS = "videos_data"
 if not os.path.exists(CARPETA_VIDEOS):
     os.makedirs(CARPETA_VIDEOS)
 
+# ================= 3.1 INICIALIZAR TRATAMIENTOS =================
+if "treatments_initialized" not in st.session_state:
+    initialize_treatments_table()
+    st.session_state.treatments_initialized = True
+
+# Obtener rol del usuario
+user_role = st.session_state.get("role", "estudiante")
+
 # ================= 4. FORMULARIO DE CARGA =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("#### Parametros del Registro")
@@ -178,11 +189,84 @@ with c1:
         placeholder="Ej. MOUSE-001",
         key="ingesta_id_raton",
     ).strip()
-    tratamiento_input = st.text_input(
-        "ID del Tratamiento",
-        placeholder="Ej. Diazepam 5mg...",
-        key="ingesta_tratamiento",
-    ).strip()
+    
+    # ===== SISTEMA DE TRATAMIENTOS CON ROLES =====
+    # Obtener lista de tratamientos disponibles
+    treatments_list = get_all_treatments()
+    treatment_names = [t["name"] for t in treatments_list]
+    
+    if not treatment_names:
+        treatment_names = ["Control"]  # Fallback si no hay tratamientos
+    
+    # Selectbox de tratamientos (todos los roles)
+    tratamiento_seleccionado = st.selectbox(
+        "ID del tratamiento",
+        options=treatment_names,
+        index=0,
+        key="ingesta_tratamiento_select",
+        help="Selecciona el tratamiento aplicado al especimen"
+    )
+    
+    # UI adicional según el rol
+    if user_role in ["investigador", "admin"]:
+        st.markdown("<div style='margin-top: 0.5rem;'></div>", unsafe_allow_html=True)
+        
+        # Expander para añadir nuevo tratamiento
+        with st.expander("Añadir Nuevo Tratamiento"):
+            nuevo_tratamiento = st.text_input(
+                "Nombre del tratamiento",
+                placeholder="Ej. Midazolam 2mg",
+                key="nuevo_tratamiento_input"
+            )
+            descripcion_tratamiento = st.text_area(
+                "Descripción (opcional)",
+                placeholder="Detalles del tratamiento...",
+                key="nueva_descripcion_input",
+                height=80
+            )
+            
+            if st.button("Añadir Tratamiento", key="btn_add_treatment", type="primary", use_container_width=True):
+                if nuevo_tratamiento.strip():
+                    success, msg = add_treatment(
+                        name=nuevo_tratamiento.strip(),
+                        description=descripcion_tratamiento.strip(),
+                        created_by=st.session_state.get("user_id")
+                    )
+                    if success:
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+                else:
+                    st.warning("Ingresa un nombre válido para el tratamiento")
+    
+    # Solo admin puede eliminar tratamientos
+    if user_role == "admin":
+        with st.expander("Gestionar Tratamientos (Admin)"):
+            tratamiento_a_eliminar = st.selectbox(
+                "Selecciona tratamiento a eliminar",
+                options=treatment_names,
+                key="tratamiento_eliminar_select"
+            )
+            
+            col_warn, col_del = st.columns([2, 1])
+            with col_warn:
+                st.caption("Esta acción desactivará el tratamiento si está en uso")
+            with col_del:
+                if st.button("Eliminar", key="btn_delete_treatment", type="secondary", use_container_width=True):
+                    # Obtener ID del tratamiento
+                    treatment_to_delete = next((t for t in treatments_list if t["name"] == tratamiento_a_eliminar), None)
+                    if treatment_to_delete:
+                        success, msg = delete_treatment(treatment_to_delete["id"])
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+    
+    # Variable final para usar en el procesamiento
+    tratamiento_input = tratamiento_seleccionado
+    
 with c2:
     fecha_exp = st.date_input("Fecha del Experimento", key="ingesta_fecha")
     responsable = st.text_input(

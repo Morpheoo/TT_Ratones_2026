@@ -218,14 +218,22 @@ elif st.session_state.auth_mode == "register":
             col1, col2 = st.columns(2)
             with col1:
                 full_name = st.text_input("Nombre Completo *")
-                boleta = st.text_input("Número de Boleta *")
+                boleta = st.text_input(
+                    "Número de Boleta *",
+                    max_chars=10,
+                    help="Exactamente 10 dígitos numéricos"
+                )
             with col2:
                 carrera = st.text_input("Carrera")
                 escuela = st.text_input("Escuela (ej. ESCOM)")
             
             st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
             new_email = st.text_input("Correo Institucional (@alumno.ipn.mx) *")
-            new_pass = st.text_input("Contraseña segura *", type="password")
+            new_pass = st.text_input(
+                "Contraseña segura *",
+                type="password",
+                help="Mínimo 8 caracteres, al menos 1 mayúscula y 1 número"
+            )
             
             st.markdown("""
                 <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
@@ -241,6 +249,14 @@ elif st.session_state.auth_mode == "register":
                 st.error("Debes aceptar los términos institucionales.")
             elif not all([full_name, boleta, new_email, new_pass]):
                 st.warning("Completa los campos obligatorios (*).")
+            elif len(boleta) != 10 or not boleta.isdigit():
+                st.error("El número de boleta debe tener exactamente 10 dígitos numéricos.")
+            elif len(new_pass) < 8:
+                st.error("La contraseña debe tener al menos 8 caracteres.")
+            elif not any(c.isupper() for c in new_pass):
+                st.error("La contraseña debe contener al menos 1 letra mayúscula.")
+            elif not any(c.isdigit() for c in new_pass):
+                st.error("La contraseña debe contener al menos 1 número.")
             else:
                 success, msg = register_user(
                     email=new_email, 
@@ -275,7 +291,11 @@ elif st.session_state.auth_mode == "register":
             
             st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
             new_email = st.text_input("Correo Institucional (@ipn.mx) *")
-            new_pass = st.text_input("Contraseña segura *", type="password")
+            new_pass = st.text_input(
+                "Contraseña segura *",
+                type="password",
+                help="Mínimo 8 caracteres, al menos 1 mayúscula y 1 número"
+            )
             
             st.markdown("""
                 <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
@@ -291,6 +311,12 @@ elif st.session_state.auth_mode == "register":
                 st.error("Debes aceptar los términos institucionales.")
             elif not all([full_name, num_empleado, new_email, new_pass]):
                 st.warning("Completa los campos obligatorios (*).")
+            elif len(new_pass) < 8:
+                st.error("La contraseña debe tener al menos 8 caracteres.")
+            elif not any(c.isupper() for c in new_pass):
+                st.error("La contraseña debe contener al menos 1 letra mayúscula.")
+            elif not any(c.isdigit() for c in new_pass):
+                st.error("La contraseña debe contener al menos 1 número.")
             else:
                 success, msg = register_user(
                     email=new_email, 

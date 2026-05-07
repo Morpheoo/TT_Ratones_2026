@@ -11,6 +11,16 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabla de Tratamientos
+CREATE TABLE IF NOT EXISTS treatments (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
 -- Tabla de Experimentos
 CREATE TABLE IF NOT EXISTS experiments (
     id SERIAL PRIMARY KEY,

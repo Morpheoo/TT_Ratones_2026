@@ -169,7 +169,11 @@ def run_yolo11_inference(
 ) -> pd.DataFrame:
     """
     Ejecuta inferencia de YOLO11 Pose en el video.
-
+    
+    Returns:
+        DataFrame con columnas multi-nivel compatibles con DeepLabCut/SimBA:
+        - Nivel 0: scorer (nombre del modelo)
+        - Nivel 1: bodyparts (
     Returns:
         DataFrame con columnas multi-nivel compatibles con DeepLabCut/SimBA:
         - Nivel 0: scorer (nombre del modelo)
@@ -368,16 +372,7 @@ def analyze_video(
     base_name = os.path.splitext(os.path.basename(analysis_video))[0]
     output_csv = os.path.join(os.path.dirname(analysis_video), f"{base_name}_YOLO11_pose.csv")
 
-    log(f"[INFO] Saving pose file: {output_csv}")
-    # Guardar con índice para mantener compatibilidad con formato DeepLabCut
-    df_poses.to_csv(output_csv, index=True)
-
-    pose_file = os.path.abspath(output_csv)
-    log(f"[OUTPUT] POSE_FILE={pose_file}")
-    log("[STEP] COMPLETE")
-    log(f"[OUTPUT] ANALYZED_VIDEO={analysis_video}")
-    log("=" * 60)
-    log("SUCCESS: Analysis complete.")
+SS: Analysis complete.")
     log("=" * 60)
 
 
