@@ -267,6 +267,65 @@ def delete_owned_experiments(engine, experiment_ids, username):
     return deleted_count, skipped_ids, ""
 
 
+def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t, thigmo_t):
+    """
+    Actualiza los tiempos de un experimento en la tabla analysis_results.
+    Solo administradores e investigadores pueden usar esta función.
+    """
+    if not engine:
+        return False, "No hay conexión a la base de datos"
+    
+    try:
+        with engine.connect() as conn:
+            # Verificar si existe un registro de análisis para este experimento
+            check_query = text("""
+                SELECT id FROM analysis_results 
+                WHERE experiment_id = :exp_id 
+                ORDER BY timestamp DESC 
+                LIMIT 1
+            """)
+            result = conn.execute(check_query, {"exp_id": experiment_id})
+            analysis_record = result.fetchone()
+            
+            if analysis_record:
+                # Actualizar registro existente
+                update_query = text("""
+                    UPDATE analysis_results 
+                    SET time_open_arms = :open_t,
+                        time_closed_arms = :closed_t,
+                        grooming_duration = :grooming_t,
+                        thigmotaxis_duration = :thigmo_t,
+                        timestamp = CURRENT_TIMESTAMP
+                    WHERE id = :analysis_id
+                """)
+                conn.execute(update_query, {
+                    "open_t": float(open_t),
+                    "closed_t": float(closed_t),
+                    "grooming_t": float(grooming_t),
+                    "thigmo_t": float(thigmo_t),
+                    "analysis_id": analysis_record[0]
+                })
+            else:
+                # Crear nuevo registro si no existe
+                insert_query = text("""
+                    INSERT INTO analysis_results 
+                    (experiment_id, time_open_arms, time_closed_arms, grooming_duration, thigmotaxis_duration, status)
+                    VALUES (:exp_id, :open_t, :closed_t, :grooming_t, :thigmo_t, 'completed')
+                """)
+                conn.execute(insert_query, {
+                    "exp_id": experiment_id,
+                    "open_t": float(open_t),
+                    "closed_t": float(closed_t),
+                    "grooming_t": float(grooming_t),
+                    "thigmo_t": float(thigmo_t)
+                })
+            
+            conn.commit()
+            return True, "Tiempos actualizados exitosamente"
+    except Exception as e:
+        return False, f"Error al actualizar tiempos: {str(e)}"
+
+
 def build_session_fallback_dataframe():
     trajectory_path = st.session_state.get("ultimo_trajectory_file")
     video_path = st.session_state.get("ruta_video_actual")
@@ -695,10 +754,16 @@ try:
         history_scope = st.selectbox(
             "Vista del historial",
             scope_options,
-            index=0,
+            index=2,  # Por defecto muestra "Todos"
             key="results_history_scope",
         )
         df_scope = filter_history_scope(df_hist, history_scope)
+
+        # Obtener rol y usuario actual una sola vez
+        user_role = st.session_state.get("role", "estudiante").lower()
+        current_user = str(st.session_state.get("user", "") or "")
+        is_admin = user_role == "admin"
+        is_investigador = user_role == "investigador"
 
         render_global_kpis(df_scope if not df_scope.empty else df_hist.iloc[0:0].copy())
         st.markdown("<br>", unsafe_allow_html=True)
@@ -714,6 +779,17 @@ try:
             statuses = ["Todos"] + sorted([value for value in df_scope["analysis_status"].dropna().unique().tolist() if value])
             q_status = st.selectbox("Estado", statuses)
 
+        # Filtro adicional para investigadores
+        show_only_mine = False
+        
+        if is_investigador:
+            show_only_mine = st.checkbox(
+                "Mostrar solo mis experimentos (para poder editarlos)",
+                value=False,
+                key="filter_only_mine",
+                help="Activa este filtro para ver solo tus experimentos y poder editar los tiempos"
+            )
+
         df_view = df_scope.copy()
         if q_search:
             mask = (
@@ -725,6 +801,10 @@ try:
             df_view = df_view[df_view["treatment"] == q_treat]
         if q_status != "Todos":
             df_view = df_view[df_view["analysis_status"] == q_status]
+        
+        # Aplicar filtro "solo mis experimentos" para investigadores
+        if show_only_mine and current_user:
+            df_view = df_view[df_view["owner_email"].astype(str) == current_user]
 
         display_df = df_view[
             [
@@ -766,28 +846,199 @@ try:
 
         selection_df = display_df.copy()
         selection_df.insert(0, "Seleccionar", selection_df["ID"].astype(int).isin(selected_before))
+        
+        # Determinar qué experimentos puede editar este usuario
+        editable_exp_ids = set()
+        if is_admin:
+            # Admin puede editar todos
+            editable_exp_ids = set(selection_df["ID"].astype(int).tolist())
+        elif is_investigador:
+            # Investigador solo puede editar sus propios experimentos
+            for exp_id in selection_df["ID"].astype(int).tolist():
+                exp_data = df_view[df_view["id"] == exp_id]
+                if not exp_data.empty:
+                    owner_email = str(exp_data.iloc[0].get("owner_email", ""))
+                    if owner_email == current_user:
+                        editable_exp_ids.add(exp_id)
+        
+        # Agregar columna visual de editabilidad para investigadores y admins
+        if is_admin or is_investigador:
+            selection_df.insert(1, "", selection_df["ID"].astype(int).isin(editable_exp_ids))
+        
+        # Configurar columnas deshabilitadas basándose en permisos
+        time_columns = ["Abiertos (s)", "Cerrados (s)", "Grooming (s)", "Thigmotaxis (s)"]
+        
+        if is_admin:
+            # Admin puede editar tiempos de todos, pero no otras columnas
+            disabled_columns = [col for col in selection_df.columns if col not in time_columns and col != "Seleccionar"]
+            st.info("Como administrador, puedes editar los tiempos de cualquier experimento en la tabla.")
+        elif is_investigador:
+            # Verificar si hay experimentos ajenos en la vista actual
+            all_ids_in_view = set(selection_df["ID"].astype(int).tolist())
+            has_foreign_experiments = bool(all_ids_in_view - editable_exp_ids)
+            
+            if has_foreign_experiments:
+                # Hay experimentos ajenos: deshabilitar columnas de tiempo
+                disabled_columns = [col for col in selection_df.columns if col != "Seleccionar"]
+                if editable_exp_ids:
+                    st.warning(f"Hay experimentos de otros investigadores en la vista actual. Filtra para ver solo tus experimentos y poder editarlos. (Tienes {len(editable_exp_ids)} experimento(s) propio(s) en esta vista)")
+                else:
+                    st.warning("No tienes experimentos propios en esta vista. Solo puedes ver los datos.")
+            else:
+                # Solo hay experimentos propios: permitir edición de tiempos
+                disabled_columns = [col for col in selection_df.columns if col not in time_columns and col != "Seleccionar"]
+                if editable_exp_ids:
+                    st.info(f"Como investigador, puedes editar los tiempos de tus experimentos ({len(editable_exp_ids)} en esta vista).")
+                else:
+                    st.info("No hay experimentos en esta vista.")
+        else:
+            # Estudiantes no pueden editar nada excepto selección
+            disabled_columns = [col for col in selection_df.columns if col != "Seleccionar"]
+        
+        # Guardar estado original para detectar cambios
+        if "results_original_df" not in st.session_state:
+            st.session_state["results_original_df"] = selection_df.copy()
+        
         edited_selection = st.data_editor(
             selection_df,
             use_container_width=True,
             hide_index=True,
-            disabled=[column for column in selection_df.columns if column != "Seleccionar"],
+            disabled=disabled_columns,
             column_config={
                 "Seleccionar": st.column_config.CheckboxColumn(
                     "Sel.",
                     help="Marca uno o varios experimentos para compararlos y ver sus detalles.",
                     default=False,
                     width="small",
+                ),
+                "": st.column_config.CheckboxColumn(
+                    "",
+                    help="Indica si puedes editar los tiempos de este experimento.",
+                    disabled=True,
+                    width="small",
+                ),
+                "Abiertos (s)": st.column_config.NumberColumn(
+                    "Abiertos (s)",
+                    help="Tiempo en brazos abiertos (segundos)",
+                    min_value=0.0,
+                    format="%.1f"
+                ),
+                "Cerrados (s)": st.column_config.NumberColumn(
+                    "Cerrados (s)",
+                    help="Tiempo en brazos cerrados (segundos)",
+                    min_value=0.0,
+                    format="%.1f"
+                ),
+                "Grooming (s)": st.column_config.NumberColumn(
+                    "Grooming (s)",
+                    help="Duración de grooming (segundos)",
+                    min_value=0.0,
+                    format="%.1f"
+                ),
+                "Thigmotaxis (s)": st.column_config.NumberColumn(
+                    "Thigmotaxis (s)",
+                    help="Duración de thigmotaxis (segundos)",
+                    min_value=0.0,
+                    format="%.1f"
                 )
             },
             key="results_selection_editor",
         )
+        
+        # Detectar cambios en los tiempos y guardar en BD (solo para admin/investigador)
+        if is_admin or is_investigador:
+            original_df = st.session_state["results_original_df"]
+            changes_detected = []
+            unauthorized_changes = []
+            
+            for idx in edited_selection.index:
+                exp_id = int(edited_selection.loc[idx, "ID"])
+                
+                # Buscar fila original correspondiente
+                original_matches = original_df[original_df["ID"] == exp_id]
+                if original_matches.empty:
+                    continue
+                    
+                original_row = original_matches.iloc[0]
+                edited_row = edited_selection.loc[idx]
+                
+                # Verificar si hubo cambios en los tiempos
+                try:
+                    orig_open = float(original_row["Abiertos (s)"])
+                    orig_closed = float(original_row["Cerrados (s)"])
+                    orig_grooming = float(original_row["Grooming (s)"])
+                    orig_thigmo = float(original_row["Thigmotaxis (s)"])
+                    
+                    edit_open = float(edited_row["Abiertos (s)"])
+                    edit_closed = float(edited_row["Cerrados (s)"])
+                    edit_grooming = float(edited_row["Grooming (s)"])
+                    edit_thigmo = float(edited_row["Thigmotaxis (s)"])
+                    
+                    times_changed = (
+                        abs(orig_open - edit_open) > 0.01 or
+                        abs(orig_closed - edit_closed) > 0.01 or
+                        abs(orig_grooming - edit_grooming) > 0.01 or
+                        abs(orig_thigmo - edit_thigmo) > 0.01
+                    )
+                    
+                    if times_changed:
+                        # Verificar permisos: Admin puede editar todo, investigador solo lo suyo
+                        if exp_id in editable_exp_ids:
+                            changes_detected.append({
+                                "id": exp_id,
+                                "open_t": edit_open,
+                                "closed_t": edit_closed,
+                                "grooming_t": edit_grooming,
+                                "thigmo_t": edit_thigmo
+                            })
+                        else:
+                            unauthorized_changes.append(exp_id)
+                except (ValueError, TypeError):
+                    continue
+            
+            # Advertir sobre cambios no autorizados (investigador intentando editar experimentos ajenos)
+            if unauthorized_changes:
+                st.error(f"No tienes permiso para editar los experimentos: {', '.join(f'#{id}' for id in unauthorized_changes)}")
+            
+            # Mostrar botón para guardar cambios si se detectaron modificaciones autorizadas
+            if changes_detected:
+                st.warning(f"Se detectaron {len(changes_detected)} cambio(s) autorizados en los tiempos. Presiona 'Guardar Cambios' para aplicarlos a la base de datos.")
+                
+                if st.button("Guardar Cambios", type="primary", key="save_time_changes"):
+                    success_count = 0
+                    error_count = 0
+                    
+                    for change in changes_detected:
+                        success, message = update_experiment_times(
+                            engine,
+                            change["id"],
+                            change["open_t"],
+                            change["closed_t"],
+                            change["grooming_t"],
+                            change["thigmo_t"]
+                        )
+                        
+                        if success:
+                            success_count += 1
+                        else:
+                            error_count += 1
+                            st.error(f"Error en experimento #{change['id']}: {message}")
+                    
+                    if success_count > 0:
+                        st.success(f"✓ {success_count} experimento(s) actualizado(s) exitosamente")
+                        # Resetear estado original
+                        del st.session_state["results_original_df"]
+                        st.rerun()
+                    
+                    if error_count > 0:
+                        st.error(f"✗ {error_count} experimento(s) con errores")
+        
         selected_ids = edited_selection.loc[
             edited_selection["Seleccionar"],
             "ID",
         ].astype(int).tolist()
         st.session_state["results_selected_ids"] = selected_ids
 
-        current_user = str(st.session_state.get("user", "") or "")
         selected_view = df_view[df_view["id"].astype(int).isin(selected_ids)].copy()
         owned_selected_ids = []
         blocked_selected_ids = []
@@ -807,31 +1058,38 @@ try:
                     "Puedes visualizarlos si aparecen en tu historial, pero no borrarlos."
                 )
 
-            delete_confirmed = st.checkbox(
-                "Confirmo que deseo borrar los experimentos seleccionados que me pertenecen.",
-                key="results_delete_confirm",
-            )
-            if st.button(
-                "BORRAR MIS EXPERIMENTOS SELECCIONADOS",
-                type="secondary",
-                use_container_width=True,
-                disabled=not owned_selected_ids or not delete_confirmed,
-                key="btn_delete_selected_results",
-            ):
-                deleted_count, skipped_ids, delete_error = delete_owned_experiments(
-                    engine,
-                    selected_ids,
-                    current_user,
+            # Solo permitir borrado a investigadores y administradores
+            can_delete = is_admin or is_investigador
+            
+            if can_delete:
+                delete_confirmed = st.checkbox(
+                    "Confirmo que deseo borrar los experimentos seleccionados que me pertenecen.",
+                    key="results_delete_confirm",
                 )
-                if delete_error:
-                    st.error(delete_error)
-                else:
-                    st.session_state["results_selected_ids"] = []
-                    notice = f"Se borraron {deleted_count} experimento(s) propios."
-                    if skipped_ids:
-                        notice += f" Se omitieron {len(skipped_ids)} registro(s) sin permiso de borrado."
-                    st.session_state["results_delete_notice"] = notice
-                    st.rerun()
+                if st.button(
+                    "BORRAR MIS EXPERIMENTOS SELECCIONADOS",
+                    type="secondary",
+                    use_container_width=True,
+                    disabled=not owned_selected_ids or not delete_confirmed,
+                    key="btn_delete_selected_results",
+                ):
+                    deleted_count, skipped_ids, delete_error = delete_owned_experiments(
+                        engine,
+                        selected_ids,
+                        current_user,
+                    )
+                    if delete_error:
+                        st.error(delete_error)
+                    else:
+                        st.session_state["results_selected_ids"] = []
+                        notice = f"Se borraron {deleted_count} experimento(s) propios."
+                        if skipped_ids:
+                            notice += f" Se omitieron {len(skipped_ids)} registro(s) sin permiso de borrado."
+                        st.session_state["results_delete_notice"] = notice
+                        st.rerun()
+            else:
+                # Mensaje informativo para estudiantes
+                st.info("Los estudiantes no tienen permisos para borrar experimentos. Solo investigadores y administradores pueden eliminar registros.")
         else:
             st.caption("Marca una o varias casillas para visualizar comparativas y detalles.")
         st.markdown("</div>", unsafe_allow_html=True)

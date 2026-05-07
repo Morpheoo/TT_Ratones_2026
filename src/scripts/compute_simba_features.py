@@ -452,13 +452,13 @@ def _build_pose_bridge(input_csv: str, output_dir: str, video_name: str) -> str:
     df_in = _load_pose_dataframe(input_csv)
     mapping = {
         "Nose": ["nose", "Nose", "nariz"],
-        "Ear_left": ["left_ear", "Ear_left", "oreja-izq"],
-        "Ear_right": ["right_ear", "Ear_right", "oreja-der"],
-        "Center": ["mouse_center", "head_midpoint", "Head_center", "Center", "torso"],
-        "Lat_left": ["left_midside", "Lateral_left", "Lat_left", "pata-izq"],
-        "Lat_right": ["right_midside", "Lateral_right", "Lat_right", "pata-der"],
+        "Ear_left": ["left_ear", "Ear_left", "oreja-izq", "left_front_paw"],
+        "Ear_right": ["right_ear", "Ear_right", "oreja-der", "right_front_paw"],
+        "Center": ["mouse_center", "head_midpoint", "Head_center", "Center", "torso", "body_center"],
+        "Lat_left": ["left_midside", "Lateral_left", "Lat_left", "pata-izq", "left_back_paw"],
+        "Lat_right": ["right_midside", "Lateral_right", "Lat_right", "pata-der", "right_back_paw"],
         "Tail_base": ["tail_base", "Tail_base", "cola-base"],
-        "Tail_end": ["tail1", "tail_end", "Tail_end", "punta-cola"],
+        "Tail_end": ["tail1", "tail_end", "Tail_end", "punta-cola", "neck"],
     }
 
     cols_to_keep = ["Unnamed: 0"]

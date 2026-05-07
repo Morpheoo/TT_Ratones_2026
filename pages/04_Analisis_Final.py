@@ -847,6 +847,50 @@ def render_status_panel():
     st.code(last_logs, language="bash")
 
 
+def render_loading_animation(message):
+    """
+    Renderiza una animación de carga con el logo del proyecto pulsando.
+    """
+    logo_path = "assets/logos/logo_ria.png"
+    animation_html = f"""
+    <style>
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); }}
+            50% {{ transform: scale(1.15); }}
+        }}
+        .loading-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            margin: 1rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }}
+        .loading-logo {{
+            width: 120px;
+            height: 120px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }}
+        .loading-message {{
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #333;
+            line-height: 1.6;
+        }}
+    </style>
+    <div class="loading-container">
+        <img src="{logo_path}" class="loading-logo" alt="Logo">
+        <div class="loading-message">{message}</div>
+    </div>
+    """
+    st.markdown(animation_html, unsafe_allow_html=True)
+
+
 def render_output_panel():
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     st.markdown("#### Salidas generadas")
@@ -1135,6 +1179,16 @@ def render_analysis_monitor():
     progress = float(snap.get("progress", 0.0) or 0.0)
     status = snap.get("status", "")
     logs = trim_log_text(snap.get("lines", []), max_lines=220)
+    is_running = snap.get("is_running", False)
+    
+    # Mostrar animación si el proceso está corriendo
+    if is_running and progress < 0.95:
+        render_loading_animation(
+            "El análisis final está en proceso.<br>"
+            "Por favor no cierre la ventana ni recargue la página.<br>"
+            "Tampoco cierre la ventana de consola. Espere a que se complete."
+        )
+    
     st.progress(min(max(progress, 0.0), 1.0), text=status)
     st.code(logs, language="bash")
     if snap["needs_rerun"]:

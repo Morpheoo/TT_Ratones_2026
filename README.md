@@ -43,7 +43,14 @@ python check_setup.py
 python test_remote_db.py  # Para verificar conexión a BD
 ```
 
-### 6. Ejecutar la aplicación
+### 6. Actualizar rutas de SimBA (si es necesario)
+Si moviste el proyecto o lo clonaste en una nueva ubicación, las rutas de SimBA deben actualizarse:
+```bash
+python fix_simba_paths.py
+```
+**Nota**: El pipeline lo hace automáticamente, pero puedes ejecutarlo manualmente si ves errores de rutas de SimBA.
+
+### 7. Ejecutar la aplicación
 ```bash
 streamlit run Home.py
 ```

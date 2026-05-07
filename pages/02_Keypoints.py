@@ -720,16 +720,70 @@ def render_output_panel(snapshot=None):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_loading_animation(message):
+    """
+    Renderiza una animación de carga con el logo del proyecto pulsando.
+    """
+    logo_path = "assets/logos/logo_ria.png"
+    animation_html = f"""
+    <style>
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); }}
+            50% {{ transform: scale(1.15); }}
+        }}
+        .loading-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            margin: 1rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }}
+        .loading-logo {{
+            width: 120px;
+            height: 120px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }}
+        .loading-message {{
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #333;
+            line-height: 1.6;
+        }}
+    </style>
+    <div class="loading-container">
+        <img src="{logo_path}" class="loading-logo" alt="Logo">
+        <div class="loading-message">{message}</div>
+    </div>
+    """
+    st.markdown(animation_html, unsafe_allow_html=True)
+
+
 def render_log_panel(snapshot=None):
     st.markdown("#### Estado y Logs")
     if snapshot:
         last_progress = float(snapshot.get("progress", 0.0) or 0.0)
         last_status = snapshot.get("status", "Aun no se inicia una ejecucion real de keypoints.")
         last_logs = trim_log_text(snapshot.get("lines", []), max_lines=160)
+        is_running = snapshot.get("is_running", False)
     else:
         last_progress = float(st.session_state.get("keypoints_last_progress", 0.0) or 0.0)
         last_status = st.session_state.get("keypoints_last_status", "Aun no se inicia una ejecucion real de keypoints.")
         last_logs = st.session_state.get("keypoints_last_logs", "[INFO] Aun no hay logs de ejecucion.")
+        is_running = False
+    
+    # Mostrar animación si el proceso está corriendo
+    if is_running and last_progress < 0.95:
+        render_loading_animation(
+            "La extracción de keypoints está en proceso.<br>"
+            "Por favor no cierre la ventana ni recargue la página.<br>"
+            "Tampoco cierre la ventana de consola. Espere a que se complete."
+        )
 
     st.progress(min(max(last_progress, 0.0), 1.0), text=last_status)
     st.code(last_logs, language="bash")
