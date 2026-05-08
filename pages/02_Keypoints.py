@@ -7,6 +7,7 @@ import sys
 import time
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 # ================= 0. SETUP & PERSISTENCE =================
 sys.path.append(os.getcwd())
@@ -724,7 +725,17 @@ def render_loading_animation(message):
     """
     Renderiza una animación de carga con el logo del proyecto pulsando.
     """
-    logo_path = "assets/logos/logo_ria.png"
+    import base64
+    logo_path = os.path.abspath(os.path.join("assets", "logos", "logo_ria.png"))
+    
+    # Convertir imagen a base64
+    try:
+        with open(logo_path, "rb") as img_file:
+            logo_base64 = base64.b64encode(img_file.read()).decode()
+        logo_src = f"data:image/png;base64,{logo_base64}"
+    except:
+        logo_src = ""  # Fallback si no se encuentra la imagen
+    
     animation_html = f"""
     <style>
         @keyframes pulse {{
@@ -757,11 +768,71 @@ def render_loading_animation(message):
         }}
     </style>
     <div class="loading-container">
-        <img src="{logo_path}" class="loading-logo" alt="Logo">
+        <img src="{logo_src}" class="loading-logo" alt="Logo">
         <div class="loading-message">{message}</div>
     </div>
     """
     st.markdown(animation_html, unsafe_allow_html=True)
+
+
+def inject_close_warning():
+    """
+    Inyecta JavaScript para advertir al usuario antes de cerrar/recargar la página
+    cuando hay un proceso en ejecución.
+    """
+    warning_script = """
+    <script>
+        (function() {
+            // Función que muestra advertencia
+            function handleBeforeUnload(e) {
+                var confirmationMessage = 'Hay un proceso de extracción de keypoints en ejecución. Si cierra o recarga la página, el proceso se detendrá y perderá el progreso. ¿Está seguro de que desea continuar?';
+                
+                // Método estándar moderno
+                e.preventDefault();
+                e.returnValue = confirmationMessage;
+                
+                // Método legacy para navegadores antiguos
+                return confirmationMessage;
+            }
+            
+            // Remover listeners previos si existen
+            if (window.__streamlit_unload_listener) {
+                window.removeEventListener('beforeunload', window.__streamlit_unload_listener);
+                window.removeEventListener('unload', window.__streamlit_unload_listener);
+            }
+            
+            // Agregar listeners para beforeunload (recargar/cerrar)
+            window.__streamlit_unload_listener = handleBeforeUnload;
+            window.addEventListener('beforeunload', handleBeforeUnload, {capture: true});
+            
+            // Asegurar que el usuario ha interactuado con la página
+            document.addEventListener('click', function() {
+                window.__user_has_interacted = true;
+            }, {once: true});
+            
+            console.log('Advertencia de cierre/recarga activada');
+        })();
+    </script>
+    """
+    components.html(warning_script, height=0)
+
+
+def remove_close_warning():
+    """
+    Remueve la advertencia de cierre cuando el proceso ha terminado.
+    """
+    remove_script = """
+    <script>
+        (function() {
+            if (window.__streamlit_unload_listener) {
+                window.removeEventListener('beforeunload', window.__streamlit_unload_listener, {capture: true});
+                window.__streamlit_unload_listener = null;
+                console.log('Advertencia de cierre/recarga removida');
+            }
+        })();
+    </script>
+    """
+    components.html(remove_script, height=0)
 
 
 def render_log_panel(snapshot=None):
@@ -1016,7 +1087,7 @@ elif action == "render":
             st.rerun()
 
 
-@st.fragment(run_every="2s" if extract_snapshot["is_running"] else None)
+@st.fragment(run_every="2s" if extract_snapshot.get("is_running") else None)
 def render_runtime_monitor():
     snapshot = get_extract_snapshot()
     if snapshot["is_running"]:
@@ -1026,6 +1097,12 @@ def render_runtime_monitor():
     if snapshot["needs_rerun"]:
         st.rerun()
 
+
+# Inyectar o remover advertencia de cierre según el estado del proceso (fuera del fragmento)
+if extract_snapshot.get("is_running") and float(extract_snapshot.get("progress", 0.0) or 0.0) < 0.95:
+    inject_close_warning()
+else:
+    remove_close_warning()
 
 render_runtime_monitor()
 

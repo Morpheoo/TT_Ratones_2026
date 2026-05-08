@@ -143,12 +143,29 @@ if st.session_state.auth_mode == "login":
     st.markdown('<div class="login-subtitle">Ingresa tus credenciales para continuar</div>', unsafe_allow_html=True)
     
     with st.form("login_form"):
-        email = st.text_input("Correo Electrónico Institucional", placeholder="ejemplo@alumno.ipn.mx")
-        password = st.text_input("Contraseña", type="password", placeholder="••••••••")
+        email = st.text_input(
+            "Correo Electrónico Institucional", 
+            placeholder="ejemplo@alumno.ipn.mx",
+            max_chars=254
+        )
+        password = st.text_input(
+            "Contraseña", 
+            type="password", 
+            placeholder="••••••••",
+            max_chars=128
+        )
         submit = st.form_submit_button("Entrar de forma segura", type="primary", use_container_width=True)
 
     if submit:
-        if email and password:
+        if not email or not password:
+            st.warning("Completa todos los campos requeridos.")
+        elif len(email) > 254 or len(password) > 128:
+            st.error("Los datos ingresados exceden la longitud máxima permitida.")
+        elif not "@" in email or email.count("@") != 1:
+            st.error("El formato del correo electrónico es inválido.")
+        elif any(char in email for char in ['<', '>', '"', "'", ';', '\\', '|', '&', '$', '`']):
+            st.error("El correo contiene caracteres no permitidos.")
+        else:
             user_data = authenticate(email, password)
             if user_data:
                 # Verificar si la cuenta está verificada
@@ -173,8 +190,6 @@ if st.session_state.auth_mode == "login":
                     st.error("Credenciales incorrectas o cuenta inactiva.")
             else:
                 st.error("Credenciales incorrectas o cuenta inactiva.")
-        else:
-            st.warning("Completa todos los campos requeridos.")
     
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("¿No tienes cuenta? Solicita acceso aquí", use_container_width=True):
@@ -284,7 +299,11 @@ elif st.session_state.auth_mode == "register":
             col1, col2 = st.columns(2)
             with col1:
                 full_name = st.text_input("Nombre Completo *")
-                num_empleado = st.text_input("Número de Empleado *")
+                num_empleado = st.text_input(
+                    "Número de Empleado *",
+                    max_chars=10,
+                    help="Entre 4 y 10 dígitos numéricos"
+                )
             with col2:
                 area = st.text_input("Área de Investigación")
                 centro = st.text_input("Centro / Unidad (ej. ESCOM)")
@@ -311,6 +330,8 @@ elif st.session_state.auth_mode == "register":
                 st.error("Debes aceptar los términos institucionales.")
             elif not all([full_name, num_empleado, new_email, new_pass]):
                 st.warning("Completa los campos obligatorios (*).")
+            elif len(num_empleado) < 4 or len(num_empleado) > 10 or not num_empleado.isdigit():
+                st.error("El número de empleado debe tener entre 4 y 10 dígitos numéricos.")
             elif len(new_pass) < 8:
                 st.error("La contraseña debe tener al menos 8 caracteres.")
             elif not any(c.isupper() for c in new_pass):
@@ -360,7 +381,13 @@ elif st.session_state.auth_mode == "verify":
         verify_submit = st.form_submit_button("Verificar Cuenta", type="primary", use_container_width=True)
     
     if verify_submit:
-        if otp_code and len(otp_code) == 6:
+        if not otp_code:
+            st.warning("Ingresa el código de verificación.")
+        elif len(otp_code) != 6:
+            st.warning("El código debe ser de 6 dígitos.")
+        elif not otp_code.isdigit():
+            st.error("El código debe contener solo números.")
+        else:
             success, msg = verify_otp(email_to_verify, otp_code)
             if success:
                 st.success(msg)
@@ -375,8 +402,6 @@ elif st.session_state.auth_mode == "verify":
                 st.rerun()
             else:
                 st.error(msg)
-        else:
-            st.warning("Ingresa un código de 6 dígitos.")
     
     st.markdown("<br>", unsafe_allow_html=True)
     

@@ -1,9 +1,76 @@
 import random
 import bcrypt
+import re
 from sqlalchemy import text
 from db.connection import get_db_engine
 from email_utils import send_verification_email
 from security_logger import log_security_event
+
+def sanitize_input(value: str, max_length: int = 255) -> str:
+    """
+    Sanitiza entrada de usuario para prevenir inyecciones.
+    - Remueve caracteres peligrosos
+    - Limita longitud
+    - Normaliza espacios
+    """
+    if not value:
+        return ""
+    
+    # Limitar longitud
+    value = value[:max_length]
+    
+    # Remover caracteres de control y null bytes
+    value = ''.join(char for char in value if ord(char) >= 32 or char in '\t\n\r')
+    
+    # Normalizar espacios múltiples
+    value = ' '.join(value.split())
+    
+    return value.strip()
+
+def validate_email_format(email: str) -> bool:
+    """
+    Valida formato básico de email y previene caracteres sospechosos.
+    """
+    if not email or len(email) > 254:  # RFC 5321
+        return False
+    
+    # Patrón básico de email
+    pattern = r'^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    if not re.match(pattern, email):
+        return False
+    
+    # Verificar que no contenga caracteres peligrosos
+    dangerous_chars = ['<', '>', '"', "'", ';', '\\', '|', '&', '$', '`']
+    if any(char in email for char in dangerous_chars):
+        return False
+    
+    return True
+
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """
+    Valida fortaleza de contraseña.
+    Retorna (es_valida, mensaje_error)
+    """
+    if len(password) < 8:
+        return False, "La contraseña debe tener al menos 8 caracteres."
+    
+    if len(password) > 128:  # Límite razonable
+        return False, "La contraseña es demasiado larga (máximo 128 caracteres)."
+    
+    if not any(c.isupper() for c in password):
+        return False, "La contraseña debe contener al menos 1 letra mayúscula."
+    
+    if not any(c.isdigit() for c in password):
+        return False, "La contraseña debe contener al menos 1 número."
+    
+    # Verificar caracteres peligrosos para SQL (aunque usamos parámetros)
+    dangerous_patterns = ["--", "/*", "*/", "xp_", "sp_", "DROP", "DELETE", "TRUNCATE"]
+    password_upper = password.upper()
+    if any(pattern in password_upper for pattern in dangerous_patterns):
+        return False, "La contraseña contiene patrones no permitidos."
+    
+    return True, ""
 
 def hash_password(password: str) -> str:
     """Bcrypt hashing."""
@@ -19,7 +86,37 @@ def check_password(password: str, hashed: str) -> bool:
          return False
 
 def authenticate(email, password):
-    """Authenticate a user against the PostgreSQL database."""
+    """Authenticate a user against the PostgreSQL database with input validation."""
+    # Validación de entrada - Prevención de inyección SQL
+    if not email or not password:
+        log_security_event(
+            "LOGIN_FAILED", user=email or "unknown",
+            message="Intento de login con credenciales vacías",
+            level="WARNING", success=False
+        )
+        return None
+    
+    # Sanitizar email
+    email = sanitize_input(email, max_length=254)
+    
+    # Validar formato de email
+    if not validate_email_format(email):
+        log_security_event(
+            "LOGIN_FAILED", user=email,
+            message="Formato de email inválido o caracteres sospechosos detectados",
+            level="WARNING", success=False
+        )
+        return None
+    
+    # Limitar longitud de password para prevenir ataques DoS
+    if len(password) > 128:
+        log_security_event(
+            "LOGIN_FAILED", user=email,
+            message="Contraseña excede longitud máxima",
+            level="WARNING", success=False
+        )
+        return None
+    
     engine = get_db_engine()
     if not engine:
         log_security_event(
@@ -116,18 +213,75 @@ def register_user(email, password, role="investigador", full_name=None,
                  boleta=None, carrera=None, escuela=None,
                  num_empleado=None, area=None, centro=None,
                  accepted_terms=False):
-    """Register a new user in the PostgreSQL database with full profile data and pending verification.
+    """Register a new user in the PostgreSQL database with full profile data and input validation.
     
     Soporta dos tipos de perfil:
     - Estudiante (alumno): requiere boleta, carrera, escuela - dominio @alumno.ipn.mx
     - Investigador/Docente: requiere num_empleado, area, centro - dominio @ipn.mx
     """
     
-    # 0. Validar Términos
+    # 0. Validaciones de entrada - Prevención de inyección SQL
+    if not email or not password:
+        return False, "Email y contraseña son obligatorios."
+    
+    # Sanitizar email
+    email = sanitize_input(email, max_length=254)
+    
+    # Validar formato de email
+    if not validate_email_format(email):
+        log_security_event(
+            "REGISTER_FAILED", user=email,
+            message="Formato de email inválido o caracteres sospechosos detectados",
+            level="WARNING", success=False
+        )
+        return False, "El formato del email es inválido o contiene caracteres no permitidos."
+    
+    # Validar fortaleza de contraseña
+    is_valid, error_msg = validate_password_strength(password)
+    if not is_valid:
+        log_security_event(
+            "REGISTER_FAILED", user=email,
+            message=f"Contraseña débil: {error_msg}",
+            level="WARNING", success=False
+        )
+        return False, error_msg
+    
+    # Sanitizar campos opcionales
+    if full_name:
+        full_name = sanitize_input(full_name, max_length=200)
+    if boleta:
+        boleta = sanitize_input(boleta, max_length=20)
+        # Validar que solo contenga dígitos
+        if not boleta.isdigit():
+            return False, "El número de boleta debe contener solo dígitos."
+    if carrera:
+        carrera = sanitize_input(carrera, max_length=200)
+    if escuela:
+        escuela = sanitize_input(escuela, max_length=200)
+    if num_empleado:
+        num_empleado = sanitize_input(num_empleado, max_length=20)
+        # Validar que solo contenga dígitos
+        if not num_empleado.isdigit():
+            return False, "El número de empleado debe contener solo dígitos."
+    if area:
+        area = sanitize_input(area, max_length=200)
+    if centro:
+        centro = sanitize_input(centro, max_length=200)
+    
+    # Validar rol permitido
+    if role not in ["estudiante", "investigador", "admin"]:
+        log_security_event(
+            "REGISTER_FAILED", user=email,
+            message=f"Rol inválido: {role}",
+            level="WARNING", success=False
+        )
+        return False, "Rol de usuario inválido."
+    
+    # 1. Validar Términos
     if not accepted_terms:
         return False, "Debes aceptar los Términos y Condiciones para registrarte."
 
-    # 1. Validar Dominio IPN según el rol
+    # 2. Validar Dominio IPN según el rol
     if role == "estudiante":
         if not email.endswith("@alumno.ipn.mx"):
             log_security_event(
@@ -233,7 +387,33 @@ def register_user(email, password, role="investigador", full_name=None,
         return False, f"Error en registro: {e}"
 
 def verify_otp(email, code):
-    """Verifica el código OTP y activa la cuenta. Incluye validación de expiración (5 mins)."""
+    """Verifica el código OTP y activa la cuenta con validación de entrada."""
+    # Validaciones de entrada
+    if not email or not code:
+        return False, "Email y código son obligatorios."
+    
+    # Sanitizar email
+    email = sanitize_input(email, max_length=254)
+    
+    # Validar formato de email
+    if not validate_email_format(email):
+        log_security_event(
+            "OTP_FAILED", user=email,
+            message="Formato de email inválido en verificación OTP",
+            level="WARNING", success=False
+        )
+        return False, "El formato del email es inválido."
+    
+    # Sanitizar y validar código OTP (debe ser 6 dígitos)
+    code = sanitize_input(str(code), max_length=10)
+    if not code.isdigit() or len(code) != 6:
+        log_security_event(
+            "OTP_FAILED", user=email,
+            message=f"Código OTP con formato inválido (longitud: {len(code)})",
+            level="WARNING", success=False
+        )
+        return False, "El código debe ser de 6 dígitos."
+    
     engine = get_db_engine()
     try:
         with engine.connect() as conn:
@@ -318,7 +498,23 @@ def resend_verification_code(email):
         return False, f"Error BD: {e}"
 
 def request_password_reset(email):
-    """Inicia el proceso de recuperación de contraseña."""
+    """Inicia el proceso de recuperación de contraseña con validación."""
+    # Validaciones de entrada
+    if not email:
+        return False, "Email es obligatorio."
+    
+    # Sanitizar email
+    email = sanitize_input(email, max_length=254)
+    
+    # Validar formato de email
+    if not validate_email_format(email):
+        log_security_event(
+            "PASSWORD_RESET_FAILED", user=email,
+            message="Formato de email inválido en solicitud de reset",
+            level="WARNING", success=False
+        )
+        return False, "El formato del email es inválido."
+    
     log_security_event(
         "PASSWORD_RESET_REQUEST", user=email,
         message="Solicitud de restablecimiento de contraseña iniciada",
@@ -327,7 +523,43 @@ def request_password_reset(email):
     return resend_verification_code(email) # Reutilizamos la lógica de generar OTP
 
 def reset_password(email, otp, new_password):
-    """Verifica OTP y actualiza la contraseña."""
+    """Verifica OTP y actualiza la contraseña con validación."""
+    # Validaciones de entrada
+    if not email or not otp or not new_password:
+        return False, "Todos los campos son obligatorios."
+    
+    # Sanitizar email
+    email = sanitize_input(email, max_length=254)
+    
+    # Validar formato de email
+    if not validate_email_format(email):
+        log_security_event(
+            "PASSWORD_RESET_FAILED", user=email,
+            message="Formato de email inválido en reset de contraseña",
+            level="WARNING", success=False
+        )
+        return False, "El formato del email es inválido."
+    
+    # Sanitizar y validar OTP
+    otp = sanitize_input(str(otp), max_length=10)
+    if not otp.isdigit() or len(otp) != 6:
+        log_security_event(
+            "PASSWORD_RESET_FAILED", user=email,
+            message="Código OTP con formato inválido en reset",
+            level="WARNING", success=False
+        )
+        return False, "El código debe ser de 6 dígitos."
+    
+    # Validar fortaleza de nueva contraseña
+    is_valid, error_msg = validate_password_strength(new_password)
+    if not is_valid:
+        log_security_event(
+            "PASSWORD_RESET_FAILED", user=email,
+            message=f"Contraseña nueva débil: {error_msg}",
+            level="WARNING", success=False
+        )
+        return False, error_msg
+    
     engine = get_db_engine()
     try:
         with engine.connect() as conn:
