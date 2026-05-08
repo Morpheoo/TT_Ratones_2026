@@ -73,7 +73,16 @@ CREATE INDEX IF NOT EXISTS idx_audit_username
 CREATE INDEX IF NOT EXISTS idx_audit_event
     ON security_audit_log (event_type);
 
--- Insertar usuario admin inicial si no existe
-INSERT INTO users (username, password_hash, role)
-VALUES ('admin', 'pbkdf2:sha256:260000$....', 'admin') -- La contraseña real se generará desde Python
-ON CONFLICT (username) DO NOTHING;
+-- Columnas extendidas de perfil (idempotente para DBs existentes)
+-- Estas columnas las agrega register_user() en el INSERT, asi que deben
+-- existir antes del primer registro.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS boleta VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS carrera VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS escuela VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN DEFAULT FALSE;
+
+-- NOTA: no se inserta ningun usuario admin inicial via SQL porque el
+-- hash bcrypt requiere generarse desde Python. La promocion a admin
+-- se hace automaticamente cuando un email de la lista ADMIN_EMAILS
+-- (definida en src/auth.py) se registra a traves de la UI.

@@ -5,6 +5,21 @@ from db.connection import get_db_engine
 from email_utils import send_verification_email
 from security_logger import log_security_event
 
+# ============================================================
+# Emails que reciben rol admin automaticamente al registrarse.
+# Se comparan en lowercase. Estos usuarios saltean el OTP y
+# quedan is_verified=TRUE directamente.
+# ============================================================
+ADMIN_EMAILS = {
+    "careyes@ipn.mx",                       # Dr. Cesar Augusto Sandino Reyes Lopez
+    "hportocarreror1700@alumno.ipn.mx",     # Habid Portocarrero Rodriguez
+}
+
+
+def is_admin_email(email: str) -> bool:
+    """True si el email esta en la lista de admins predefinidos."""
+    return (email or "").strip().lower() in ADMIN_EMAILS
+
 def hash_password(password: str) -> str:
     """Bcrypt hashing."""
     # Hash password with a randomly generated salt
@@ -150,29 +165,40 @@ def register_user(email, password, role="investigador", full_name=None, boleta=N
                 )
                 return False, "⚠️ El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
             
-            # 3. Generar Código OTP
-            otp_code = str(random.randint(100000, 999999))
-            
+            # 3. Auto-promocion a admin si el email esta en la lista.
+            #    Estos usuarios saltean OTP y quedan verificados directamente.
+            auto_admin = is_admin_email(email)
+            if auto_admin:
+                effective_role = "admin"
+                is_verified = True
+                otp_code = None
+            else:
+                effective_role = role
+                is_verified = False
+                otp_code = str(random.randint(100000, 999999))
+
             # Start transaction explicitly
-            with conn.begin(): 
+            with conn.begin():
                 # 4. Insertar con campos extendidos
                 insert = text("""
                     INSERT INTO users (
-                        username, password_hash, role, 
+                        username, password_hash, role,
                         is_verified, verification_code, verification_code_created_at,
                         full_name, boleta, carrera, escuela, accepted_terms
-                    ) 
+                    )
                     VALUES (
-                        :email, :pwd, :role, 
-                        FALSE, :otp, CURRENT_TIMESTAMP,
+                        :email, :pwd, :role,
+                        :verified, :otp,
+                        CASE WHEN :otp IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END,
                         :fname, :boleta, :carrera, :escuela, :accepted
                     )
                 """)
-                
+
                 conn.execute(insert, {
                     "email": email,
                     "pwd": hash_password(password),
-                    "role": role,
+                    "role": effective_role,
+                    "verified": is_verified,
                     "otp": otp_code,
                     "fname": full_name or email,
                     "boleta": boleta,
@@ -181,20 +207,28 @@ def register_user(email, password, role="investigador", full_name=None, boleta=N
                     "accepted": accepted_terms
                 })
 
-                # 5. Enviar Correo
-                sent, msg = send_verification_email(email, otp_code)
-                
-                if not sent:
-                    log_security_event(
-                        "REGISTER_FAILED", user=email,
-                        message=f"Fallo en envío de correo OTP: {msg} — transacción revertida",
-                        level="ERROR", success=False
-                    )
-                    raise Exception(f"Fallo envío de correo: {msg}")
-            
+                # 5. Enviar correo OTP (saltado para admins predefinidos)
+                if not auto_admin:
+                    sent, msg = send_verification_email(email, otp_code)
+                    if not sent:
+                        log_security_event(
+                            "REGISTER_FAILED", user=email,
+                            message=f"Fallo en envío de correo OTP: {msg} — transacción revertida",
+                            level="ERROR", success=False
+                        )
+                        raise Exception(f"Fallo envío de correo: {msg}")
+
+            if auto_admin:
+                log_security_event(
+                    "REGISTER_SUCCESS", user=email,
+                    message="Admin predefinido registrado y verificado automáticamente",
+                    level="INFO", success=True
+                )
+                return True, "✅ Cuenta de administrador creada y verificada. Ya podés iniciar sesión."
+
             log_security_event(
                 "REGISTER_SUCCESS", user=email,
-                message=f"Usuario registrado. OTP enviado. Rol: {role}",
+                message=f"Usuario registrado. OTP enviado. Rol: {effective_role}",
                 level="INFO", success=True
             )
             return True, "✅ Código de verificación enviado a tu correo IPN."
