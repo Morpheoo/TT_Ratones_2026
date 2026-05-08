@@ -86,11 +86,17 @@ CREATE INDEX IF NOT EXISTS idx_audit_event
 -- Columnas extendidas de perfil (idempotente para DBs existentes)
 -- Estas columnas las agrega register_user() en el INSERT, asi que deben
 -- existir antes del primer registro.
-ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS boleta VARCHAR(50);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS carrera VARCHAR(100);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS escuela VARCHAR(100);
+-- Comunes:
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(200);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN DEFAULT FALSE;
+-- Especificos de ESTUDIANTE (@alumno.ipn.mx):
+ALTER TABLE users ADD COLUMN IF NOT EXISTS boleta VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS carrera VARCHAR(150);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS escuela VARCHAR(100);
+-- Especificos de INVESTIGADOR/DOCENTE (@ipn.mx):
+ALTER TABLE users ADD COLUMN IF NOT EXISTS num_empleado VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS area VARCHAR(150);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS centro VARCHAR(100);
 
 -- NOTA: no se inserta ningun usuario admin inicial via SQL porque el
 -- hash bcrypt requiere generarse desde Python. La promocion a admin

@@ -86,6 +86,73 @@ def is_admin_email(email: str) -> bool:
     """True si el email esta en la lista de admins predefinidos."""
     return (email or "").strip().lower() in ADMIN_EMAILS
 
+
+def sanitize_input(value: str, max_length: int = 255) -> str:
+    """
+    Sanitiza entrada de usuario para prevenir inyecciones.
+    - Remueve caracteres peligrosos
+    - Limita longitud
+    - Normaliza espacios
+    """
+    if not value:
+        return ""
+
+    # Limitar longitud
+    value = value[:max_length]
+
+    # Remover caracteres de control y null bytes
+    value = ''.join(char for char in value if ord(char) >= 32 or char in '\t\n\r')
+
+    # Normalizar espacios múltiples
+    value = ' '.join(value.split())
+
+    return value.strip()
+
+
+def validate_email_format(email: str) -> bool:
+    """Valida formato básico de email y previene caracteres sospechosos."""
+    if not email or len(email) > 254:  # RFC 5321
+        return False
+
+    # Patrón básico de email
+    pattern = r'^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+    if not re.match(pattern, email):
+        return False
+
+    # Verificar que no contenga caracteres peligrosos
+    dangerous_chars = ['<', '>', '"', "'", ';', '\\', '|', '&', '$', '`']
+    if any(char in email for char in dangerous_chars):
+        return False
+
+    return True
+
+
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """
+    Valida fortaleza de contraseña.
+    Retorna (es_valida, mensaje_error)
+    """
+    if len(password) < 8:
+        return False, "La contraseña debe tener al menos 8 caracteres."
+
+    if len(password) > 128:  # Límite razonable
+        return False, "La contraseña es demasiado larga (máximo 128 caracteres)."
+
+    if not any(c.isupper() for c in password):
+        return False, "La contraseña debe contener al menos 1 letra mayúscula."
+
+    if not any(c.isdigit() for c in password):
+        return False, "La contraseña debe contener al menos 1 número."
+
+    # Verificar caracteres peligrosos para SQL (aunque usamos parámetros)
+    dangerous_patterns = ["--", "/*", "*/", "xp_", "sp_", "DROP", "DELETE", "TRUNCATE"]
+    password_upper = password.upper()
+    if any(pattern in password_upper for pattern in dangerous_patterns):
+        return False, "La contraseña contiene patrones no permitidos."
+
+    return True, ""
+
 def hash_password(password: str) -> str:
     """Bcrypt hashing."""
     # Hash password with a randomly generated salt
@@ -333,41 +400,42 @@ def register_user(email, password, role="investigador", full_name=None,
 
     try:
         with engine.connect() as conn:
-            # 2. Verificar si existe
-            check = text("SELECT id FROM users WHERE username = :email")
-            if conn.execute(check, {"email": email}).fetchone():
-                log_security_event(
-                    "REGISTER_FAILED", user=email,
-                    message="Usuario ya existe en BD",
-                    level="WARNING", success=False
-                )
-                return False, "⚠️ El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
-            
-            # 3. Auto-promocion a admin si el email esta en la lista.
-            #    Estos usuarios saltean OTP y quedan verificados directamente.
-            auto_admin = is_admin_email(email)
-            if auto_admin:
-                effective_role = "admin"
-                is_verified = True
-                otp_code = None
-            else:
-                effective_role = role
-                is_verified = False
-                otp_code = str(random.randint(100000, 999999))
+            with conn.begin():  # Toda la operacion dentro de una transaccion
+                # 2. Verificar si existe
+                check = text("SELECT id FROM users WHERE username = :email")
+                if conn.execute(check, {"email": email}).fetchone():
+                    log_security_event(
+                        "REGISTER_FAILED", user=email,
+                        message="Usuario ya existe en BD",
+                        level="WARNING", success=False
+                    )
+                    return False, "El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
 
-            # Start transaction explicitly
-            with conn.begin():
-                # 4. Insertar con campos extendidos
+                # 3. Auto-promocion a admin si el email esta en la lista
+                #    predefinida. Estos usuarios saltean OTP y quedan
+                #    is_verified=TRUE directamente.
+                auto_admin = is_admin_email(email)
+                if auto_admin:
+                    effective_role = "admin"
+                    is_verified = True
+                    otp_code = None
+                else:
+                    effective_role = role
+                    is_verified = False
+                    otp_code = str(random.randint(100000, 999999))
+
+                # 4. Insertar con campos extendidos (estudiante o investigador)
                 insert = text("""
                     INSERT INTO users (
                         username, password_hash, role,
                         is_verified, verification_code, verification_code_created_at,
-                        full_name, boleta, carrera, escuela, 
+                        full_name, boleta, carrera, escuela,
                         num_empleado, area, centro, accepted_terms
-                    ) 
+                    )
                     VALUES (
-                        :email, :pwd, :role, 
-                        FALSE, :otp, CURRENT_TIMESTAMP,
+                        :email, :pwd, :role,
+                        :verified, :otp,
+                        CASE WHEN :otp IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END,
                         :fname, :boleta, :carrera, :escuela,
                         :num_empleado, :area, :centro, :accepted
                     )
