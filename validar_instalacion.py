@@ -163,15 +163,26 @@ def check_imports_en_venv(venv_python: Path, paquetes: list[tuple[str, str]], la
             cmd = [
                 str(venv_python),
                 "-c",
-                f"import {modulo}; v = getattr({modulo}, '__version__', '?'); print(v)",
+                f"import {modulo}; v = getattr({modulo}, '__version__', '?'); print('VER=' + str(v))",
             ]
-            ver = subprocess.check_output(
-                cmd, text=True, stderr=subprocess.DEVNULL, timeout=60
-            ).strip().splitlines()[-1]
-            ok(f"{label} :: {nombre} {ver}")
-        except subprocess.CalledProcessError as exc:
-            out = (exc.stderr or exc.output or "").strip().splitlines()[-1:] if (exc.stderr or exc.output) else [""]
-            fail(f"{label} :: {nombre} no importa ({out[0] if out else 'unknown error'})")
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=120
+            )
+            stdout = (result.stdout or "").strip()
+            stderr = (result.stderr or "").strip()
+            if result.returncode == 0:
+                ver_line = next(
+                    (ln for ln in stdout.splitlines() if ln.startswith("VER=")),
+                    "VER=?",
+                )
+                ok(f"{label} :: {nombre} {ver_line[4:]}")
+            else:
+                err_lines = [
+                    ln for ln in stderr.splitlines()
+                    if ln.strip() and not ln.startswith(("Loading DLC", "DLC loaded", "20"))
+                ]
+                err_msg = err_lines[-1] if err_lines else f"exit {result.returncode}"
+                fail(f"{label} :: {nombre} no importa | {err_msg}")
         except Exception as exc:
             fail(f"{label} :: {nombre} fallo ({exc})")
 
