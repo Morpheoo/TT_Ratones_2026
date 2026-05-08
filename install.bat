@@ -119,7 +119,7 @@ echo        - DeepLabCut, TensorFlow 2.15, Keras 2, SimBA
 echo        - PyTorch CPU-only ^(no se usa GPU en este venv^)
 echo.
 call venv_310\Scripts\activate.bat
-python -m pip install --upgrade pip setuptools wheel
+python -m pip install --upgrade --force-reinstall pip setuptools wheel
 if %errorlevel% neq 0 (
     echo   [ERROR] No se pudo actualizar pip en venv_310.
     pause
@@ -144,7 +144,7 @@ echo        - PyTorch !TORCH_PIN!
 echo        - YOLO ^(ultralytics^), Streamlit, B-SOiD deps
 echo.
 call venv_311\Scripts\activate.bat
-python -m pip install --upgrade pip setuptools wheel
+python -m pip install --upgrade --force-reinstall pip setuptools wheel
 if %errorlevel% neq 0 (
     echo   [ERROR] No se pudo actualizar pip en venv_311.
     pause

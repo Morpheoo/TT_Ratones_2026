@@ -10,7 +10,13 @@
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# PyTorch CPU-only (compatible con DeepLabCut import)
+# Build tools: SimBA usa pkg_resources / setuptools internamente y rompe
+# si setuptools queda con la version bundled vieja del venv (~58-65).
+# Pineado explicitamente para forzar que pip lo upgradee.
+setuptools>=65.5.0
+wheel
+
+# PyTorch CPU-only (no se usa GPU en este venv)
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu
 
