@@ -7,96 +7,109 @@ echo       SISTEMA DE ASISTENCIA PARA EPM - TT 2026
 echo ========================================================
 echo.
 
-REM *** Cambiar al directorio del .bat PRIMERO ***
 cd /d "%~dp0"
 
-REM *** Verificar que los archivos necesarios existen ***
+REM ============================================================
+REM  Verificar archivos necesarios
+REM ============================================================
 if not exist "run_app.py" (
     echo [ERROR] No se encontro run_app.py
-    echo [INFO] Asegurate que estás en el directorio correcto
+    echo [INFO]  Asegurate que estas en el directorio correcto del proyecto.
     pause
     exit /b 1
 )
-
 if not exist "start_services.py" (
     echo [ERROR] No se encontro start_services.py
-    echo [INFO] Por favor descarga los archivos más recientes del proyecto
+    echo [INFO]  Por favor descarga los archivos mas recientes del proyecto.
     pause
     exit /b 1
 )
 
+REM ============================================================
+REM  Docker Desktop (sin labels dentro de bloques if)
+REM ============================================================
 echo [INFO] Verificando Docker Desktop...
 docker info >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [WARN] Docker no esta corriendo.
-    echo [INFO] Iniciando Docker Desktop...
-
-    if exist "C:\Program Files\Docker\Docker\Docker Desktop.exe" (
-        start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-    ) else (
-        echo [ERROR] No se encontro Docker Desktop en la ubicacion esperada.
-        echo [INFO] Por favor abre Docker Desktop manualmente y vuelve a ejecutar este script.
-        pause
-        exit /b 1
-    )
-
-    echo [INFO] Esperando a que Docker daemon inicie (max 60 segundos)...
-    set "count=0"
-    :WAIT_DOCKER
-    timeout /t 3 /nobreak >nul
-    docker info >nul 2>&1
-    if %errorlevel% neq 0 (
-        set /a count+=1
-        if !count! geq 20 (
-            echo [ERROR] Docker tardo demasiado en iniciar. Intenta nuevamente.
-            pause
-            exit /b 1
-        )
-        goto WAIT_DOCKER
-    )
-    echo [OK] Docker daemon esta listo.
-) else (
-    echo [OK] Docker ya estaba corriendo.
+if %errorlevel% equ 0 (
+    echo [OK]   Docker ya estaba corriendo.
+    goto :DOCKER_READY
 )
 
-echo.
-echo ========================================================
-echo [INFO] Iniciando servicios con run_app.py...
-echo [INFO] Esto levantara docker-compose y esperara a PostgreSQL
-echo ========================================================
-echo.
+echo [WARN] Docker no esta corriendo.
+echo [INFO] Iniciando Docker Desktop...
 
-REM *** Buscar venv_311 y activar si existe ***
-if exist "venv_311\Scripts\activate.bat" (
-    echo [INFO] Activando entorno venv_311...
-    call venv_311\Scripts\activate.bat
-) else (
-    echo [WARN] No se encontro venv_311, usando python del sistema.
-    echo [INFO] Se recomienda crear un entorno virtual para nuevas instalaciones.
+if not exist "C:\Program Files\Docker\Docker\Docker Desktop.exe" (
+    echo [ERROR] No se encontro Docker Desktop en la ubicacion esperada.
+    echo [INFO]  Por favor abrelo manualmente y vuelve a ejecutar este script.
+    pause
+    exit /b 1
 )
+start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 
+echo [INFO] Esperando a que Docker daemon inicie (max 60 segundos)...
+set "count=0"
+
+:WAIT_DOCKER
+timeout /t 3 /nobreak >nul
+docker info >nul 2>&1
+if %errorlevel% equ 0 goto :DOCKER_READY
+set /a count+=1
+if !count! geq 20 (
+    echo [ERROR] Docker tardo demasiado en iniciar. Intenta nuevamente.
+    pause
+    exit /b 1
+)
+goto :WAIT_DOCKER
+
+:DOCKER_READY
+echo [OK]   Docker daemon listo.
+
+REM ============================================================
+REM  Activar venv_311
+REM ============================================================
 echo.
-echo [INFO] Comprobando dependencias de Python (Streamlit, SQLAlchemy, etc)...
+echo ========================================================
+echo [INFO] Activando entorno venv_311 y verificando dependencias...
+echo ========================================================
+echo.
+
+if not exist "venv_311\Scripts\activate.bat" (
+    echo [ERROR] No se encontro venv_311. Corre install.bat primero.
+    pause
+    exit /b 1
+)
+call venv_311\Scripts\activate.bat
+
+REM ============================================================
+REM  Verificar streamlit instalado
+REM ============================================================
 python -c "import streamlit" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [WARN] Faltan librerias basicas de Python. 
-    echo [INFO] Iniciando instalacion automatica desde requirements_venv311.txt...
-    pip install -r requirements_venv311.txt
-    if %errorlevel% neq 0 (
-        echo [ERROR] Ocurrio un error al instalar las dependencias.
-        echo [INFO] Es posible que necesites ejecutar "pip install -r requirements_venv311.txt" como administrador.
-        pause
-    ) else (
-        echo [OK] Dependencias instaladas correctamente.
-    )
-) else (
-    echo [OK] Dependencias de Python listas.
+if %errorlevel% equ 0 (
+    echo [OK]   Streamlit y dependencias presentes.
+    goto :LAUNCH_APP
 )
 
+echo [WARN] Faltan librerias basicas en venv_311.
+echo [INFO] Instalando desde requirements_venv311.txt...
+pip install -r requirements_venv311.txt
+if %errorlevel% neq 0 (
+    echo [ERROR] Fallo la instalacion de dependencias.
+    echo [INFO]  Volve a correr install.bat o revisa tu conexion a internet.
+    pause
+    exit /b 1
+)
+echo [OK]   Dependencias instaladas correctamente.
+
+REM ============================================================
+REM  Lanzar la app
+REM ============================================================
+:LAUNCH_APP
 echo.
-echo [INFO] Ejecutando run_app.py (esto abre Streamlit)...
+echo ========================================================
+echo [INFO] Iniciando run_app.py (Streamlit + Postgres)
 echo [INFO] Se abrira en tu navegador predeterminado.
-echo [INFO] NO CIERRE ESTA VENTANA mientras uses la aplicacion.
+echo [INFO] NO CIERRES esta ventana mientras uses la aplicacion.
+echo ========================================================
 echo.
 
 python run_app.py
