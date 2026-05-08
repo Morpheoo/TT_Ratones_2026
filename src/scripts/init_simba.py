@@ -43,7 +43,7 @@ try:
         for bp in superanimal_bps:
             f.write(bp + "\n")
             
-    print("✅ SimBA project initialized and body parts configured!")
+    print("[OK] SimBA project initialized and body parts configured!")
 
 except Exception as e:
     print(f"Error initializing SimBA project: {e}")

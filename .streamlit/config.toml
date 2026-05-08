@@ -13,7 +13,7 @@ font = "sans serif"
 
 
 [client]
-showSidebarNavigation = true
+showSidebarNavigation = false
 toolbarMode = "minimal"
 
 [browser]

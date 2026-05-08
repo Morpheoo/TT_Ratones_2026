@@ -8,16 +8,16 @@ import sys
 
 def main():
     print("🔍 Validando configuración del proyecto...")
-    print(f"📁 Raíz: {PROJECT_ROOT}\n")
+    print(f"Raíz: {PROJECT_ROOT}\n")
     
     issues = validate_paths()
     
     if not issues:
-        print("✅ ¡Todo está configurado correctamente!")
+        print("[OK] ¡Todo está configurado correctamente!")
         print("\n🚀 Puedes ejecutar el sistema sin problemas.")
         return 0
     else:
-        print("⚠️ Se encontraron los siguientes problemas:\n")
+        print("[WARN] Se encontraron los siguientes problemas:\n")
         for issue in issues:
             print(f"  {issue}")
         

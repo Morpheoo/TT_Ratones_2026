@@ -98,7 +98,7 @@ def render_video_banner(module_label: str = "Video en análisis") -> bool:
         st.markdown(
             f"""
             <div class="vid-banner">
-                <div class="vid-banner-icon">🎬</div>
+                <div class="vid-banner-icon">[VIDEO]</div>
                 <div>
                     <div class="vid-banner-label">{module_label}</div>
                     <div class="vid-banner-name">{nombre}</div>
@@ -113,7 +113,7 @@ def render_video_banner(module_label: str = "Video en análisis") -> bool:
         st.markdown(
             """
             <div class="vid-banner warning">
-                <div class="vid-banner-icon">⚠️</div>
+                <div class="vid-banner-icon">[WARN]</div>
                 <div>
                     <div class="vid-banner-label">Sin video cargado</div>
                     <div class="vid-banner-name">Ningún video seleccionado</div>
@@ -137,7 +137,7 @@ def render_video_banner_mini() -> bool:
     if ruta:
         nombre = os.path.basename(ruta)
         st.markdown(
-            f'<div class="vid-banner-mini">📹 {nombre}</div>',
+            f'<div class="vid-banner-mini">{nombre}</div>',
             unsafe_allow_html=True,
         )
         return True

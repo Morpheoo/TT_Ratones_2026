@@ -482,6 +482,23 @@ def main() -> int:
         log("TT 2026 BEHAVIOR PIPELINE")
         log("=" * 72)
         log("[STEP] BOOT")
+        
+        # Actualizar rutas de SimBA automáticamente
+        fix_simba_script = PROJECT_ROOT / "fix_simba_paths.py"
+        if fix_simba_script.exists():
+            log("[INFO] Actualizando rutas de SimBA...")
+            try:
+                subprocess.run(
+                    [str(PY311), str(fix_simba_script)],
+                    cwd=str(PROJECT_ROOT),
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                log("[INFO] Rutas de SimBA actualizadas correctamente")
+            except subprocess.CalledProcessError as e:
+                log(f"[WARNING] No se pudieron actualizar las rutas de SimBA: {e}")
+        
         log(f"[INFO] Video: {video_path}")
         log(f"[INFO] Backend: {args.backend.upper()}")
         log(f"[INFO] SimBA project: {project_root}")

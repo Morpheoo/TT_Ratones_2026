@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from sqlalchemy import text
 
 # ================= 0. SETUP & PERSISTENCE =================
@@ -20,7 +21,7 @@ import importlib
 import ui_theme
 
 importlib.reload(ui_theme)
-from ui_theme import render_topbar, use_theme
+from ui_theme import render_topbar, use_theme, inject_sidebar_profile
 from video_context_banner import render_video_banner
 from config import (
     GROOMING_MODEL,
@@ -51,6 +52,32 @@ run_page_splash(
     ],
     subtitle="TT 2026 - Cargando analisis final...",
 )
+
+# ================= SIDEBAR =================
+with st.sidebar:
+    # Perfil usuario al tope
+    st.markdown(f"""
+<div style="display:flex; align-items:center; gap: 10px; margin-bottom: 12px; margin-top: 10px;">
+    <div style="width: 36px; height: 36px; border-radius: 50%; background: {colors['primary_dark']}; display:flex; align-items:center; justify-content:center; font-weight: 700; font-size: 1rem; border: 1px solid rgba(255,255,255,0.2);">
+        {st.session_state.get('user_name', 'U')[0].upper()}
+    </div>
+    <div style="overflow: hidden;">
+        <div style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; text-overflow: ellipsis;">{st.session_state.get('user_name')}</div>
+        <div style="font-size: 0.7rem; opacity: 0.7; white-space: nowrap; text-overflow: ellipsis; letter-spacing: 0.2px;">{st.session_state.get('user', '')}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+        from session_utils import clear_session
+        clear_session()
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+    
+    st.markdown("<hr style='margin: 1rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
+    
+    # Sidebar con navegación
+    inject_sidebar_profile(show_admin_button=True)
 
 
 def format_mm_ss(total_seconds):
@@ -821,6 +848,120 @@ def render_status_panel():
     st.code(last_logs, language="bash")
 
 
+def render_loading_animation(message):
+    """
+    Renderiza una animación de carga con el logo del proyecto pulsando.
+    """
+    import base64
+    logo_path = os.path.abspath(os.path.join("assets", "logos", "logo_ria.png"))
+    
+    # Convertir imagen a base64
+    try:
+        with open(logo_path, "rb") as img_file:
+            logo_base64 = base64.b64encode(img_file.read()).decode()
+        logo_src = f"data:image/png;base64,{logo_base64}"
+    except:
+        logo_src = ""  # Fallback si no se encuentra la imagen
+    
+    animation_html = f"""
+    <style>
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); }}
+            50% {{ transform: scale(1.15); }}
+        }}
+        .loading-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            margin: 1rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }}
+        .loading-logo {{
+            width: 120px;
+            height: 120px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }}
+        .loading-message {{
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #333;
+            line-height: 1.6;
+        }}
+    </style>
+    <div class="loading-container">
+        <img src="{logo_src}" class="loading-logo" alt="Logo">
+        <div class="loading-message">{message}</div>
+    </div>
+    """
+    st.markdown(animation_html, unsafe_allow_html=True)
+
+
+def inject_close_warning():
+    """
+    Inyecta JavaScript para advertir al usuario antes de cerrar/recargar la página
+    cuando hay un proceso en ejecución.
+    """
+    warning_script = """
+    <script>
+        (function() {
+            // Función que muestra advertencia
+            function handleBeforeUnload(e) {
+                var confirmationMessage = 'Hay un proceso de análisis final en ejecución. Si cierra o recarga la página, el proceso se detendrá y perderá el progreso. ¿Está seguro de que desea continuar?';
+                
+                // Método estándar moderno
+                e.preventDefault();
+                e.returnValue = confirmationMessage;
+                
+                // Método legacy para navegadores antiguos
+                return confirmationMessage;
+            }
+            
+            // Remover listeners previos si existen
+            if (window.__streamlit_unload_listener) {
+                window.removeEventListener('beforeunload', window.__streamlit_unload_listener);
+                window.removeEventListener('unload', window.__streamlit_unload_listener);
+            }
+            
+            // Agregar listeners para beforeunload (recargar/cerrar)
+            window.__streamlit_unload_listener = handleBeforeUnload;
+            window.addEventListener('beforeunload', handleBeforeUnload, {capture: true});
+            
+            // Asegurar que el usuario ha interactuado con la página
+            document.addEventListener('click', function() {
+                window.__user_has_interacted = true;
+            }, {once: true});
+            
+            console.log('Advertencia de cierre/recarga activada');
+        })();
+    </script>
+    """
+    components.html(warning_script, height=0)
+
+
+def remove_close_warning():
+    """
+    Remueve la advertencia de cierre cuando el proceso ha terminado.
+    """
+    remove_script = """
+    <script>
+        (function() {
+            if (window.__streamlit_unload_listener) {
+                window.removeEventListener('beforeunload', window.__streamlit_unload_listener, {capture: true});
+                window.__streamlit_unload_listener = null;
+                console.log('Advertencia de cierre/recarga removida');
+            }
+        })();
+    </script>
+    """
+    components.html(remove_script, height=0)
+
+
 def render_output_panel():
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     st.markdown("#### Salidas generadas")
@@ -1109,11 +1250,27 @@ def render_analysis_monitor():
     progress = float(snap.get("progress", 0.0) or 0.0)
     status = snap.get("status", "")
     logs = trim_log_text(snap.get("lines", []), max_lines=220)
+    is_running = snap.get("is_running", False)
+    
+    # Mostrar animación si el proceso está corriendo
+    if is_running and progress < 0.95:
+        render_loading_animation(
+            "El análisis final está en proceso.<br>"
+            "Por favor no cierre la ventana ni recargue la página.<br>"
+            "Tampoco cierre la ventana de consola. Espere a que se complete."
+        )
+    
     st.progress(min(max(progress, 0.0), 1.0), text=status)
     st.code(logs, language="bash")
     if snap["needs_rerun"]:
         st.rerun()
 
+
+# Inyectar o remover advertencia de cierre según el estado del proceso (fuera del fragmento)
+if analysis_snapshot.get("is_running") and float(analysis_snapshot.get("progress", 0.0) or 0.0) < 0.95:
+    inject_close_warning()
+else:
+    remove_close_warning()
 
 render_analysis_monitor()
 

@@ -92,7 +92,7 @@ for file_path in py_files:
         # fix ffmpeg path logic
         content = re.sub(
             r'ffmpeg_exe\s*=\s*FFMPEG_PATH\s*\n\s*if not os\.path\.exists\(ffmpeg_exe\):\s*\n\s*print\("  ERROR: ffmpeg not found for trimming"\)\s*\n\s*return False',
-            'if not FFMPEG_PATH:\n        print("❌ ERROR: FFmpeg no encontrado. Instálalo o configura FFMPEG_PATH en .env")\n        return False\n\n    ffmpeg_exe = str(FFMPEG_PATH)',
+            'if not FFMPEG_PATH:\n        print("[ERROR] ERROR: FFmpeg no encontrado. Instálalo o configura FFMPEG_PATH en .env")\n        return False\n\n    ffmpeg_exe = str(FFMPEG_PATH)',
             content
         )
 

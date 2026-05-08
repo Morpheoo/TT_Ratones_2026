@@ -17,26 +17,26 @@ def test_yolo_model():
     print("=" * 60)
     print("VERIFICACIÓN DEL MODELO YOLO11")
     print("=" * 60)
-
+    
     print(f"\n📁 Modelo: {YOLO_POSE_MODEL}")
-    print(f"✅ Existe: {YOLO_POSE_MODEL.exists()}")
-
+    print(f"[OK] Existe: {YOLO_POSE_MODEL.exists()}")
+    
     if not YOLO_POSE_MODEL.exists():
         print("\n❌ ERROR: Modelo no encontrado")
         return
-
+    
     print("\n[INFO] Cargando modelo YOLO11...")
     from ultralytics import YOLO
-
+    
     model = YOLO(str(YOLO_POSE_MODEL))
-
+    
     print(f"[INFO] Modelo cargado: {model.model_name if hasattr(model, 'model_name') else 'YOLO11'}")
     print(f"[INFO] Tipo de tarea: {model.task}")
-
+    
     # Obtener nombres de keypoints si están disponibles
     if hasattr(model, 'names'):
         print(f"\n[INFO] Nombres de clases: {model.names}")
-
+    
     # Para modelos de pose, los keypoints están definidos en el modelo
     # Intentar obtener información del modelo
     if hasattr(model.model, 'yaml'):
@@ -46,7 +46,7 @@ def test_yolo_model():
             for key, value in yaml_config.items():
                 if key in ['kpt_shape', 'nc', 'names']:
                     print(f"  {key}: {value}")
-
+    
     print("\n" + "=" * 60)
     print("PRUEBA COMPLETADA")
     print("=" * 60)
@@ -56,6 +56,6 @@ if __name__ == "__main__":
     try:
         test_yolo_model()
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"\nERROR: {e}")
         import traceback
         traceback.print_exc()

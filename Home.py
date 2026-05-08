@@ -9,7 +9,7 @@ from ui_components import run_page_splash
 
 st.set_page_config(
     page_title="EPM Platform | Inicio",
-    page_icon="🐀",
+    page_icon="assets/logos/logo_ria.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -61,8 +61,8 @@ with st.sidebar:
     
     st.markdown("<hr style='margin: 1rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
     
-    # Inyectar branding (Título + Logo)
-    inject_sidebar_profile()
+    # Inyectar navegación y branding (con botón de Admin Panel para admins)
+    inject_sidebar_profile(show_admin_button=True)
 
 # ================= 2. TOPBAR ESTRUCTURA =================
 render_topbar()

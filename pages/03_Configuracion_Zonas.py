@@ -18,12 +18,38 @@ from session_utils import load_session, save_session
 import importlib
 import ui_theme
 importlib.reload(ui_theme)
-from ui_theme import use_theme, render_topbar
+from ui_theme import use_theme, render_topbar, inject_sidebar_profile
 from simba_roi_bridge import sync_streamlit_rois_to_simba
 from config import SIMBA_PROJECT_DIR
 
 load_session()
 colors = use_theme()
+
+# ================= SIDEBAR =================
+with st.sidebar:
+    # Perfil usuario al tope
+    st.markdown(f"""
+<div style="display:flex; align-items:center; gap: 10px; margin-bottom: 12px; margin-top: 10px;">
+    <div style="width: 36px; height: 36px; border-radius: 50%; background: {colors['primary_dark']}; display:flex; align-items:center; justify-content:center; font-weight: 700; font-size: 1rem; border: 1px solid rgba(255,255,255,0.2);">
+        {st.session_state.get('user_name', 'U')[0].upper()}
+    </div>
+    <div style="overflow: hidden;">
+        <div style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; text-overflow: ellipsis;">{st.session_state.get('user_name')}</div>
+        <div style="font-size: 0.7rem; opacity: 0.7; white-space: nowrap; text-overflow: ellipsis; letter-spacing: 0.2px;">{st.session_state.get('user', '')}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+        from session_utils import clear_session
+        clear_session()
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+    
+    st.markdown("<hr style='margin: 1rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
+    
+    # Sidebar con navegación
+    inject_sidebar_profile(show_admin_button=True)
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
@@ -32,7 +58,7 @@ if not st.session_state.get("logged_in"):
 
 # ================= 2. VIDEO CHECK & LOGIC =================
 if "ruta_video_actual" not in st.session_state:
-    st.warning("⚠️ No hay un video activo en sesión. Regresa a 'Ingesta de Video'.")
+    st.warning("No hay un video activo en sesión. Regresa a 'Ingesta de Video'.")
     st.stop()
 
 OPEN_FILL = "rgba(111,29,70,0.4)"
@@ -318,16 +344,16 @@ col_sidebar, col_main = st.columns([1, 1.8])
 
 with col_sidebar:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("#### 🖊️ Herramientas de Dibujo")
+    st.markdown("#### Herramientas de Dibujo")
     tipo_zona = st.radio("Clasificación de ROI:", ["Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"])
     operacion = st.radio("Modo de Interacción:", ["Dibujar rectángulos", "Mover / Editar"])
     
     st.divider()
     
-    if st.button("🧩 CARGAR PLANTILLA (EPM)", use_container_width=True):
+    if st.button("CARGAR PLANTILLA (EPM)", use_container_width=True):
         st.info("Plantilla de laberinto cargada.")
     
-    if st.button("🗑️ LIMPIAR LIENZO", type="secondary", use_container_width=True):
+    if st.button("LIMPIAR LIENZO", type="secondary", use_container_width=True):
         st.session_state["canvas_key"] = f"canvas_{os.urandom(4).hex()}"
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -363,7 +389,7 @@ if canvas_result.json_data:
     if objects:
         normalized_zones = _build_named_zones(objects, factor_escala)
         st.markdown('<div class="content-card">', unsafe_allow_html=True)
-        st.markdown("#### 📋 Zonas Detectadas")
+        st.markdown("#### Zonas Detectadas")
         st.caption("Las coordenadas mostradas abajo ya quedaron convertidas a la resolucion real del video.")
         st.dataframe(_zones_dataframe(normalized_zones), use_container_width=True, hide_index=True)
         
@@ -376,17 +402,17 @@ if canvas_result.json_data:
 
             if roi_sync["ok"]:
                 st.balloons()
-                st.success("✅ Configuración de zonas guardada exitosamente en el sistema.")
+                st.success("Configuración de zonas guardada exitosamente en el sistema.")
                 if db_sync["ok"]:
-                    st.success(f"✅ {db_sync['message']}")
+                    st.success(f"{db_sync['message']}")
                 else:
                     st.warning(db_sync["message"])
-                st.success(f"✅ {roi_sync['message']}")
+                st.success(f"{roi_sync['message']}")
                 st.info("Solo las 6 paredes se exportaron a SimBA. Las demás zonas quedan disponibles para el módulo de resultado final.")
             else:
                 st.warning("La configuración se guardó en la app, pero la sincronización con SimBA no quedó completa.")
                 if db_sync["ok"]:
-                    st.success(f"✅ {db_sync['message']}")
+                    st.success(f"{db_sync['message']}")
                 else:
                     st.warning(db_sync["message"])
                 st.warning(roi_sync["message"])

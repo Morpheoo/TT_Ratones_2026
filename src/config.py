@@ -127,20 +127,20 @@ def validate_paths():
     issues = []
 
     if not GROOMING_MODEL.exists():
-        issues.append(f"❌ Modelo Grooming no encontrado: {GROOMING_MODEL}")
-
+        issues.append(f"[ERROR] Modelo Grooming no encontrado: {GROOMING_MODEL}")
+    
     if not THIGMOTAXIS_MODEL.exists():
-        issues.append(f"❌ Modelo Thigmotaxis no encontrado: {THIGMOTAXIS_MODEL}")
-
+        issues.append(f"[ERROR] Modelo Thigmotaxis no encontrado: {THIGMOTAXIS_MODEL}")
+    
     if not YOLO_POSE_MODEL.exists():
-        issues.append(f"❌ Modelo YOLO Pose v4 no encontrado: {YOLO_POSE_MODEL}")
-
+        issues.append(f"[ERROR] Modelo YOLO11 Pose no encontrado: {YOLO_POSE_MODEL}")
+    
     if not DLC_MODEL_PATH.exists():
-        issues.append(f"⚠️ Modelo DeepLabCut no encontrado: {DLC_MODEL_PATH}")
-
+        issues.append(f"[WARN] Modelo DeepLabCut no encontrado: {DLC_MODEL_PATH}")
+    
     if not FFMPEG_PATH:
-        issues.append(f"⚠️ FFmpeg no encontrado en el sistema")
-
+        issues.append(f"[WARN] FFmpeg no encontrado en el sistema")
+    
     return issues
 
 # ============================================
@@ -151,17 +151,17 @@ if __name__ == "__main__":
     print("=" * 60)
     print("CONFIGURACIÓN DEL PROYECTO TT RATONES 2026")
     print("=" * 60)
-    print(f"\n📁 Raíz del proyecto: {PROJECT_ROOT}")
-    print(f"📁 Directorio de datos: {DATA_DIR}")
-    print(f"📁 Directorio de videos: {VIDEOS_DIR}")
-    print(f"📁 Directorio de modelos: {MODELS_DIR}")
-    print(f"\n🤖 Modelo Grooming: {GROOMING_MODEL}")
-    print(f"🤖 Modelo Thigmotaxis: {THIGMOTAXIS_MODEL}")
-    print(f"🤖 Modelo YOLO Pose v4: {YOLO_POSE_MODEL}")
-    print(f"🤖 Modelo DeepLabCut: {DLC_MODEL_PATH}")
-    print(f"🤖 Modelo YOLO (legacy): {YOLO_MODEL}")
-    print(f"\n🎬 FFmpeg: {FFMPEG_PATH or 'NO ENCONTRADO'}")
-
+    print(f"\nRaíz del proyecto: {PROJECT_ROOT}")
+    print(f"Directorio de datos: {DATA_DIR}")
+    print(f"Directorio de videos: {VIDEOS_DIR}")
+    print(f"Directorio de modelos: {MODELS_DIR}")
+    print(f"\nModelo Grooming: {GROOMING_MODEL}")
+    print(f"Modelo Thigmotaxis: {THIGMOTAXIS_MODEL}")
+    print(f"Modelo YOLO11 Pose: {YOLO_POSE_MODEL}")
+    print(f"Modelo DeepLabCut: {DLC_MODEL_PATH}")
+    print(f"Modelo YOLO (legacy): {YOLO_MODEL}")
+    print(f"\nFFmpeg: {FFMPEG_PATH or 'NO ENCONTRADO'}")
+    
     print("\n" + "=" * 60)
     print("VALIDACIÓN DE RUTAS")
     print("=" * 60)
@@ -171,4 +171,4 @@ if __name__ == "__main__":
         for issue in issues:
             print(issue)
     else:
-        print("✅ Todas las rutas críticas están OK")
+        print("[OK] Todas las rutas críticas están OK")
