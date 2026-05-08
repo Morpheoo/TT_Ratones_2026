@@ -18,8 +18,8 @@ deteccion automatica de Grooming y Thigmotaxis en una laptop nueva.
 
 **Importante al instalar Python**: marca la casilla **"Add Python to PATH"**.
 
-> ¿Por que dos Pythons? El proyecto usa SimBA + DeepLabCut (3.10) y
-> YOLO + Streamlit (3.11). Cada uno con sus dependencias en venvs
+> ¿Por que dos Pythons? El proyecto usa SimBA + TensorFlow/Keras 2 para LSTM (3.10) y
+> YOLO Pose + Streamlit (3.11). Cada uno con sus dependencias en venvs
 > separados, controlados automaticamente por el `install.bat`.
 
 ### GPU compatible
@@ -97,7 +97,7 @@ El script hace todo automaticamente:
 
 1. Verifica que esten Python 3.10 y 3.11.
 2. Detecta tu GPU (NVIDIA, AMD, o sin GPU) y elige el wheel PyTorch correcto.
-3. Crea `venv_310/` (SimBA + DLC + LSTM, sin GPU).
+3. Crea `venv_310/` (SimBA + LSTM TF/Keras 2, sin GPU).
 4. Crea `venv_311/` (YOLO + B-SOiD + Streamlit, con GPU).
 5. Instala dependencias de cada venv (`requirements_venv310.txt` y `requirements_venv311.txt`).
 6. Verifica Docker Desktop.
@@ -209,7 +209,7 @@ venv_311\Scripts\python.exe validar_instalacion.py
 Reporta el estado de:
 - Python 3.10 y 3.11
 - Modelos pesados (verifica tamano byte-a-byte)
-- Imports criticos (Streamlit, YOLO, SimBA, DLC, TensorFlow, PyTorch)
+- Imports criticos (Streamlit, YOLO, SimBA, TensorFlow, PyTorch)
 - PyTorch CUDA disponibilidad
 - Docker daemon
 - `.env` y `docker-compose.yml`

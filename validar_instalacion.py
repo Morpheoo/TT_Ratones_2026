@@ -138,7 +138,6 @@ PAQUETES_VENV310 = [
     ("simba", "SimBA"),
     ("tensorflow", "TensorFlow 2"),
     ("keras", "Keras 2"),
-    ("deeplabcut", "DeepLabCut"),
     ("sklearn", "scikit-learn"),
     ("torch", "PyTorch CPU"),
 ]

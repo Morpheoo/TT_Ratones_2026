@@ -14,8 +14,11 @@
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu
 
-# DeepLabCut (entrenamiento DLC opcional + utilidades)
-deeplabcut==2.3.11
+# DeepLabCut REMOVIDO: el pipeline activo usa YOLO Pose v4, no DLC.
+# Los scripts legacy *_dlc*.py / full_pipeline.py / run_superanimal.py
+# todavia importan deeplabcut, pero no son parte del flujo de inferencia
+# del colaborador. Si necesitas reentrenar con DLC, instala manualmente
+# en un venv separado: pip install deeplabcut==2.3.11
 
 # TensorFlow/Keras 2 (LSTM Grooming inferencia + entrenamiento)
 # Pinear a 2.10.0 porque la LSTM productiva (grooming_lstm.keras) se
