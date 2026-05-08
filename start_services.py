@@ -186,7 +186,7 @@ def verify_db_connection() -> bool:
     try:
         import psycopg2
         from dotenv import load_dotenv
-        
+
         load_dotenv()
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST", "127.0.0.1"),
@@ -204,6 +204,22 @@ def verify_db_connection() -> bool:
         return True  # No es crítico
     except Exception as e:
         log(f"No se pudo conectar a BD: {str(e)[:80]}", "ERROR")
+        return False
+
+
+def init_database_schema() -> bool:
+    """Crea tablas (idempotente: usa CREATE TABLE IF NOT EXISTS)."""
+    log("Inicializando schema de base de datos...", "INFO")
+    try:
+        sys.path.insert(0, os.getcwd())
+        from src.db.connection import init_db
+        if init_db():
+            log("Schema aplicado (tablas creadas o ya existentes)", "OK")
+            return True
+        log("init_db() retorno False (revisar logs de connection.py)", "ERROR")
+        return False
+    except Exception as e:
+        log(f"Error aplicando schema.sql: {str(e)[:120]}", "ERROR")
         return False
 
 
@@ -241,7 +257,11 @@ def main():
         # 6. Verificar conexión desde Python
         if not verify_db_connection():
             raise ServiceStartError("No se pudo conectar a la BD")
-        
+
+        # 7. Crear tablas si no existen (idempotente)
+        if not init_database_schema():
+            raise ServiceStartError("No se pudo inicializar el schema de la BD")
+
         print("\n" + "="*60)
         log("✨ TODOS LOS SERVICIOS ESTÁN LISTOS ✨", "OK")
         print("="*60 + "\n")

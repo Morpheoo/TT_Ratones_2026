@@ -30,33 +30,30 @@ def _sidebar_nav_css(colors: dict) -> str:
     logged_in = st.session_state.get("logged_in", False)
     is_admin  = st.session_state.get("role", "") == "admin"
 
+    # Selectores basados en href (no dependen del orden de las paginas).
+    # Streamlit deriva el href del filename sin prefijo numerico ni .py:
+    #   pages/00_Login.py        -> /Login
+    #   pages/99_Admin_Panel.py  -> /Admin_Panel
     if not logged_in:
-        # No autenticado: ocultar TODOS excepto Login (ítem 2)
+        # No autenticado: ocultar TODO el sidebar nav excepto Login.
         return """
     /* === MODO NO AUTENTICADO: solo Login visible === */
-    [data-testid="stSidebarNavItems"] li:nth-child(1),
-    [data-testid="stSidebarNavItems"] li:nth-child(3),
-    [data-testid="stSidebarNavItems"] li:nth-child(4),
-    [data-testid="stSidebarNavItems"] li:nth-child(5),
-    [data-testid="stSidebarNavItems"] li:nth-child(6),
-    [data-testid="stSidebarNavItems"] li:nth-child(7),
-    [data-testid="stSidebarNavItems"] li:nth-child(8),
-    [data-testid="stSidebarNavItems"] li:nth-child(9) {
+    [data-testid="stSidebarNavItems"] li:not(:has(a[href$="/Login"])) {
         display: none !important;
     }"""
     elif not is_admin:
-        # Autenticado pero no admin: ocultar Login y Admin Panel
+        # Autenticado pero no admin: ocultar Login y Admin Panel.
         return """
     /* === MODO AUTENTICADO (usuario normal) === */
-    [data-testid="stSidebarNavItems"] li:nth-child(2),
-    [data-testid="stSidebarNavItems"] li:nth-child(9) {
+    [data-testid="stSidebarNavItems"] li:has(a[href$="/Login"]),
+    [data-testid="stSidebarNavItems"] li:has(a[href$="/Admin_Panel"]) {
         display: none !important;
     }"""
     else:
-        # Admin: ocultar solo Login
+        # Admin: ocultar solo Login.
         return """
     /* === MODO ADMIN === */
-    [data-testid="stSidebarNavItems"] li:nth-child(2) {
+    [data-testid="stSidebarNavItems"] li:has(a[href$="/Login"]) {
         display: none !important;
     }"""
 
