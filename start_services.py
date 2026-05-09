@@ -223,6 +223,28 @@ def init_database_schema() -> bool:
         return False
 
 
+def seed_admin_user() -> bool:
+    """Crea admin inicial desde INITIAL_ADMIN_EMAIL/PASSWORD si no existe.
+
+    No es bloqueador: si las vars no estan configuradas o ya hay admins
+    en la BD, simplemente loggea y sigue. Solo devuelve False si la BD
+    fallo de manera real.
+    """
+    log("Verificando admin inicial...", "INFO")
+    try:
+        sys.path.insert(0, os.getcwd())
+        from src.db.seed_admin import seed_initial_admin
+        ok, msg = seed_initial_admin()
+        if ok:
+            log(msg, "OK")
+            return True
+        log(msg, "ERROR")
+        return False
+    except Exception as e:
+        log(f"Error en seed_admin_user(): {str(e)[:120]}", "ERROR")
+        return False
+
+
 def main():
     """Orquesta el inicio de servicios"""
     print("\n" + "="*60)
@@ -261,6 +283,13 @@ def main():
         # 7. Crear tablas si no existen (idempotente)
         if not init_database_schema():
             raise ServiceStartError("No se pudo inicializar el schema de la BD")
+
+        # 8. Sembrar admin inicial si .env tiene INITIAL_ADMIN_EMAIL/PASSWORD
+        #    y la tabla users no tiene admins. Idempotente y no bloqueador
+        #    si las vars no estan configuradas.
+        if not seed_admin_user():
+            log("Seed de admin fallo, pero la app puede arrancar igual.", "WARN")
+            log("Si no podes hacer login, revisa INITIAL_ADMIN_* en .env", "WARN")
 
         print("\n" + "="*60)
         log("✨ TODOS LOS SERVICIOS ESTÁN LISTOS ✨", "OK")

@@ -101,7 +101,9 @@ El script hace todo automaticamente:
 4. Crea `venv_311/` (YOLO + B-SOiD + Streamlit, con GPU).
 5. Instala dependencias de cada venv (`requirements_venv310.txt` y `requirements_venv311.txt`).
 6. Verifica Docker Desktop.
-7. Corre `validar_instalacion.py` que chequea modelos, imports y CUDA.
+7. Sincroniza los paths absolutos del `project_config.ini` de SimBA al
+   path de tu equipo (ver seccion 11 si esto falla).
+8. Corre `validar_instalacion.py` que chequea modelos, imports y CUDA.
 
 **Tiempo total: ~30-45 min**, dependiendo de tu conexion.
 La parte mas lenta es la descarga de PyTorch + ultralytics (~3-5 GB de wheels).
@@ -115,26 +117,79 @@ Si todo sale bien, el reporte final dice:
 
 ## 5. Configurar `.env` y Docker
 
+**Este paso NO es opcional**. El `.env` controla la BD, el admin inicial
+y el envío de mails. Si lo saltás, no vas a poder loguear ni registrar
+usuarios.
+
+### 5.1 Copiar el template
+
 ```bash
 copy .env.example .env
 ```
 
-Edita `.env` con un editor de texto. Por defecto trae credenciales
-genericas para Postgres local; podes dejarlas tal cual o cambiarlas.
+### 5.2 Editar `.env` con un editor de texto
+
+Las secciones a revisar:
+
+**a) Base de datos local (Docker)** — los defaults funcionan tal cual,
+salvo que quieras cambiar el password de Postgres:
+
+```
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=secure_password_here
+POSTGRES_DB=ratones_lab
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+**b) Admin inicial** — IMPORTANTE: cambiá estos valores antes del primer
+arranque. Si los dejás como placeholder, el seed automático no corre y
+tendrás que registrarte vía la UI (que requiere SMTP funcional):
+
+```
+INITIAL_ADMIN_EMAIL=tu_email@ipn.mx
+INITIAL_ADMIN_PASSWORD=un_password_temporal
+```
+
+`start_services.py` detecta al primer boot que la BD no tiene admins y
+crea uno con esos valores ya verificado (sin OTP). Cambiá el password
+desde el Panel Admin después del primer login.
+
+**c) SMTP para envío de OTPs** — si querés que otros usuarios se puedan
+registrar y reciban el código por mail, configurá Gmail con contraseña
+de aplicación (NO tu password de Gmail normal):
+
+```
+GMAIL_SENDER_EMAIL=tu_email@gmail.com
+GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
+```
+
+Para generar la contraseña de aplicación:
+1. Activá verificación en 2 pasos en tu cuenta Google.
+2. Andá a https://myaccount.google.com/apppasswords
+3. Generá una para "Correo" → 16 caracteres sin espacios.
+
+**Si dejás los placeholders de SMTP**: el sistema entra en modo dev y
+imprime el OTP en la consola del `launcher.bat` cuando alguien se
+registra. Útil para probar localmente sin Gmail.
+
+### 5.3 Levantar Docker
 
 Asegurate de que **Docker Desktop esta abierto y corriendo** antes de
-levantar la app. Despues:
+levantar la app. Después:
 
 ```bash
 docker-compose up -d
 ```
 
 Esto levanta Postgres y pgAdmin en segundo plano. La primera vez
-descarga las imagenes (~200 MB).
+descarga las imágenes (~200 MB). El `launcher.bat` también levanta
+Docker automáticamente si no está corriendo, así que podés saltearte
+este paso si vas directo a `launcher.bat`.
 
-> Si no necesitas el historial de analisis ni el panel de administracion,
-> podes saltearte Docker. La UI Streamlit funciona sin Postgres, pero
-> los analisis no se guardan entre sesiones.
+> Si no necesitás el historial de análisis ni el panel de administración,
+> podés saltearte Docker. La UI Streamlit funciona sin Postgres, pero
+> los análisis no se guardan entre sesiones.
 
 ---
 
@@ -256,6 +311,21 @@ pip install psycopg2-binary
 
 ### Modelos faltantes (validar_instalacion.py reporta tamanos incorrectos)
 Volve al paso 3: copia el USB sobre la raiz del proyecto y vuelve a validar.
+
+### `SIMBA NOT A DIRECTORY ERROR` al extraer features
+SimBA guarda paths absolutos en `project_config.ini` que apuntan al equipo
+donde se commiteo el archivo. Si moviste la carpeta del proyecto, clonaste
+en un usuario distinto, o pulleaste cambios del equipo, los paths quedan
+desactualizados. `install.bat` corre el fix automatico, pero podes forzarlo
+en cualquier momento:
+
+```bash
+py -3.11 src\scripts\fix_simba_paths.py
+```
+
+Es idempotente: si los paths ya estan bien, sale con
+`[OK] paths ya estan sincronizados`. Si querer ver que cambiaria sin
+escribir, agregale `--dry-run`.
 
 ---
 

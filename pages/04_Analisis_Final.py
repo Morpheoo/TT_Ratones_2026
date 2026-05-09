@@ -26,9 +26,8 @@ from video_context_banner import render_video_banner
 from config import (
     GROOMING_MODEL,
     GROOMING_MODEL_YOLO,
-    SIMBA_BASE,
-    SIMBA_PROJECT_DIR,
     SIMBA_YOLO_BASE,
+    SIMBA_YOLO_PROJECT_DIR,
     THIGMOTAXIS_MODEL,
     THIGMOTAXIS_MODEL_YOLO,
 )
@@ -388,7 +387,7 @@ def find_pose_file(video_path):
 def find_feature_file(video_path):
     if not video_path:
         return None
-    candidate = Path(SIMBA_PROJECT_DIR) / "csv" / "features_extracted" / f"{Path(video_path).stem}.csv"
+    candidate = Path(SIMBA_YOLO_PROJECT_DIR) / "csv" / "features_extracted" / f"{Path(video_path).stem}.csv"
     return str(candidate.resolve()) if candidate.exists() else None
 
 

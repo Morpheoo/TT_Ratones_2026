@@ -52,18 +52,37 @@ with st.sidebar:
     # Sidebar con navegación
     inject_sidebar_profile(show_admin_button=True)
 
-ACCENT_COLOR = colors.get("warning", "#B7791F")
+# ============================================================
+# Paleta institucional IPN-ESCOM unificada
+# Guinda como ancla, complementos elegidos para distinguir
+# zonas espaciales (rectas/sobrias) vs conductas (frio/calido).
+# ============================================================
+IPN_GUINDA = "#6A1B3F"          # Guinda principal — Brazos Abiertos
+IPN_CARBON = "#2B2D2F"          # Negro mate — Brazos Cerrados
+IPN_CORAL = "#E07A5F"           # Coral — Centro / acentos calidos
+IPN_GRIS = "#888888"            # Gris neutro — categoria descartada
+IPN_AZUL_PETROLEO = "#2C5F7A"   # Azul frio — Grooming (calma)
+IPN_NARANJA_QUEMADO = "#D2691E" # Naranja calido — Thigmotaxis (alerta)
+
+ACCENT_COLOR = IPN_CORAL
 ZONE_CATEGORY_COLORS = {
-    "Abiertos": colors["primary"],
-    "Cerrados": ACCENT_COLOR,
-    "Centro": colors["success"],
-    "Fuera": colors["text_sub"],
+    "Abiertos": IPN_GUINDA,
+    "Cerrados": IPN_CARBON,
+    "Centro": IPN_CORAL,
+    "Fuera": IPN_GRIS,
 }
 BEHAVIOR_COLORS = {
-    "Grooming": colors["success"],
-    "Thigmotaxis": colors["danger"],
-    "Grooming acumulado": colors["success"],
-    "Thigmotaxis acumulado": colors["danger"],
+    "Grooming": IPN_AZUL_PETROLEO,
+    "Thigmotaxis": IPN_NARANJA_QUEMADO,
+    "Grooming acumulado": IPN_AZUL_PETROLEO,
+    "Thigmotaxis acumulado": IPN_NARANJA_QUEMADO,
+}
+# Mapping para el chart "Comparativa rapida" donde cada barra es una metrica.
+GLOBAL_METRIC_COLORS = {
+    "Brazos abiertos": IPN_GUINDA,
+    "Brazos cerrados": IPN_CARBON,
+    "Grooming": IPN_AZUL_PETROLEO,
+    "Thigmotaxis": IPN_NARANJA_QUEMADO,
 }
 
 
@@ -489,7 +508,33 @@ def coalesce_metric(record, summary, key):
     return safe_float(record.get(key, 0.0))
 
 
-def build_opencv_heatmap_image(heatmap_df, width, height):
+def _read_video_background_frame(video_path, width, height):
+    """Devuelve un frame BGR del video escalado a (width, height), o None si no se puede."""
+    if not video_path:
+        return None
+    if not os.path.exists(video_path):
+        return None
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return None
+    try:
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        target = max(0, total_frames // 2 - 1)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, target)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ok, frame = cap.read()
+        if not ok or frame is None:
+            return None
+        if frame.shape[1] != int(width) or frame.shape[0] != int(height):
+            frame = cv2.resize(frame, (int(width), int(height)), interpolation=cv2.INTER_AREA)
+        return frame
+    finally:
+        cap.release()
+
+
+def build_opencv_heatmap_image(heatmap_df, width, height, video_path=None):
     if heatmap_df is None or heatmap_df.empty:
         return None
 
@@ -505,19 +550,29 @@ def build_opencv_heatmap_image(heatmap_df, width, height):
 
     blurred = cv2.GaussianBlur(canvas, (0, 0), sigmaX=29, sigmaY=29)
     normalized = cv2.normalize(blurred, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-    colored = cv2.applyColorMap(normalized, cv2.COLORMAP_INFERNO)
+    colored = cv2.applyColorMap(normalized, cv2.COLORMAP_PLASMA)
 
-    background = np.full((int(height), int(width), 3), 246, dtype=np.uint8)
-    background[:] = (245, 244, 246)
+    background = _read_video_background_frame(video_path, width, height)
+    if background is None:
+        # Fallback: fondo gris plano si el video no esta accesible.
+        background = np.full((int(height), int(width), 3), 246, dtype=np.uint8)
+        background[:] = (245, 244, 246)
+    else:
+        # Atenuar el frame para que no compita visualmente con el heatmap.
+        background = cv2.addWeighted(background, 0.55, np.zeros_like(background), 0.0, 0)
 
-    mask = normalized > 0
-    if not np.any(mask):
-        return None
-
-    overlay = background.copy()
-    overlay[mask] = colored[mask]
-    blended = cv2.addWeighted(background, 0.30, overlay, 0.90, 0)
+    # Mezclar heatmap sobre el frame: alpha proporcional a la intensidad.
+    alpha = (normalized.astype(np.float32) / 255.0)[..., None]
+    blended = (background.astype(np.float32) * (1.0 - alpha) + colored.astype(np.float32) * alpha)
+    blended = blended.clip(0, 255).astype(np.uint8)
     return cv2.cvtColor(blended, cv2.COLOR_BGR2RGB)
+
+
+def build_plasma_colorbar(width=480, height=36):
+    """Barra horizontal con el colormap PLASMA para mostrar como leyenda."""
+    gradient = np.tile(np.linspace(0, 255, width, dtype=np.uint8), (height, 1))
+    colored = cv2.applyColorMap(gradient, cv2.COLORMAP_PLASMA)
+    return cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
 
 
 def render_global_kpis(df_hist):
@@ -563,7 +618,7 @@ def render_global_chart(df_view):
         y="Segundos",
         color="Metrica",
         barmode="group",
-        color_discrete_sequence=[colors["primary"], ACCENT_COLOR, colors["success"], colors["danger"]],
+        color_discrete_map=GLOBAL_METRIC_COLORS,
     )
     fig.update_traces(marker_line_color=colors["bg_card"], marker_line_width=1.2)
     apply_plot_style(fig, height=360)
@@ -689,11 +744,12 @@ def render_detail_panel(record, trajectory_bundle):
         fig_timeline.update_layout(hovermode="x unified", xaxis_title="Tiempo (s)", yaxis_title="Segundos acumulados")
         st.plotly_chart(fig_timeline, use_container_width=True, key=f"detail_timeline_{record_id}")
 
-    st.markdown("##### Mapa de calor OpenCV")
+    st.markdown("##### Mapa de calor del experimento")
     heatmap_image = build_opencv_heatmap_image(
         heatmap_df,
         trajectory_bundle["heatmap_width"],
         trajectory_bundle["heatmap_height"],
+        video_path=record.get("video_path"),
     )
     if heatmap_image is None:
         st.info("La trayectoria no trae suficientes coordenadas validas para construir el mapa de calor.")
@@ -701,7 +757,29 @@ def render_detail_panel(record, trajectory_bundle):
         st.image(
             heatmap_image,
             use_container_width=True,
-            caption="Mapa de permanencia generado con OpenCV a partir de la trayectoria del roedor.",
+            caption="Mapa de permanencia (colormap PLASMA) superpuesto sobre un frame del video original.",
+        )
+
+        # Recuadro separado con la leyenda de la escala de colores.
+        st.markdown("**Como leer este mapa**")
+        st.image(
+            build_plasma_colorbar(),
+            use_container_width=True,
+        )
+        leg_left, leg_right = st.columns(2)
+        with leg_left:
+            st.caption("← Menos tiempo (zona poco visitada)")
+        with leg_right:
+            st.markdown(
+                "<div style='text-align:right;color:#888;font-size:0.85em;'>"
+                "Mas tiempo (zona caliente) →"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        st.caption(
+            "Negro / morado oscuro: el roedor paso poco o nada en esa zona. "
+            "Tonos rosa y naranja: gradacion intermedia. "
+            "Amarillo brillante: zonas donde permanecio mas tiempo durante el experimento."
         )
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -861,10 +939,13 @@ try:
                     if owner_email == current_user:
                         editable_exp_ids.add(exp_id)
         
-        # Agregar columna visual de editabilidad para investigadores y admins
-        if is_admin or is_investigador:
-            selection_df.insert(1, "", selection_df["ID"].astype(int).isin(editable_exp_ids))
-        
+        # Nota: en versiones anteriores se insertaba aqui una segunda columna
+        # checkbox sin header para indicar editabilidad. Se removio porque
+        # duplicaba visualmente la columna "Sel.". La info de permisos ya se
+        # comunica via los mensajes st.info/st.warning de mas abajo y por las
+        # celdas de tiempo deshabilitadas para experimentos no editables.
+
+
         # Configurar columnas deshabilitadas basándose en permisos
         time_columns = ["Abiertos (s)", "Cerrados (s)", "Grooming (s)", "Thigmotaxis (s)"]
         

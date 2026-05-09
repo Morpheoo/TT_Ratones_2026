@@ -265,6 +265,84 @@ def check_config() -> None:
 
 
 # ============================================================
+# 7. Proyecto SimBA YOLO (estructura + paths sincronizados)
+# ============================================================
+SIMBA_YOLO_FOLDER = (
+    ROOT / "data" / "simba_projects" / "grooming_thigmotaxis_yolo" / "project_folder"
+)
+
+
+def check_simba_yolo_project() -> None:
+    header("7. Proyecto SimBA YOLO (estructura + paths)")
+
+    if not SIMBA_YOLO_FOLDER.exists():
+        fail(
+            f"No existe {SIMBA_YOLO_FOLDER.relative_to(ROOT)} "
+            "(copialo del USB o regenera el proyecto)"
+        )
+        return
+
+    config_ini = SIMBA_YOLO_FOLDER / "project_config.ini"
+    subdirs_requeridos = [
+        SIMBA_YOLO_FOLDER / "csv" / "features_extracted",
+        SIMBA_YOLO_FOLDER / "csv" / "targets_inserted",
+        SIMBA_YOLO_FOLDER / "logs" / "measures",
+    ]
+
+    if not config_ini.exists():
+        fail(f"{config_ini.relative_to(ROOT)} no existe")
+    else:
+        ok(f"{config_ini.relative_to(ROOT)} presente")
+
+    for sd in subdirs_requeridos:
+        if not sd.exists():
+            fail(f"Falta subdirectorio SimBA: {sd.relative_to(ROOT)}")
+        else:
+            ok(f"{sd.relative_to(ROOT)} presente")
+
+    # Verificar que project_config.ini tenga paths apuntando a este equipo.
+    # Si no, el usuario debe correr src/scripts/fix_simba_paths.py.
+    if config_ini.exists():
+        try:
+            content = config_ini.read_text(encoding="utf-8")
+        except Exception as exc:
+            fail(f"No se pudo leer {config_ini.relative_to(ROOT)}: {exc}")
+            return
+
+        keys_a_chequear = {
+            "project_path": SIMBA_YOLO_FOLDER,
+            "model_dir": SIMBA_YOLO_FOLDER.parent / "models",
+            "model_path_1": (
+                SIMBA_YOLO_FOLDER.parent / "models" / "generated_models" / "Thigmotaxis.sav"
+            ),
+            "model_path_2": (
+                SIMBA_YOLO_FOLDER.parent / "models" / "generated_models" / "Grooming.sav"
+            ),
+        }
+        desincronizados: list[str] = []
+        for line in content.splitlines():
+            if "=" not in line:
+                continue
+            left, _, right = line.partition("=")
+            key = left.strip()
+            if key in keys_a_chequear:
+                actual = right.strip()
+                esperado = str(keys_a_chequear[key].resolve())
+                if actual.lower() != esperado.lower():
+                    desincronizados.append(f"{key} = {actual}")
+
+        if desincronizados:
+            fail(
+                "project_config.ini tiene paths absolutos de otro equipo. "
+                "Correr: py -3.11 src\\scripts\\fix_simba_paths.py"
+            )
+            for entry in desincronizados:
+                print(f"           {entry}")
+        else:
+            ok("project_config.ini tiene paths sincronizados a este equipo")
+
+
+# ============================================================
 # Main
 # ============================================================
 def main() -> int:
@@ -278,6 +356,7 @@ def main() -> int:
     check_cuda()
     check_docker()
     check_config()
+    check_simba_yolo_project()
 
     header("RESUMEN")
     print(f"  Fallas criticas : {len(fallas)}")

@@ -777,40 +777,33 @@ def render_loading_animation(message):
 
 def inject_close_warning():
     """
-    Inyecta JavaScript para advertir al usuario antes de cerrar/recargar la página
-    cuando hay un proceso en ejecución.
+    Registra un listener `beforeunload` en la pestaña del navegador para
+    advertir antes de cerrar/recargar mientras corre la extraccion.
+
+    El listener vive en window.top (no en el iframe del componente) y se
+    registra una sola vez via flag global. Asi sobrevive a reruns de
+    Streamlit sin recrearse en cada uno (lo que antes generaba dialogos
+    espurios cada vez que el iframe se reciclaba).
     """
     warning_script = """
     <script>
         (function() {
-            // Función que muestra advertencia
-            function handleBeforeUnload(e) {
-                var confirmationMessage = 'Hay un proceso de extracción de keypoints en ejecución. Si cierra o recarga la página, el proceso se detendrá y perderá el progreso. ¿Está seguro de que desea continuar?';
-                
-                // Método estándar moderno
-                e.preventDefault();
-                e.returnValue = confirmationMessage;
-                
-                // Método legacy para navegadores antiguos
-                return confirmationMessage;
+            try {
+                var topWin = window.top || window.parent || window;
+                if (topWin.__tt_keypoints_unload_listener) {
+                    return;  // ya esta registrado
+                }
+                function handleBeforeUnload(e) {
+                    var msg = 'Hay un proceso de extraccion de keypoints en ejecucion. Si cierra o recarga la pagina, el proceso se detendra y perdera el progreso.';
+                    e.preventDefault();
+                    e.returnValue = msg;
+                    return msg;
+                }
+                topWin.__tt_keypoints_unload_listener = handleBeforeUnload;
+                topWin.addEventListener('beforeunload', handleBeforeUnload);
+            } catch (err) {
+                console.warn('No se pudo registrar advertencia de cierre:', err);
             }
-            
-            // Remover listeners previos si existen
-            if (window.__streamlit_unload_listener) {
-                window.removeEventListener('beforeunload', window.__streamlit_unload_listener);
-                window.removeEventListener('unload', window.__streamlit_unload_listener);
-            }
-            
-            // Agregar listeners para beforeunload (recargar/cerrar)
-            window.__streamlit_unload_listener = handleBeforeUnload;
-            window.addEventListener('beforeunload', handleBeforeUnload, {capture: true});
-            
-            // Asegurar que el usuario ha interactuado con la página
-            document.addEventListener('click', function() {
-                window.__user_has_interacted = true;
-            }, {once: true});
-            
-            console.log('Advertencia de cierre/recarga activada');
         })();
     </script>
     """
@@ -819,15 +812,20 @@ def inject_close_warning():
 
 def remove_close_warning():
     """
-    Remueve la advertencia de cierre cuando el proceso ha terminado.
+    Remueve el listener `beforeunload` registrado en window.top cuando
+    el proceso termina o se cancela. Idempotente.
     """
     remove_script = """
     <script>
         (function() {
-            if (window.__streamlit_unload_listener) {
-                window.removeEventListener('beforeunload', window.__streamlit_unload_listener, {capture: true});
-                window.__streamlit_unload_listener = null;
-                console.log('Advertencia de cierre/recarga removida');
+            try {
+                var topWin = window.top || window.parent || window;
+                if (topWin.__tt_keypoints_unload_listener) {
+                    topWin.removeEventListener('beforeunload', topWin.__tt_keypoints_unload_listener);
+                    topWin.__tt_keypoints_unload_listener = null;
+                }
+            } catch (err) {
+                console.warn('No se pudo remover advertencia de cierre:', err);
             }
         })();
     </script>

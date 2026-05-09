@@ -25,11 +25,22 @@ def send_verification_email(to_email, code):
     except:
         sender_password = os.environ.get("GMAIL_APP_PASSWORD", "").strip()
     
-    if not sender_email:
-        return False, "Falta configurar el correo remitente (GMAIL_SENDER_EMAIL)."
-
-    if not sender_password:
-        return False, "Falta la contraseña de aplicación (GMAIL_APP_PASSWORD)."
+    # Fallback de desarrollo: si las credenciales SMTP no estan configuradas,
+    # imprimir el OTP en consola para no bloquear el registro durante setup
+    # inicial. En produccion deberian estar siempre presentes en .env.
+    placeholders = {"your_email@gmail.com", "your_app_password", ""}
+    if sender_email in placeholders or sender_password in placeholders:
+        print("")
+        print("=" * 60)
+        print("[DEV-OTP] SMTP no configurado. Codigo de verificacion:")
+        print(f"[DEV-OTP]   destinatario : {to_email}")
+        print(f"[DEV-OTP]   codigo OTP   : {code}")
+        print("[DEV-OTP] Ingresalo en la UI para completar el registro.")
+        print("[DEV-OTP] Para enviar mails reales, configura")
+        print("[DEV-OTP]   GMAIL_SENDER_EMAIL y GMAIL_APP_PASSWORD en .env")
+        print("=" * 60)
+        print("")
+        return True, "OTP impreso en consola (modo dev sin SMTP)."
 
     try:
         # Create message
