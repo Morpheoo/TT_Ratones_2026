@@ -85,10 +85,19 @@ def init_db():
         with open(schema_path, "r", encoding="utf-8") as f:
             sql_script = f.read()
 
+        def _has_executable_sql(statement):
+            """True si el statement tiene SQL real, no solo comentarios/whitespace."""
+            for raw_line in statement.splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("--"):
+                    continue
+                return True
+            return False
+
         with engine.connect() as conn:
             statements = sql_script.split(";")
             for statement in statements:
-                if statement.strip():
+                if _has_executable_sql(statement):
                     conn.execute(text(statement))
             conn.commit()
         _db_logger.info("Tablas inicializadas o verificadas.")
