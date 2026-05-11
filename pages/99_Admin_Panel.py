@@ -186,7 +186,12 @@ with cols[0]:
     st.markdown("##### Editar Privilegios")
     u_sel = st.selectbox("Seleccionar Usuario", df_users['username'])
     new_r = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"])
-    if st.button("Actualizar Rol", use_container_width=True):
+    
+    is_self_demote = (u_sel == st.session_state.get('user', '')) and (new_r != "admin")
+    if is_self_demote:
+        st.warning("⚠️ No puedes revocar tus propios privilegios.")
+        
+    if st.button("Actualizar Rol", use_container_width=True, disabled=is_self_demote):
         with engine.connect() as conn:
             conn.execute(text("UPDATE users SET role = :r WHERE username = :u"), {"r": new_r, "u": u_sel})
             conn.commit()
@@ -198,7 +203,12 @@ with cols[1]:
     u_mod = st.selectbox("Usuario a modificar", df_users['username'], key="u_mod")
     current_s = df_users[df_users['username'] == u_mod]['is_active'].values[0]
     btn_label = "SUSPENDER CUENTA" if current_s else "REACTIVAR CUENTA"
-    if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True):
+    
+    is_self_suspend = current_s and (u_mod == st.session_state.get('user', ''))
+    if is_self_suspend:
+        st.warning("⚠️ No puedes suspender tu propia cuenta.")
+        
+    if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True, disabled=is_self_suspend):
         with engine.connect() as conn:
             conn.execute(text("UPDATE users SET is_active = :s WHERE username = :u"), {"s": not current_s, "u": u_mod})
             conn.commit()
