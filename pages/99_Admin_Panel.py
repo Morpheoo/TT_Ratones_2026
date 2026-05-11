@@ -11,7 +11,7 @@ if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 
 from src.session_utils import load_session, save_session
-from src.auth import check_admin_access
+from src.auth import check_admin_access, register_user
 from src.db.connection import get_db_engine
 from src.ui_components import run_page_splash
 import importlib
@@ -119,7 +119,54 @@ def delete_admin_experiments(engine, experiment_ids):
 
 # ================= 3. USER MANAGEMENT =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Directorio de Usuarios")
+st.markdown("#### Gestión de Usuarios")
+
+# --- REGISTRO DE PERSONAL POR ADMINISTRADOR ---
+with st.expander("➕ REGISTRAR NUEVO PERSONAL (ADMIN)"):
+    st.info("Este formulario permite dar de alta a investigadores o estudiantes sin que tengan que esperar el correo de verificación.")
+    with st.form("admin_register_form", clear_on_submit=True):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            new_email = st.text_input("Correo Institucional (@ipn.mx / @alumno.ipn.mx)")
+            new_name = st.text_input("Nombre Completo")
+            new_role = st.selectbox("Rol Institucional", ["investigador", "estudiante", "admin"])
+        with col_b:
+            new_pwd = st.text_input("Contraseña Temporal", type="password", help="Mínimo 8 caracteres, 1 mayúscula, 1 número.")
+            if new_role == "estudiante":
+                new_id = st.text_input("Número de Boleta")
+                new_extra1 = st.text_input("Escuela (Ej: ESCOM)")
+                new_extra2 = st.text_input("Carrera")
+            else:
+                new_id = st.text_input("Número de Empleado")
+                new_extra1 = st.text_input("Centro / Dependencia")
+                new_extra2 = st.text_input("Área / Departamento")
+        
+        if st.form_submit_button("CREAR CUENTA VERIFICADA", use_container_width=True):
+            if not new_email or not new_pwd:
+                st.error("Email y contraseña son obligatorios.")
+            else:
+                success, msg = register_user(
+                    email=new_email,
+                    password=new_pwd,
+                    role=new_role,
+                    full_name=new_name,
+                    boleta=new_id if new_role == "estudiante" else None,
+                    num_empleado=new_id if new_role != "estudiante" else None,
+                    escuela=new_extra1 if new_role == "estudiante" else None,
+                    carrera=new_extra2 if new_role == "estudiante" else None,
+                    centro=new_extra1 if new_role != "estudiante" else None,
+                    area=new_extra2 if new_role != "estudiante" else None,
+                    accepted_terms=True,
+                    force_verified=True
+                )
+                if success:
+                    st.success(f"✅ Usuario {new_email} creado exitosamente como {new_role}.")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Error: {msg}")
+
+st.markdown("##### Directorio de Usuarios")
+
 
 # Data fetch
 with engine.connect() as conn:
