@@ -187,11 +187,18 @@ with cols[0]:
     u_sel = st.selectbox("Seleccionar Usuario", df_users['username'])
     new_r = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"])
     
+    u_sel_role = df_users[df_users['username'] == u_sel]['role'].values[0]
     is_self_demote = (u_sel == st.session_state.get('user', '')) and (new_r != "admin")
+    is_other_admin_demote = (u_sel != st.session_state.get('user', '')) and (u_sel_role == "admin")
+    
+    disable_demote = is_self_demote or is_other_admin_demote
+    
     if is_self_demote:
         st.warning("⚠️ No puedes revocar tus propios privilegios.")
+    elif is_other_admin_demote:
+        st.warning("🛡️ Acción denegada: No puedes revocar privilegios de otro administrador.")
         
-    if st.button("Actualizar Rol", use_container_width=True, disabled=is_self_demote):
+    if st.button("Actualizar Rol", use_container_width=True, disabled=disable_demote):
         with engine.connect() as conn:
             conn.execute(text("UPDATE users SET role = :r WHERE username = :u"), {"r": new_r, "u": u_sel})
             conn.commit()
@@ -202,13 +209,20 @@ with cols[1]:
     st.markdown("##### Gestión de Estado")
     u_mod = st.selectbox("Usuario a modificar", df_users['username'], key="u_mod")
     current_s = df_users[df_users['username'] == u_mod]['is_active'].values[0]
+    u_mod_role = df_users[df_users['username'] == u_mod]['role'].values[0]
     btn_label = "SUSPENDER CUENTA" if current_s else "REACTIVAR CUENTA"
     
     is_self_suspend = current_s and (u_mod == st.session_state.get('user', ''))
+    is_other_admin_suspend = current_s and (u_mod != st.session_state.get('user', '')) and (u_mod_role == "admin")
+    
+    disable_suspend = is_self_suspend or is_other_admin_suspend
+    
     if is_self_suspend:
         st.warning("⚠️ No puedes suspender tu propia cuenta.")
+    elif is_other_admin_suspend:
+        st.warning("🛡️ Acción denegada: No puedes suspender a otro administrador.")
         
-    if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True, disabled=is_self_suspend):
+    if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True, disabled=disable_suspend):
         with engine.connect() as conn:
             conn.execute(text("UPDATE users SET is_active = :s WHERE username = :u"), {"s": not current_s, "u": u_mod})
             conn.commit()
