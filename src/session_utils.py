@@ -21,6 +21,10 @@ def save_session():
         # y los handlers caen en defaults ("Control", fecha de hoy, etc.).
         "treatment", "ingesta_fecha_actual", "ingesta_responsable_actual",
         "ingesta_video_source",
+        # Eleccion de proyecto SimBA activo (productivo o sandbox). Lo lee
+        # sandbox_utils.get_active_simba_project_name() y lo escriben las
+        # paginas Keypoints/Zonas/Analisis Final.
+        "simba_project_choice",
     ]
     
     data = {}

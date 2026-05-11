@@ -448,7 +448,15 @@ def main() -> int:
 
         # Seleccionar proyecto y modelos según backend
         if args.backend == "yolo":
-            project_root = SIMBA_YOLO_BASE.resolve()
+            # Si el usuario paso --project-root explicito (distinto del
+            # default legacy DLC), respetarlo (caso sandbox). Los modelos
+            # YOLO siempre vienen del productivo (referenciados en el
+            # project_config.ini del sandbox).
+            explicit_root = Path(args.project_root).expanduser().resolve()
+            if explicit_root != SIMBA_BASE.resolve():
+                project_root = explicit_root
+            else:
+                project_root = SIMBA_YOLO_BASE.resolve()
             grooming_model = GROOMING_MODEL_YOLO
             thigmotaxis_model = THIGMOTAXIS_MODEL_YOLO
         else:
