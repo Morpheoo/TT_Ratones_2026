@@ -45,15 +45,6 @@ Docker version ...
 Docker Compose version ...
 ```
 
-Para Docker Desktop, ademas comprueba que el daemon este abierto:
-
-```bash
-docker info
-```
-
-Si `docker info` falla pero `docker --version` funciona, normalmente solo
-falta abrir Docker Desktop y esperar a que diga "Docker Desktop is running".
-
 Si `py` o `py -0p` fallan, reinstala Python desde python.org y activa
 **Install launcher for all users (recommended)**. `install.bat` usa ese
 launcher para crear `venv_310` y `venv_311` con la version correcta.
@@ -84,15 +75,19 @@ cd TT_Ratones_2026
 
 ---
 
-## 3. Copiar modelos pesados desde el USB
+## 3. Copiar modelos pesados desde USB o Drive
 
 Los modelos `.sav`, `.pt`, `.keras` y `.pkl` no estan en GitHub porque
-pesan demasiado (3.3 GB total). Te los pasamos en USB.
+pesan demasiado (3.3 GB total). Te los pasamos en USB o por Drive:
+
+https://drive.google.com/drive/folders/1sPjxDDGLyQMa2dTCKbJkdClXsVzdvfDV?usp=sharing
 
 **Procedimiento**:
 
-1. Conecta el USB que contiene la carpeta `TT_Ratones_2026_modelos/`.
-2. Abre el USB y abre el archivo `LEEME_PRIMERO.txt` para verificacion
+1. Conecta el USB que contiene la carpeta `TT_Ratones_2026_modelos/`, o
+   descarga esa carpeta desde el link de Drive si no tienes acceso a la
+   memoria.
+2. Abre la carpeta y abre el archivo `LEEME_PRIMERO.txt` para verificacion
    de tamanos byte-a-byte.
 3. Copia **todo el contenido** de `TT_Ratones_2026_modelos/` sobre la
    raiz del proyecto (la estructura del USB es espejo del proyecto):
