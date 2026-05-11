@@ -12,11 +12,9 @@ def send_verification_email(to_email, code):
     # Configuration
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    smtp_server = "smtp.gmail.com"
-    smtp_port = 587
     
     from dotenv import load_dotenv
-    load_dotenv(override=True)
+    load_dotenv(override=False)
     sender_email = os.environ.get("GMAIL_SENDER_EMAIL", "").strip()
     
     # We try to get the password from Streamlit secrets or env var
@@ -28,7 +26,13 @@ def send_verification_email(to_email, code):
     # Fallback de desarrollo: si las credenciales SMTP no estan configuradas,
     # imprimir el OTP en consola para no bloquear el registro durante setup
     # inicial. En produccion deberian estar siempre presentes en .env.
-    placeholders = {"your_email@gmail.com", "your_app_password", ""}
+    placeholders = {
+        "",
+        "your_email@gmail.com",
+        "tu_email@gmail.com",
+        "your_app_password",
+        "tu_app_password",
+    }
     if sender_email in placeholders or sender_password in placeholders:
         print("")
         print("=" * 60)

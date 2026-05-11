@@ -18,6 +18,46 @@ deteccion automatica de Grooming y Thigmotaxis en una laptop nueva.
 
 **Importante al instalar Python**: marca la casilla **"Add Python to PATH"**.
 
+### Comprobar que ya estan instalados
+
+Abre **CMD** o **PowerShell** y corre estos comandos:
+
+```bash
+git --version
+py --version
+py -0p
+py -3.10 --version
+py -3.11 --version
+docker --version
+docker compose version
+```
+
+Resultado esperado:
+
+```text
+git version ...
+Python Launcher ...
+-V:3.11 ...
+-V:3.10 ...
+Python 3.10.x
+Python 3.11.x
+Docker version ...
+Docker Compose version ...
+```
+
+Para Docker Desktop, ademas comprueba que el daemon este abierto:
+
+```bash
+docker info
+```
+
+Si `docker info` falla pero `docker --version` funciona, normalmente solo
+falta abrir Docker Desktop y esperar a que diga "Docker Desktop is running".
+
+Si `py` o `py -0p` fallan, reinstala Python desde python.org y activa
+**Install launcher for all users (recommended)**. `install.bat` usa ese
+launcher para crear `venv_310` y `venv_311` con la version correcta.
+
 > ¿Por que dos Pythons? El proyecto usa SimBA + TensorFlow/Keras 2 para LSTM (3.10) y
 > YOLO Pose + Streamlit (3.11). Cada uno con sus dependencias en venvs
 > separados, controlados automaticamente por el `install.bat`.
@@ -67,21 +107,39 @@ pesan demasiado (3.3 GB total). Te los pasamos en USB.
    xcopy /E /I /Y "D:\TT_Ratones_2026_modelos\*" .
    ```
 
-4. Despues de copiar, debe haber:
+4. Despues de copiar, debe haber estos modelos exactamente en estas rutas:
 
-   | Archivo | Tamano | Carpeta |
-   |---|---:|---|
-   | `yolo_tracker.pt` | 5.5 MB | raiz |
-   | `best.pt` (YOLO Pose v4) | 20 MB | `runs/pose/yolo11s_pose_raton_v4/weights/` |
-   | `grooming_lstm.keras` + `scaler.pkl` + `metadata.json` | 2.6 MB | `data/models/lstm_grooming_yolo/` |
-   | `Grooming.sav` | 282 MB | `data/simba_projects/grooming_thigmotaxis_yolo/models/generated_models/` |
-   | `Thigmotaxis.sav` | 300 MB | idem |
-   | `bsoid_artifacts_all26_fine.pkl` (opcional) | 2.72 GB | `data/bsoid_models/` |
+   | Tipo | Archivo | Ruta exacta dentro del proyecto |
+   |---|---|---|
+   | YOLO tracker | `yolo_tracker.pt` | `yolo_tracker.pt` |
+   | YOLO pose | `best.pt` | `runs/pose/yolo11s_pose_raton_v4/weights/best.pt` |
+   | LSTM grooming | `grooming_lstm.keras` | `data/models/lstm_grooming_yolo/grooming_lstm.keras` |
+   | LSTM scaler | `scaler.pkl` | `data/models/lstm_grooming_yolo/scaler.pkl` |
+   | LSTM metadata | `metadata.json` | `data/models/lstm_grooming_yolo/metadata.json` |
+   | SimBA Random Forest | `Grooming.sav` | `data/simba_projects/grooming_thigmotaxis_yolo/models/generated_models/Grooming.sav` |
+   | SimBA Random Forest | `Thigmotaxis.sav` | `data/simba_projects/grooming_thigmotaxis_yolo/models/generated_models/Thigmotaxis.sav` |
+   | B-SOiD opcional | `bsoid_artifacts_all26_fine.pkl` | `data/bsoid_models/bsoid_artifacts_all26_fine.pkl` |
+
+   Nota: la extension correcta de los modelos SimBA es `.sav`, no `.sab`.
 
    El archivo B-SOiD es opcional: solo se usa si activas el modo
    `--grooming-source ensemble_conditional` (mejora F1 de 0.45 a 0.60
    segun validacion LOO blind). Si solo vas a usar el modo `rescue`
    por defecto, podes saltarte ese archivo.
+
+   Para verificar los modelos despues de copiar:
+
+   ```bash
+   venv_311\Scripts\python.exe validar_instalacion.py
+   ```
+
+### Sobre `docker-compose.yml`
+
+No se manda aparte: `docker-compose.yml` ya viene dentro del repositorio
+cuando haces `git clone`. El usuario solo necesita clonar el repo completo.
+
+Ese archivo define los contenedores de PostgreSQL y pgAdmin. `launcher.bat`
+y `start_services.py` lo usan para levantar la base de datos local.
 
 ---
 
@@ -100,10 +158,12 @@ El script hace todo automaticamente:
 3. Crea `venv_310/` (SimBA + LSTM TF/Keras 2, sin GPU).
 4. Crea `venv_311/` (YOLO + B-SOiD + Streamlit, con GPU).
 5. Instala dependencias de cada venv (`requirements_venv310.txt` y `requirements_venv311.txt`).
-6. Verifica Docker Desktop.
-7. Sincroniza los paths absolutos del `project_config.ini` de SimBA al
+6. Configura `.env` con `setup_colaborador_env.py`.
+7. Verifica Docker Desktop.
+8. Sincroniza los paths absolutos del `project_config.ini` de SimBA al
    path de tu equipo (ver seccion 11 si esto falla).
-8. Corre `validar_instalacion.py` que chequea modelos, imports y CUDA.
+9. Corre `validar_instalacion.py` que chequea modelos, imports, CUDA y
+   configuracion de `.env`.
 
 **Tiempo total: ~30-45 min**, dependiendo de tu conexion.
 La parte mas lenta es la descarga de PyTorch + ultralytics (~3-5 GB de wheels).
@@ -121,7 +181,31 @@ Si todo sale bien, el reporte final dice:
 y el envío de mails. Si lo saltás, no vas a poder loguear ni registrar
 usuarios.
 
-### 5.1 Copiar el template
+### 5.1 Configurar `.env` con el asistente
+
+Despues de correr `install.bat`, el instalador ejecuta este asistente
+automaticamente:
+
+```bash
+venv_311\Scripts\python.exe setup_colaborador_env.py
+```
+
+El asistente:
+
+1. Crea `.env` desde `.env.example` si no existe.
+2. Pide el correo IPN del admin inicial.
+3. Genera o pide una contrasena temporal para ese admin.
+4. Configura pgAdmin local.
+5. Te pregunta si quieres configurar Gmail real; si dices que no, deja
+   el sistema en modo DEV y los OTP salen en la consola de `launcher.bat`.
+
+Para rehacer la configuracion despues:
+
+```bash
+venv_311\Scripts\python.exe setup_colaborador_env.py --force
+```
+
+### 5.1 Alternativa manual: copiar el template
 
 ```bash
 copy .env.example .env
@@ -172,6 +256,34 @@ Para generar la contraseña de aplicación:
 **Si dejás los placeholders de SMTP**: el sistema entra en modo dev y
 imprime el OTP en la consola del `launcher.bat` cuando alguien se
 registra. Útil para probar localmente sin Gmail.
+
+### 5.2.1 Checklist anti-BD vacía
+
+Antes del primer arranque en una laptop nueva, revisa estos 3 puntos:
+
+1. `.env` existe y salió de `copy .env.example .env`.
+2. `INITIAL_ADMIN_EMAIL` y `INITIAL_ADMIN_PASSWORD` ya NO tienen valores
+   de ejemplo. Ese admin se crea automáticamente si la BD está vacía.
+3. Gmail es opcional para instalar. Si `GMAIL_SENDER_EMAIL` y
+   `GMAIL_APP_PASSWORD` siguen en placeholder, el OTP se imprime en la
+   ventana de `launcher.bat` en modo DEV.
+
+Comando recomendado para validar esto:
+
+```bash
+venv_311\Scripts\python.exe validar_instalacion.py
+```
+
+En la sección "Archivos de configuracion" debes ver:
+
+```text
+[OK] .env tiene variables de Postgres
+[OK] admin inicial configurado para primer arranque
+```
+
+Si aparece la advertencia de SMTP, no bloquea la instalación; solo
+significa que los registros nuevos deben tomar el OTP desde consola hasta
+configurar la contraseña de aplicación de Gmail.
 
 ### 5.3 Levantar Docker
 

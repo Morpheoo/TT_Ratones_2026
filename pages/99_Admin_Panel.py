@@ -78,6 +78,13 @@ st.markdown("""
 st.divider()
 
 engine = get_db_engine()
+if engine is None:
+    st.error(
+        "No hay conexion a la base de datos. Abre Docker Desktop y ejecuta "
+        "`launcher.bat` o `venv_311\\Scripts\\python.exe start_services.py` "
+        "para inicializar Postgres, crear tablas y sembrar el admin inicial."
+    )
+    st.stop()
 
 import datetime as _dt
 
