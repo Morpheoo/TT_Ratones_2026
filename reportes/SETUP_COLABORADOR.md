@@ -68,6 +68,10 @@ launcher para crear `venv_310` y `venv_311` con la version correcta.
 
 ## 2. Clonar el repositorio
 
+Si no tienes acceso a la memoria USB, descarga los modelos desde Drive:
+
+https://drive.google.com/drive/folders/1sPjxDDGLyQMa2dTCKbJkdClXsVzdvfDV?usp=sharing
+
 ```bash
 git clone https://github.com/Morpheoo/TT_Ratones_2026.git
 cd TT_Ratones_2026
@@ -75,19 +79,15 @@ cd TT_Ratones_2026
 
 ---
 
-## 3. Copiar modelos pesados desde USB o Drive
+## 3. Copiar modelos pesados desde el USB
 
 Los modelos `.sav`, `.pt`, `.keras` y `.pkl` no estan en GitHub porque
-pesan demasiado (3.3 GB total). Te los pasamos en USB o por Drive:
-
-https://drive.google.com/drive/folders/1sPjxDDGLyQMa2dTCKbJkdClXsVzdvfDV?usp=sharing
+pesan demasiado (3.3 GB total). Te los pasamos en USB.
 
 **Procedimiento**:
 
-1. Conecta el USB que contiene la carpeta `TT_Ratones_2026_modelos/`, o
-   descarga esa carpeta desde el link de Drive si no tienes acceso a la
-   memoria.
-2. Abre la carpeta y abre el archivo `LEEME_PRIMERO.txt` para verificacion
+1. Conecta el USB que contiene la carpeta `TT_Ratones_2026_modelos/`.
+2. Abre el USB y abre el archivo `LEEME_PRIMERO.txt` para verificacion
    de tamanos byte-a-byte.
 3. Copia **todo el contenido** de `TT_Ratones_2026_modelos/` sobre la
    raiz del proyecto (la estructura del USB es espejo del proyecto):
@@ -194,11 +194,11 @@ El asistente:
 5. Te pregunta si quieres configurar Gmail real; si dices que no, deja
    el sistema en modo DEV y los OTP salen en la consola de `launcher.bat`.
 
-Para rehacer la configuracion despues:
-
 ```bash
 venv_311\Scripts\python.exe setup_colaborador_env.py --force
 ```
+
+> **TIP COLABORADOR**: Si prefieres, puedes pedirle a un compañero que ya tenga todo configurado que te pase su archivo `.env` directamente para ahorrarte este paso. Solo asegúrate de cambiar `INITIAL_ADMIN_EMAIL` por el tuyo si quieres ser el admin de tu base de datos local.
 
 ### 5.1 Alternativa manual: copiar el template
 
@@ -433,6 +433,16 @@ py -3.11 src\scripts\fix_simba_paths.py
 Es idempotente: si los paths ya estan bien, sale con
 `[OK] paths ya estan sincronizados`. Si querer ver que cambiaria sin
 escribir, agregale `--dry-run`.
+
+### Me equivoqué en el correo o contraseña del Admin Inicial
+Si ya corriste la app y quieres corregir el admin del `.env`:
+1. Edita el `.env` con los datos correctos.
+2. Ejecuta: `docker compose down -v` (Borra la base de datos).
+3. Ejecuta: `launcher.bat` (Vuelve a crear la base de datos limpia con el admin nuevo).
+
+### No me llega el correo de registro (OTP)
+Si no configuraste Gmail real en el `.env`, estás en **Modo DEV**. 
+Busca el código de 6 dígitos en la **consola negra** de `launcher.bat`. Aparecerá un mensaje diciendo: `[DEV MODE] OTP for user@ipn.mx: 123456`.
 
 ---
 

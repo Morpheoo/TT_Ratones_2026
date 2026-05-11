@@ -213,6 +213,13 @@ def main() -> int:
     print()
     print("Siguiente paso recomendado:")
     print("  venv_311\\Scripts\\python.exe validar_instalacion.py")
+    
+    print("\n--- ¿TE EQUIVOCASTE EN EL CORREO O PASSWORD? ---")
+    print("Si ya iniciaste Docker y quieres corregir el Admin Inicial:")
+    print("1. Edita el archivo .env con los datos correctos.")
+    print("2. Ejecuta: docker compose down -v")
+    print("3. Ejecuta: docker compose up -d")
+    print("Esto borrara la base de datos local y la volvera a crear con el admin correcto.")
     return 0
 
 
