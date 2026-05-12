@@ -20,7 +20,7 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import use_theme, render_topbar, inject_sidebar_profile
 from simba_roi_bridge import sync_streamlit_rois_to_simba
-from config import SIMBA_PROJECT_DIR
+from sandbox_utils import get_active_simba_project_dir
 
 load_session()
 colors = use_theme()
@@ -231,21 +231,51 @@ def _sync_wall_rois_to_simba(zones):
             "message": "No se encontro un video activo/analizado para asociar las ROIs dentro de SimBA.",
         }
 
+    video_stem = Path(simba_video_path).stem
+    # Proyecto SimBA activo: productivo o sandbox segun el selector
+    # de la pagina Keypoints (persistido en st.session_state).
+    active_project_dir = get_active_simba_project_dir(
+        Path("data/simba_projects").resolve()
+    )
     roi_sync_result = sync_streamlit_rois_to_simba(
-        project_folder=str(Path(SIMBA_PROJECT_DIR).resolve()),
-        video_name=Path(simba_video_path).stem,
+        project_folder=str(active_project_dir.resolve()),
+        video_name=video_stem,
         zonas_list=wall_zones,
         video_path=simba_video_path,
         include_model_aliases=True,
         include_user_zones=False,
     )
-    imported_count = len(roi_sync_result.get("canonical_roi_names", []))
+
+    # Verificacion post-write: confirmar en disco que el h5 del proyecto
+    # SimBA activo (productivo o sandbox) contiene las 6 paredes para
+    # este video. Sin esto la UI podria reportar exito aunque la
+    # escritura cayera en otro path o fallara silenciosamente.
+    roi_path = roi_sync_result.get("roi_path")
+    persisted_count = -1
+    persist_error = None
+    if roi_path and Path(roi_path).exists():
+        try:
+            with pd.HDFStore(roi_path, mode="r") as store:
+                df = store.get("/rectangles")
+            persisted_count = int((df["Video"] == video_stem).sum())
+        except Exception as error:
+            persist_error = str(error)
+    else:
+        persist_error = f"No se encontro el archivo h5 esperado: {roi_path}"
+
+    if persisted_count == 6:
+        return {
+            "ok": True,
+            "message": f"Se importaron correctamente las 6 ROIs de paredes a SimBA para `{video_stem}`.",
+            "detail": roi_sync_result,
+        }
     return {
-        "ok": imported_count == 6,
+        "ok": False,
         "message": (
-            f"Se importaron correctamente las 6 ROIs de paredes a SimBA para `{Path(simba_video_path).stem}`."
-            if imported_count == 6
-            else f"SimBA recibio {imported_count}/6 paredes para `{Path(simba_video_path).stem}`."
+            f"La sincronizacion reporto exito pero el h5 del proyecto activo tiene "
+            f"{persisted_count if persisted_count >= 0 else '?'} de 6 paredes para `{video_stem}`. "
+            f"Path verificado: {roi_path}."
+            + (f" Error de lectura: {persist_error}" if persist_error else "")
         ),
         "detail": roi_sync_result,
     }

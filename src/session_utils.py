@@ -8,14 +8,23 @@ def save_session():
     """Guarda las variables críticas del state en un archivo local."""
     # Lista de variables a persistir
     keys_to_save = [
-        "logged_in", "user", "role", "user_name", 
-        "ruta_video_actual", "inicio_recorte", "fin_recorte", 
+        "logged_in", "user", "role", "user_name",
+        "ruta_video_actual", "inicio_recorte", "fin_recorte",
         "dlc_device_opt", "dlc_batch_size", "theme_mode", "zonas_configuradas",
         "video_en_edicion", "id_raton_actual", "ultimo_video_analizado",
         "ultimo_pose_file", "ultimo_overlay_path", "ultimo_pose_filtrado",
         "ultimo_bbox_video", "ultimo_feature_file", "ultimo_multimodal_video",
         "ultimo_trajectory_file", "ultimo_grooming_timelog", "ultimo_thigmotaxis_timelog",
-        "analysis_db_notice"
+        "analysis_db_notice",
+        # Metadata del experimento capturada en Ingesta. Sin estas keys el
+        # tratamiento/fecha/responsable se pierden al navegar entre paginas
+        # y los handlers caen en defaults ("Control", fecha de hoy, etc.).
+        "treatment", "ingesta_fecha_actual", "ingesta_responsable_actual",
+        "ingesta_video_source",
+        # Eleccion de proyecto SimBA activo (productivo o sandbox). Lo lee
+        # sandbox_utils.get_active_simba_project_name() y lo escriben las
+        # paginas Keypoints/Zonas/Analisis Final.
+        "simba_project_choice",
     ]
     
     data = {}

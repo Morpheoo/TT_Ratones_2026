@@ -293,7 +293,7 @@ def check_admin_access(role: str) -> bool:
 def register_user(email, password, role="investigador", full_name=None, 
                  boleta=None, carrera=None, escuela=None,
                  num_empleado=None, area=None, centro=None,
-                 accepted_terms=False):
+                 accepted_terms=False, force_verified=False):
     """Register a new user in the PostgreSQL database with full profile data and input validation.
     
     Soporta dos tipos de perfil:
@@ -412,11 +412,10 @@ def register_user(email, password, role="investigador", full_name=None,
                     return False, "El usuario ya existe. Si eres tú, intenta Iniciar Sesión para verificar tu cuenta."
 
                 # 3. Auto-promocion a admin si el email esta en la lista
-                #    predefinida. Estos usuarios saltean OTP y quedan
-                #    is_verified=TRUE directamente.
+                #    predefinida O si el admin lo esta forzando.
                 auto_admin = is_admin_email(email)
-                if auto_admin:
-                    effective_role = "admin"
+                if auto_admin or force_verified:
+                    effective_role = "admin" if auto_admin else role
                     is_verified = True
                     otp_code = None
                 else:
@@ -457,8 +456,8 @@ def register_user(email, password, role="investigador", full_name=None,
                     "accepted": accepted_terms
                 })
 
-                # 5. Enviar correo OTP (saltado para admins predefinidos)
-                if not auto_admin:
+                # 5. Enviar correo OTP (saltado para admins predefinidos o forzados)
+                if not auto_admin and not force_verified:
                     sent, msg = send_verification_email(email, otp_code)
                     if not sent:
                         log_security_event(

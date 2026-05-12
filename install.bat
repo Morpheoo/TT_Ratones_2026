@@ -4,16 +4,27 @@ title Instalador TT Ratones 2026
 
 echo ============================================================
 echo   INSTALADOR TT_Ratones_2026
-echo   Crea venv_310, venv_311, instala dependencias y valida.
+echo   Crea venv_310, venv_311, sincroniza paths SimBA y valida.
 echo ============================================================
 echo.
 
 cd /d "%~dp0"
 
 REM ============================================================
-REM 1/8 - Verificar Python 3.10 y 3.11
+REM 1/10 - Verificar Python 3.10 y 3.11
 REM ============================================================
-echo [1/8] Verificando Python 3.10 y 3.11...
+echo [1/10] Verificando Python 3.10 y 3.11...
+py --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] No se encontro Python Launcher ^(comando py^).
+    echo         Reinstala Python 3.10 y 3.11 desde python.org y marca:
+    echo           - Add Python to PATH
+    echo           - Install launcher for all users ^(recommended^)
+    echo         Verifica despues con:
+    echo           py -0p
+    pause
+    exit /b 1
+)
 py -3.10 --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] No se encontro Python 3.10.
@@ -34,10 +45,10 @@ for /f "tokens=*" %%v in ('py -3.10 --version') do echo   [OK] %%v
 for /f "tokens=*" %%v in ('py -3.11 --version') do echo   [OK] %%v
 
 REM ============================================================
-REM 2/8 - Detectar GPU
+REM 2/10 - Detectar GPU
 REM ============================================================
 echo.
-echo [2/8] Detectando GPU...
+echo [2/10] Detectando GPU...
 set "GPU_TYPE=cpu"
 set "TORCH_INDEX=https://download.pytorch.org/whl/cpu"
 set "TORCH_PIN=torch==2.7.1+cpu torchvision==0.22.1+cpu"
@@ -77,10 +88,10 @@ if %errorlevel% equ 0 (
 )
 
 REM ============================================================
-REM 3/8 - Crear venv_310
+REM 3/10 - Crear venv_310
 REM ============================================================
 echo.
-echo [3/8] Creando venv_310 ^(SimBA + DeepLabCut + LSTM^)...
+echo [3/10] Creando venv_310 ^(SimBA + DeepLabCut + LSTM^)...
 if exist venv_310\Scripts\python.exe (
     echo   [INFO] venv_310 ya existe, reutilizando.
 ) else (
@@ -94,10 +105,10 @@ if exist venv_310\Scripts\python.exe (
 )
 
 REM ============================================================
-REM 4/8 - Crear venv_311
+REM 4/10 - Crear venv_311
 REM ============================================================
 echo.
-echo [4/8] Creando venv_311 ^(YOLO + B-SOiD + Streamlit^)...
+echo [4/10] Creando venv_311 ^(YOLO + B-SOiD + Streamlit^)...
 if exist venv_311\Scripts\python.exe (
     echo   [INFO] venv_311 ya existe, reutilizando.
 ) else (
@@ -111,10 +122,10 @@ if exist venv_311\Scripts\python.exe (
 )
 
 REM ============================================================
-REM 5/8 - Instalar venv_310 (~5-10 min)
+REM 5/10 - Instalar venv_310 (~5-10 min)
 REM ============================================================
 echo.
-echo [5/8] Instalando dependencias venv_310 ^(~5-10 min^)...
+echo [5/10] Instalando dependencias venv_310 ^(~5-10 min^)...
 echo        - DeepLabCut, TensorFlow 2.15, Keras 2, SimBA
 echo        - PyTorch CPU-only ^(no se usa GPU en este venv^)
 echo.
@@ -136,10 +147,10 @@ call venv_310\Scripts\deactivate.bat
 echo   [OK] venv_310 listo.
 
 REM ============================================================
-REM 6/8 - Instalar venv_311 (~10-15 min, descarga PyTorch grande)
+REM 6/10 - Instalar venv_311 (~10-15 min, descarga PyTorch grande)
 REM ============================================================
 echo.
-echo [6/8] Instalando dependencias venv_311 ^(~10-15 min^)...
+echo [6/10] Instalando dependencias venv_311 ^(~10-15 min^)...
 echo        - PyTorch !TORCH_PIN!
 echo        - YOLO ^(ultralytics^), Streamlit, B-SOiD deps
 echo.
@@ -169,10 +180,26 @@ call venv_311\Scripts\deactivate.bat
 echo   [OK] venv_311 listo.
 
 REM ============================================================
-REM 7/8 - Verificar Docker Desktop
+REM 7/10 - Configurar .env de colaborador
 REM ============================================================
 echo.
-echo [7/8] Verificando Docker Desktop...
+echo [7/10] Configurando .env ^(BD, admin inicial y correo OTP^)...
+call venv_311\Scripts\activate.bat
+python setup_colaborador_env.py
+if %errorlevel% neq 0 (
+    call venv_311\Scripts\deactivate.bat
+    echo   [ERROR] No se pudo configurar .env.
+    pause
+    exit /b 1
+)
+call venv_311\Scripts\deactivate.bat
+echo   [OK] .env listo.
+
+REM ============================================================
+REM 8/10 - Verificar Docker Desktop
+REM ============================================================
+echo.
+echo [8/10] Verificando Docker Desktop...
 docker info >nul 2>&1
 if %errorlevel% neq 0 (
     echo   [WARN] Docker Desktop no esta corriendo o no esta instalado.
@@ -185,10 +212,24 @@ if %errorlevel% neq 0 (
 )
 
 REM ============================================================
-REM 8/8 - Validacion final
+REM 9/10 - Sincronizar paths absolutos en project_config.ini de SimBA
 REM ============================================================
 echo.
-echo [8/8] Validando instalacion completa...
+echo [9/10] Sincronizando paths absolutos en SimBA project_config.ini...
+echo        ^(SimBA guarda paths absolutos; este paso los reescribe a este equipo.^)
+py -3.11 src\scripts\fix_simba_paths.py
+if %errorlevel% neq 0 (
+    echo   [WARN] fix_simba_paths.py reporto un error.
+    echo          Si la extraccion de features falla con
+    echo          "SIMBA NOT A DIRECTORY ERROR", correr a mano:
+    echo            py -3.11 src\scripts\fix_simba_paths.py
+)
+
+REM ============================================================
+REM 10/10 - Validacion final
+REM ============================================================
+echo.
+echo [10/10] Validando instalacion completa...
 echo.
 call venv_311\Scripts\activate.bat
 python validar_instalacion.py

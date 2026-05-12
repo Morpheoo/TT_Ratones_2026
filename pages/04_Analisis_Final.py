@@ -26,12 +26,11 @@ from video_context_banner import render_video_banner
 from config import (
     GROOMING_MODEL,
     GROOMING_MODEL_YOLO,
-    SIMBA_BASE,
-    SIMBA_PROJECT_DIR,
     SIMBA_YOLO_BASE,
     THIGMOTAXIS_MODEL,
     THIGMOTAXIS_MODEL_YOLO,
 )
+from sandbox_utils import get_active_simba_project_dir
 
 st.set_page_config(page_title="Analisis Final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
@@ -388,7 +387,12 @@ def find_pose_file(video_path):
 def find_feature_file(video_path):
     if not video_path:
         return None
-    candidate = Path(SIMBA_PROJECT_DIR) / "csv" / "features_extracted" / f"{Path(video_path).stem}.csv"
+    # Buscar el feature CSV en el proyecto SimBA activo (productivo o
+    # sandbox segun el selector de la pagina Keypoints).
+    active_project_dir = get_active_simba_project_dir(
+        Path("data/simba_projects").resolve()
+    )
+    candidate = active_project_dir / "csv" / "features_extracted" / f"{Path(video_path).stem}.csv"
     return str(candidate.resolve()) if candidate.exists() else None
 
 

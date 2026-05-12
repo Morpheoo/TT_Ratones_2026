@@ -27,6 +27,17 @@ EXIT_FAIL = 1
 fallas: list[str] = []
 warnings: list[str] = []
 
+ENV_PLACEHOLDERS = {
+    "",
+    "tu_email@ipn.mx",
+    "tu_email@alumno.ipn.mx",
+    "your_email@gmail.com",
+    "your_app_password",
+    "tu_app_password",
+    "cambiar_despues_del_primer_login",
+    "secure_password_here",
+}
+
 
 def header(msg: str) -> None:
     print()
@@ -248,12 +259,63 @@ def check_docker() -> None:
 # ============================================================
 # 6. .env y docker-compose.yml
 # ============================================================
+def parse_env_file(path: Path) -> dict[str, str]:
+    """Parser simple de .env para validar onboarding sin imprimir secretos."""
+    values: dict[str, str] = {}
+    try:
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    except Exception as exc:
+        warn(f"No se pudo leer .env para validar credenciales: {exc}")
+    return values
+
+
+def check_auth_env(values: dict[str, str]) -> None:
+    """Valida lo necesario para no arrancar con BD vacia y registro bloqueado."""
+    required_db = ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "DB_HOST", "DB_PORT"]
+    missing_db = [key for key in required_db if not values.get(key)]
+    if missing_db:
+        fail(".env incompleto para Postgres: faltan " + ", ".join(missing_db))
+    else:
+        ok(".env tiene variables de Postgres")
+
+    admin_email = values.get("INITIAL_ADMIN_EMAIL", "")
+    admin_password = values.get("INITIAL_ADMIN_PASSWORD", "")
+    if admin_email in ENV_PLACEHOLDERS or admin_password in ENV_PLACEHOLDERS:
+        warn(
+            "INITIAL_ADMIN_EMAIL/PASSWORD siguen en placeholder. "
+            "En una BD vacia no se creara admin inicial."
+        )
+    else:
+        ok("admin inicial configurado para primer arranque")
+
+    smtp_email = values.get("GMAIL_SENDER_EMAIL", "")
+    smtp_password = values.get("GMAIL_APP_PASSWORD", "")
+    if smtp_email in ENV_PLACEHOLDERS or smtp_password in ENV_PLACEHOLDERS:
+        warn(
+            "SMTP de Gmail no configurado. El registro usara modo DEV: "
+            "el OTP aparece en la consola de launcher.bat."
+        )
+    else:
+        ok("SMTP Gmail configurado para enviar OTP reales")
+
+    if not values.get("PGADMIN_DEFAULT_EMAIL") or not values.get("PGADMIN_DEFAULT_PASSWORD"):
+        warn("PGADMIN_DEFAULT_EMAIL/PASSWORD no configurados; pgAdmin puede no iniciar.")
+    else:
+        ok("pgAdmin local configurado")
+
+
 def check_config() -> None:
     header("6. Archivos de configuracion")
     env_file = ROOT / ".env"
     env_example = ROOT / ".env.example"
     if env_file.exists():
         ok(".env existe")
+        check_auth_env(parse_env_file(env_file))
     elif env_example.exists():
         warn(".env no existe, pero hay .env.example. Copialo: copy .env.example .env")
     else:
@@ -262,6 +324,84 @@ def check_config() -> None:
         ok("docker-compose.yml presente")
     else:
         warn("docker-compose.yml no existe (Postgres no disponible)")
+
+
+# ============================================================
+# 7. Proyecto SimBA YOLO (estructura + paths sincronizados)
+# ============================================================
+SIMBA_YOLO_FOLDER = (
+    ROOT / "data" / "simba_projects" / "grooming_thigmotaxis_yolo" / "project_folder"
+)
+
+
+def check_simba_yolo_project() -> None:
+    header("7. Proyecto SimBA YOLO (estructura + paths)")
+
+    if not SIMBA_YOLO_FOLDER.exists():
+        fail(
+            f"No existe {SIMBA_YOLO_FOLDER.relative_to(ROOT)} "
+            "(copialo del USB o regenera el proyecto)"
+        )
+        return
+
+    config_ini = SIMBA_YOLO_FOLDER / "project_config.ini"
+    subdirs_requeridos = [
+        SIMBA_YOLO_FOLDER / "csv" / "features_extracted",
+        SIMBA_YOLO_FOLDER / "csv" / "targets_inserted",
+        SIMBA_YOLO_FOLDER / "logs" / "measures",
+    ]
+
+    if not config_ini.exists():
+        fail(f"{config_ini.relative_to(ROOT)} no existe")
+    else:
+        ok(f"{config_ini.relative_to(ROOT)} presente")
+
+    for sd in subdirs_requeridos:
+        if not sd.exists():
+            fail(f"Falta subdirectorio SimBA: {sd.relative_to(ROOT)}")
+        else:
+            ok(f"{sd.relative_to(ROOT)} presente")
+
+    # Verificar que project_config.ini tenga paths apuntando a este equipo.
+    # Si no, el usuario debe correr src/scripts/fix_simba_paths.py.
+    if config_ini.exists():
+        try:
+            content = config_ini.read_text(encoding="utf-8")
+        except Exception as exc:
+            fail(f"No se pudo leer {config_ini.relative_to(ROOT)}: {exc}")
+            return
+
+        keys_a_chequear = {
+            "project_path": SIMBA_YOLO_FOLDER,
+            "model_dir": SIMBA_YOLO_FOLDER.parent / "models",
+            "model_path_1": (
+                SIMBA_YOLO_FOLDER.parent / "models" / "generated_models" / "Thigmotaxis.sav"
+            ),
+            "model_path_2": (
+                SIMBA_YOLO_FOLDER.parent / "models" / "generated_models" / "Grooming.sav"
+            ),
+        }
+        desincronizados: list[str] = []
+        for line in content.splitlines():
+            if "=" not in line:
+                continue
+            left, _, right = line.partition("=")
+            key = left.strip()
+            if key in keys_a_chequear:
+                actual = right.strip()
+                esperado = str(keys_a_chequear[key].resolve())
+                if actual.lower() != esperado.lower():
+                    desincronizados.append(f"{key} = {actual}")
+
+        if desincronizados:
+            fail(
+                "project_config.ini tiene paths absolutos de otro equipo. "
+                "Correr: py -3.11 src\\scripts\\fix_simba_paths.py"
+            )
+            for entry in desincronizados:
+                print(f"           {entry}")
+        else:
+            ok("project_config.ini tiene paths sincronizados a este equipo")
 
 
 # ============================================================
@@ -278,6 +418,7 @@ def main() -> int:
     check_cuda()
     check_docker()
     check_config()
+    check_simba_yolo_project()
 
     header("RESUMEN")
     print(f"  Fallas criticas : {len(fallas)}")

@@ -14,6 +14,11 @@ sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from session_utils import load_session, save_session
+from sandbox_utils import (
+    PRODUCTIVO_KEY,
+    format_project_label,
+    list_available_simba_projects,
+)
 from ui_components import run_page_splash
 import importlib
 import ui_theme
@@ -777,40 +782,33 @@ def render_loading_animation(message):
 
 def inject_close_warning():
     """
-    Inyecta JavaScript para advertir al usuario antes de cerrar/recargar la página
-    cuando hay un proceso en ejecución.
+    Registra un listener `beforeunload` en la pestaña del navegador para
+    advertir antes de cerrar/recargar mientras corre la extraccion.
+
+    El listener vive en window.top (no en el iframe del componente) y se
+    registra una sola vez via flag global. Asi sobrevive a reruns de
+    Streamlit sin recrearse en cada uno (lo que antes generaba dialogos
+    espurios cada vez que el iframe se reciclaba).
     """
     warning_script = """
     <script>
         (function() {
-            // Función que muestra advertencia
-            function handleBeforeUnload(e) {
-                var confirmationMessage = 'Hay un proceso de extracción de keypoints en ejecución. Si cierra o recarga la página, el proceso se detendrá y perderá el progreso. ¿Está seguro de que desea continuar?';
-                
-                // Método estándar moderno
-                e.preventDefault();
-                e.returnValue = confirmationMessage;
-                
-                // Método legacy para navegadores antiguos
-                return confirmationMessage;
+            try {
+                var topWin = window.top || window.parent || window;
+                if (topWin.__tt_keypoints_unload_listener) {
+                    return;  // ya esta registrado
+                }
+                function handleBeforeUnload(e) {
+                    var msg = 'Hay un proceso de extraccion de keypoints en ejecucion. Si cierra o recarga la pagina, el proceso se detendra y perdera el progreso.';
+                    e.preventDefault();
+                    e.returnValue = msg;
+                    return msg;
+                }
+                topWin.__tt_keypoints_unload_listener = handleBeforeUnload;
+                topWin.addEventListener('beforeunload', handleBeforeUnload);
+            } catch (err) {
+                console.warn('No se pudo registrar advertencia de cierre:', err);
             }
-            
-            // Remover listeners previos si existen
-            if (window.__streamlit_unload_listener) {
-                window.removeEventListener('beforeunload', window.__streamlit_unload_listener);
-                window.removeEventListener('unload', window.__streamlit_unload_listener);
-            }
-            
-            // Agregar listeners para beforeunload (recargar/cerrar)
-            window.__streamlit_unload_listener = handleBeforeUnload;
-            window.addEventListener('beforeunload', handleBeforeUnload, {capture: true});
-            
-            // Asegurar que el usuario ha interactuado con la página
-            document.addEventListener('click', function() {
-                window.__user_has_interacted = true;
-            }, {once: true});
-            
-            console.log('Advertencia de cierre/recarga activada');
         })();
     </script>
     """
@@ -819,15 +817,20 @@ def inject_close_warning():
 
 def remove_close_warning():
     """
-    Remueve la advertencia de cierre cuando el proceso ha terminado.
+    Remueve el listener `beforeunload` registrado en window.top cuando
+    el proceso termina o se cancela. Idempotente.
     """
     remove_script = """
     <script>
         (function() {
-            if (window.__streamlit_unload_listener) {
-                window.removeEventListener('beforeunload', window.__streamlit_unload_listener, {capture: true});
-                window.__streamlit_unload_listener = null;
-                console.log('Advertencia de cierre/recarga removida');
+            try {
+                var topWin = window.top || window.parent || window;
+                if (topWin.__tt_keypoints_unload_listener) {
+                    topWin.removeEventListener('beforeunload', topWin.__tt_keypoints_unload_listener);
+                    topWin.__tt_keypoints_unload_listener = null;
+                }
+            } catch (err) {
+                console.warn('No se pudo remover advertencia de cierre:', err);
             }
         })();
     </script>
@@ -878,6 +881,19 @@ def build_extract_command(batch_size, device_option, yolo_mode=False):
         str(start_seconds),
         "--skip-final-video",
     ]
+
+    # Si el usuario eligio un sandbox en el selector, pasar el
+    # --project-root al orquestador para que las features/ROIs/video_info
+    # vayan ahi en lugar del productivo. Si esta en productivo o no
+    # eligio, no agregamos nada y el orquestador usa su default.
+    _project_choice = st.session_state.get("simba_project_choice") or PRODUCTIVO_KEY
+    if _project_choice != PRODUCTIVO_KEY:
+        _sandbox_root = (
+            _pathlib_for_sandbox.Path("data/simba_projects") / _project_choice
+        ).resolve()
+        if _sandbox_root.exists():
+            command.extend(["--project-root", str(_sandbox_root)])
+
     if yolo_mode:
         command.extend(["--backend", "yolo"])
     else:
@@ -925,6 +941,44 @@ st.markdown(
     Utilice DeepLabCut SuperAnimal para procesar el video y generar una vista previa del overlay.
     """
 )
+
+# ================= 2.5 SELECTOR DE PROYECTO SIMBA =================
+# Solo se muestra si existe al menos un sandbox; si solo esta el
+# productivo, todo el flujo va al productivo silenciosamente.
+import pathlib as _pathlib_for_sandbox  # noqa: E402
+
+_simba_root = _pathlib_for_sandbox.Path("data/simba_projects").resolve()
+_available_projects = list_available_simba_projects(_simba_root)
+if len(_available_projects) > 1:
+    _current_choice = st.session_state.get("simba_project_choice") or PRODUCTIVO_KEY
+    if _current_choice not in _available_projects:
+        _current_choice = PRODUCTIVO_KEY
+    _idx = _available_projects.index(_current_choice)
+    _new_choice = st.selectbox(
+        "Proyecto SimBA destino",
+        options=_available_projects,
+        index=_idx,
+        format_func=format_project_label,
+        help=(
+            "Elegi a que proyecto SimBA escribir las features, ROIs y "
+            "video_info de este video. Usa 'Sandbox: ...' para no "
+            "contaminar el proyecto productivo con escenarios "
+            "experimentales."
+        ),
+        key="ui_simba_project_select",
+    )
+    if _new_choice != _current_choice:
+        st.session_state["simba_project_choice"] = _new_choice
+        save_session()
+        st.rerun()
+    else:
+        st.session_state["simba_project_choice"] = _new_choice
+        if _new_choice != PRODUCTIVO_KEY:
+            st.caption(
+                f"Las features, ROIs y video_info iran a: "
+                f"`data/simba_projects/{_new_choice}/`. El proyecto "
+                f"productivo no sera modificado."
+            )
 
 st.divider()
 

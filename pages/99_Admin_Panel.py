@@ -11,7 +11,7 @@ if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 
 from src.session_utils import load_session, save_session
-from src.auth import check_admin_access
+from src.auth import check_admin_access, register_user
 from src.db.connection import get_db_engine
 from src.ui_components import run_page_splash
 import importlib
@@ -78,6 +78,13 @@ st.markdown("""
 st.divider()
 
 engine = get_db_engine()
+if engine is None:
+    st.error(
+        "No hay conexion a la base de datos. Abre Docker Desktop y ejecuta "
+        "`launcher.bat` o `venv_311\\Scripts\\python.exe start_services.py` "
+        "para inicializar Postgres, crear tablas y sembrar el admin inicial."
+    )
+    st.stop()
 
 import datetime as _dt
 
@@ -112,7 +119,54 @@ def delete_admin_experiments(engine, experiment_ids):
 
 # ================= 3. USER MANAGEMENT =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Directorio de Usuarios")
+st.markdown("#### Gestión de Usuarios")
+
+# --- REGISTRO DE PERSONAL POR ADMINISTRADOR ---
+with st.expander("➕ REGISTRAR NUEVO PERSONAL (ADMIN)"):
+    st.info("Este formulario permite dar de alta a investigadores o estudiantes sin que tengan que esperar el correo de verificación.")
+    with st.form("admin_register_form", clear_on_submit=True):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            new_email = st.text_input("Correo Institucional (@ipn.mx / @alumno.ipn.mx)")
+            new_name = st.text_input("Nombre Completo")
+            new_role = st.selectbox("Rol Institucional", ["investigador", "estudiante", "admin"])
+        with col_b:
+            new_pwd = st.text_input("Contraseña Temporal", type="password", help="Mínimo 8 caracteres, 1 mayúscula, 1 número.")
+            if new_role == "estudiante":
+                new_id = st.text_input("Número de Boleta")
+                new_extra1 = st.text_input("Escuela (Ej: ESCOM)")
+                new_extra2 = st.text_input("Carrera")
+            else:
+                new_id = st.text_input("Número de Empleado")
+                new_extra1 = st.text_input("Centro / Dependencia")
+                new_extra2 = st.text_input("Área / Departamento")
+        
+        if st.form_submit_button("CREAR CUENTA VERIFICADA", use_container_width=True):
+            if not new_email or not new_pwd:
+                st.error("Email y contraseña son obligatorios.")
+            else:
+                success, msg = register_user(
+                    email=new_email,
+                    password=new_pwd,
+                    role=new_role,
+                    full_name=new_name,
+                    boleta=new_id if new_role == "estudiante" else None,
+                    num_empleado=new_id if new_role != "estudiante" else None,
+                    escuela=new_extra1 if new_role == "estudiante" else None,
+                    carrera=new_extra2 if new_role == "estudiante" else None,
+                    centro=new_extra1 if new_role != "estudiante" else None,
+                    area=new_extra2 if new_role != "estudiante" else None,
+                    accepted_terms=True,
+                    force_verified=True
+                )
+                if success:
+                    st.success(f"✅ Usuario {new_email} creado exitosamente como {new_role}.")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Error: {msg}")
+
+st.markdown("##### Directorio de Usuarios")
+
 
 # Data fetch
 with engine.connect() as conn:
@@ -132,7 +186,19 @@ with cols[0]:
     st.markdown("##### Editar Privilegios")
     u_sel = st.selectbox("Seleccionar Usuario", df_users['username'])
     new_r = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"])
-    if st.button("Actualizar Rol", use_container_width=True):
+    
+    u_sel_role = df_users[df_users['username'] == u_sel]['role'].values[0]
+    is_self_demote = (u_sel == st.session_state.get('user', '')) and (new_r != "admin")
+    is_other_admin_demote = (u_sel != st.session_state.get('user', '')) and (u_sel_role == "admin")
+    
+    disable_demote = is_self_demote or is_other_admin_demote
+    
+    if is_self_demote:
+        st.warning("⚠️ No puedes revocar tus propios privilegios.")
+    elif is_other_admin_demote:
+        st.warning("🛡️ Acción denegada: No puedes revocar privilegios de otro administrador.")
+        
+    if st.button("Actualizar Rol", use_container_width=True, disabled=disable_demote):
         with engine.connect() as conn:
             conn.execute(text("UPDATE users SET role = :r WHERE username = :u"), {"r": new_r, "u": u_sel})
             conn.commit()
@@ -143,8 +209,20 @@ with cols[1]:
     st.markdown("##### Gestión de Estado")
     u_mod = st.selectbox("Usuario a modificar", df_users['username'], key="u_mod")
     current_s = df_users[df_users['username'] == u_mod]['is_active'].values[0]
+    u_mod_role = df_users[df_users['username'] == u_mod]['role'].values[0]
     btn_label = "SUSPENDER CUENTA" if current_s else "REACTIVAR CUENTA"
-    if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True):
+    
+    is_self_suspend = current_s and (u_mod == st.session_state.get('user', ''))
+    is_other_admin_suspend = current_s and (u_mod != st.session_state.get('user', '')) and (u_mod_role == "admin")
+    
+    disable_suspend = is_self_suspend or is_other_admin_suspend
+    
+    if is_self_suspend:
+        st.warning("⚠️ No puedes suspender tu propia cuenta.")
+    elif is_other_admin_suspend:
+        st.warning("🛡️ Acción denegada: No puedes suspender a otro administrador.")
+        
+    if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True, disabled=disable_suspend):
         with engine.connect() as conn:
             conn.execute(text("UPDATE users SET is_active = :s WHERE username = :u"), {"s": not current_s, "u": u_mod})
             conn.commit()

@@ -55,18 +55,37 @@ with st.sidebar:
     # Sidebar con navegación
     inject_sidebar_profile(show_admin_button=True)
 
-ACCENT_COLOR = colors.get("warning", "#B7791F")
+# ============================================================
+# Paleta institucional IPN-ESCOM unificada
+# Guinda como ancla, complementos elegidos para distinguir
+# zonas espaciales (rectas/sobrias) vs conductas (frio/calido).
+# ============================================================
+IPN_GUINDA = "#6A1B3F"          # Guinda principal — Brazos Abiertos
+IPN_CARBON = "#2B2D2F"          # Negro mate — Brazos Cerrados
+IPN_CORAL = "#E07A5F"           # Coral — Centro / acentos calidos
+IPN_GRIS = "#888888"            # Gris neutro — categoria descartada
+IPN_AZUL_PETROLEO = "#2C5F7A"   # Azul frio — Grooming (calma)
+IPN_NARANJA_QUEMADO = "#D2691E" # Naranja calido — Thigmotaxis (alerta)
+
+ACCENT_COLOR = IPN_CORAL
 ZONE_CATEGORY_COLORS = {
-    "Abiertos": colors["primary"],
-    "Cerrados": ACCENT_COLOR,
-    "Centro": colors["success"],
-    "Fuera": colors["text_sub"],
+    "Abiertos": IPN_GUINDA,
+    "Cerrados": IPN_CARBON,
+    "Centro": IPN_CORAL,
+    "Fuera": IPN_GRIS,
 }
 BEHAVIOR_COLORS = {
-    "Grooming": colors["success"],
-    "Thigmotaxis": colors["danger"],
-    "Grooming acumulado": colors["success"],
-    "Thigmotaxis acumulado": colors["danger"],
+    "Grooming": IPN_AZUL_PETROLEO,
+    "Thigmotaxis": IPN_NARANJA_QUEMADO,
+    "Grooming acumulado": IPN_AZUL_PETROLEO,
+    "Thigmotaxis acumulado": IPN_NARANJA_QUEMADO,
+}
+# Mapping para el chart "Comparativa rapida" donde cada barra es una metrica.
+GLOBAL_METRIC_COLORS = {
+    "Brazos abiertos": IPN_GUINDA,
+    "Brazos cerrados": IPN_CARBON,
+    "Grooming": IPN_AZUL_PETROLEO,
+    "Thigmotaxis": IPN_NARANJA_QUEMADO,
 }
 
 
@@ -270,61 +289,121 @@ def delete_owned_experiments(engine, experiment_ids, username):
     return deleted_count, skipped_ids, ""
 
 
-def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t, thigmo_t):
+def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t, thigmo_t,
+                            user_email=None, user_role=None, note=None):
     """
-    Actualiza los tiempos de un experimento en la tabla analysis_results.
-    Solo administradores e investigadores pueden usar esta función.
+    Actualiza los tiempos de un experimento en analysis_results y registra
+    un snapshot before/after en behavior_edits para auditoria.
+    Solo administradores e investigadores deben invocarla.
     """
     if not engine:
         return False, "No hay conexión a la base de datos"
-    
+
+    from db.behavior_edits import ensure_behavior_edits_schema, fetch_user_id_by_email
+
     try:
         with engine.connect() as conn:
-            # Verificar si existe un registro de análisis para este experimento
-            check_query = text("""
-                SELECT id FROM analysis_results 
-                WHERE experiment_id = :exp_id 
-                ORDER BY timestamp DESC 
-                LIMIT 1
-            """)
-            result = conn.execute(check_query, {"exp_id": experiment_id})
-            analysis_record = result.fetchone()
-            
-            if analysis_record:
-                # Actualizar registro existente
-                update_query = text("""
-                    UPDATE analysis_results 
-                    SET time_open_arms = :open_t,
-                        time_closed_arms = :closed_t,
-                        grooming_duration = :grooming_t,
-                        thigmotaxis_duration = :thigmo_t,
-                        timestamp = CURRENT_TIMESTAMP
-                    WHERE id = :analysis_id
-                """)
-                conn.execute(update_query, {
-                    "open_t": float(open_t),
-                    "closed_t": float(closed_t),
-                    "grooming_t": float(grooming_t),
-                    "thigmo_t": float(thigmo_t),
-                    "analysis_id": analysis_record[0]
-                })
+            ensure_behavior_edits_schema(conn)
+
+            # Snapshot del estado anterior (puede no existir aun).
+            before_row = conn.execute(
+                text(
+                    """
+                    SELECT id, time_open_arms, time_closed_arms,
+                           grooming_duration, thigmotaxis_duration
+                    FROM analysis_results
+                    WHERE experiment_id = :exp_id
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                    """
+                ),
+                {"exp_id": experiment_id},
+            ).mappings().fetchone()
+
+            if before_row:
+                before = {
+                    "open":  float(before_row["time_open_arms"] or 0.0),
+                    "closed": float(before_row["time_closed_arms"] or 0.0),
+                    "grooming": float(before_row["grooming_duration"] or 0.0),
+                    "thigmo":  float(before_row["thigmotaxis_duration"] or 0.0),
+                }
+                conn.execute(
+                    text(
+                        """
+                        UPDATE analysis_results
+                        SET time_open_arms = :open_t,
+                            time_closed_arms = :closed_t,
+                            grooming_duration = :grooming_t,
+                            thigmotaxis_duration = :thigmo_t,
+                            timestamp = CURRENT_TIMESTAMP
+                        WHERE id = :analysis_id
+                        """
+                    ),
+                    {
+                        "open_t": float(open_t),
+                        "closed_t": float(closed_t),
+                        "grooming_t": float(grooming_t),
+                        "thigmo_t": float(thigmo_t),
+                        "analysis_id": int(before_row["id"]),
+                    },
+                )
             else:
-                # Crear nuevo registro si no existe
-                insert_query = text("""
-                    INSERT INTO analysis_results 
-                    (experiment_id, time_open_arms, time_closed_arms, grooming_duration, thigmotaxis_duration, status)
-                    VALUES (:exp_id, :open_t, :closed_t, :grooming_t, :thigmo_t, 'completed')
-                """)
-                conn.execute(insert_query, {
-                    "exp_id": experiment_id,
-                    "open_t": float(open_t),
-                    "closed_t": float(closed_t),
-                    "grooming_t": float(grooming_t),
-                    "thigmo_t": float(thigmo_t)
-                })
-            
+                before = {"open": 0.0, "closed": 0.0, "grooming": 0.0, "thigmo": 0.0}
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO analysis_results
+                        (experiment_id, time_open_arms, time_closed_arms,
+                         grooming_duration, thigmotaxis_duration, status)
+                        VALUES (:exp_id, :open_t, :closed_t, :grooming_t, :thigmo_t, 'completed')
+                        """
+                    ),
+                    {
+                        "exp_id": experiment_id,
+                        "open_t": float(open_t),
+                        "closed_t": float(closed_t),
+                        "grooming_t": float(grooming_t),
+                        "thigmo_t": float(thigmo_t),
+                    },
+                )
+
+            after = {
+                "open": float(open_t),
+                "closed": float(closed_t),
+                "grooming": float(grooming_t),
+                "thigmo": float(thigmo_t),
+            }
+            user_id = fetch_user_id_by_email(conn, user_email)
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO behavior_edits (
+                        experiment_id, edited_by, edited_by_email, edited_role,
+                        before_open, before_closed, before_grooming, before_thigmo,
+                        after_open,  after_closed,  after_grooming,  after_thigmo,
+                        note
+                    ) VALUES (
+                        :exp_id, :user_id, :user_email, :user_role,
+                        :b_open, :b_closed, :b_groom, :b_thigmo,
+                        :a_open, :a_closed, :a_groom, :a_thigmo,
+                        :note
+                    )
+                    """
+                ),
+                {
+                    "exp_id": int(experiment_id),
+                    "user_id": user_id,
+                    "user_email": user_email,
+                    "user_role": user_role,
+                    "b_open": before["open"], "b_closed": before["closed"],
+                    "b_groom": before["grooming"], "b_thigmo": before["thigmo"],
+                    "a_open": after["open"],  "a_closed": after["closed"],
+                    "a_groom": after["grooming"],  "a_thigmo": after["thigmo"],
+                    "note": note,
+                },
+            )
             conn.commit()
-            return True, "Tiempos actualizados exitosamente"
+            return True, "Tiempos actualizados y registrados en historial"
     except Exception as e:
         return False, f"Error al actualizar tiempos: {str(e)}"
 
@@ -487,12 +566,45 @@ def build_distribution_dataframe(metrics):
 
 
 def coalesce_metric(record, summary, key):
+    # El DB (analysis_results) es la fuente de verdad: refleja el output
+    # del pipeline Y cualquier edicion manual posterior. El bundle del CSV
+    # de trayectoria solo se usa como fallback cuando el DB todavia no tiene
+    # valor (registros legacy o sin procesar).
+    db_value = record.get(key)
+    if db_value is not None and str(db_value) != "":
+        return safe_float(db_value)
     if summary and summary["summary"].get(key) is not None:
         return safe_float(summary["summary"][key])
-    return safe_float(record.get(key, 0.0))
+    return 0.0
 
 
-def build_opencv_heatmap_image(heatmap_df, width, height):
+def _read_video_background_frame(video_path, width, height):
+    """Devuelve un frame BGR del video escalado a (width, height), o None si no se puede."""
+    if not video_path:
+        return None
+    if not os.path.exists(video_path):
+        return None
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return None
+    try:
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        target = max(0, total_frames // 2 - 1)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, target)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ok, frame = cap.read()
+        if not ok or frame is None:
+            return None
+        if frame.shape[1] != int(width) or frame.shape[0] != int(height):
+            frame = cv2.resize(frame, (int(width), int(height)), interpolation=cv2.INTER_AREA)
+        return frame
+    finally:
+        cap.release()
+
+
+def build_opencv_heatmap_image(heatmap_df, width, height, video_path=None):
     if heatmap_df is None or heatmap_df.empty:
         return None
 
@@ -508,19 +620,29 @@ def build_opencv_heatmap_image(heatmap_df, width, height):
 
     blurred = cv2.GaussianBlur(canvas, (0, 0), sigmaX=29, sigmaY=29)
     normalized = cv2.normalize(blurred, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-    colored = cv2.applyColorMap(normalized, cv2.COLORMAP_INFERNO)
+    colored = cv2.applyColorMap(normalized, cv2.COLORMAP_PLASMA)
 
-    background = np.full((int(height), int(width), 3), 246, dtype=np.uint8)
-    background[:] = (245, 244, 246)
+    background = _read_video_background_frame(video_path, width, height)
+    if background is None:
+        # Fallback: fondo gris plano si el video no esta accesible.
+        background = np.full((int(height), int(width), 3), 246, dtype=np.uint8)
+        background[:] = (245, 244, 246)
+    else:
+        # Atenuar el frame para que no compita visualmente con el heatmap.
+        background = cv2.addWeighted(background, 0.55, np.zeros_like(background), 0.0, 0)
 
-    mask = normalized > 0
-    if not np.any(mask):
-        return None
-
-    overlay = background.copy()
-    overlay[mask] = colored[mask]
-    blended = cv2.addWeighted(background, 0.30, overlay, 0.90, 0)
+    # Mezclar heatmap sobre el frame: alpha proporcional a la intensidad.
+    alpha = (normalized.astype(np.float32) / 255.0)[..., None]
+    blended = (background.astype(np.float32) * (1.0 - alpha) + colored.astype(np.float32) * alpha)
+    blended = blended.clip(0, 255).astype(np.uint8)
     return cv2.cvtColor(blended, cv2.COLOR_BGR2RGB)
+
+
+def build_plasma_colorbar(width=480, height=36):
+    """Barra horizontal con el colormap PLASMA para mostrar como leyenda."""
+    gradient = np.tile(np.linspace(0, 255, width, dtype=np.uint8), (height, 1))
+    colored = cv2.applyColorMap(gradient, cv2.COLORMAP_PLASMA)
+    return cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
 
 
 def render_global_kpis(df_hist):
@@ -566,7 +688,7 @@ def render_global_chart(df_view):
         y="Segundos",
         color="Metrica",
         barmode="group",
-        color_discrete_sequence=[colors["primary"], ACCENT_COLOR, colors["success"], colors["danger"]],
+        color_discrete_map=GLOBAL_METRIC_COLORS,
     )
     fig.update_traces(marker_line_color=colors["bg_card"], marker_line_width=1.2)
     apply_plot_style(fig, height=360)
@@ -900,6 +1022,162 @@ def generate_experiments_html_as_pdf(df_experiments):
 
 
 def render_detail_panel(record, trajectory_bundle):
+def render_edit_badge(engine, record_id):
+    """Aviso compacto arriba del panel cuando el experimento tiene ediciones manuales."""
+    from db.behavior_edits import load_behavior_edits
+
+    edits = load_behavior_edits(engine, record_id)
+    if not edits:
+        return 0
+
+    last = edits[0]
+    edited_when = str(last.get("edited_at") or "")
+    edited_by = last.get("edited_by_email") or "desconocido"
+    st.markdown(
+        f"<div style='background:#FFF6E6;border-left:4px solid {IPN_NARANJA_QUEMADO};"
+        f"padding:8px 12px;border-radius:4px;margin:6px 0;font-size:0.85rem;'>"
+        f"Tiempos editados manualmente — ultima edicion por <b>{edited_by}</b> "
+        f"({last.get('edited_role') or 'rol N/D'}) el {edited_when}. "
+        f"Total de ediciones: <b>{len(edits)}</b>. "
+        f"<span style='color:#666;'>(ver historial al final del panel)</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    return len(edits)
+
+
+def render_edit_history_expander(engine, record_id, can_revert):
+    """Expander con el historial completo de ediciones + botones de revert."""
+    from db.behavior_edits import load_behavior_edits, revert_to_before_snapshot
+
+    edits = load_behavior_edits(engine, record_id)
+    if not edits:
+        st.caption("Este experimento no tiene ediciones manuales registradas.")
+        return
+
+    with st.expander(f"Historial de ediciones del registro #{record_id} ({len(edits)})",
+                     expanded=False):
+        for edit in edits:
+            cols = st.columns([2, 1.4, 1.4, 1.4, 1.4, 1.2])
+            cols[0].markdown(
+                f"**#{edit['id']}** &mdash; {edit.get('edited_by_email') or 'desconocido'}  \n"
+                f"<span style='color:#666;font-size:0.78rem;'>"
+                f"{edit.get('edited_role') or ''} &middot; {edit.get('edited_at')}"
+                f"</span>",
+                unsafe_allow_html=True,
+            )
+
+            def _delta(label, before_val, after_val):
+                before_v = float(before_val or 0.0)
+                after_v = float(after_val or 0.0)
+                diff = after_v - before_v
+                arrow = "↑" if diff > 0.05 else ("↓" if diff < -0.05 else "·")
+                return f"**{label}**  \n{before_v:.1f}s → {after_v:.1f}s {arrow}"
+
+            cols[1].markdown(_delta("Abiertos", edit["before_open"], edit["after_open"]))
+            cols[2].markdown(_delta("Cerrados", edit["before_closed"], edit["after_closed"]))
+            cols[3].markdown(_delta("Grooming", edit["before_grooming"], edit["after_grooming"]))
+            cols[4].markdown(_delta("Thigmo", edit["before_thigmo"], edit["after_thigmo"]))
+
+            with cols[5]:
+                if can_revert:
+                    if st.button("Revertir", key=f"revert_edit_{record_id}_{edit['id']}",
+                                 help="Restaura los tiempos al estado anterior a esta edicion"):
+                        ok, msg = revert_to_before_snapshot(engine, edit["id"])
+                        if ok:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+
+            if edit.get("note"):
+                st.caption(f"Nota: {edit['note']}")
+            st.markdown("<hr style='margin:6px 0;opacity:0.15;'/>", unsafe_allow_html=True)
+
+
+def render_inline_time_editor_form(engine, record_id, current_values,
+                                   user_email, user_role):
+    """Form de edicion: 4 inputs + nota + guardar. Solo se renderiza cuando
+    el toggle 'Editar tiempos' esta activo."""
+    e1, e2, e3, e4, e5 = st.columns(5)
+    new_open = e1.number_input(
+        "Abiertos (s)", min_value=0.0, step=0.1, format="%.1f",
+        value=float(current_values["open"]),
+        key=f"edit_open_{record_id}",
+    )
+    new_closed = e2.number_input(
+        "Cerrados (s)", min_value=0.0, step=0.1, format="%.1f",
+        value=float(current_values["closed"]),
+        key=f"edit_closed_{record_id}",
+    )
+    e3.metric("Centro", format_seconds(current_values["center"]))
+    e3.caption("Derivado de trayectoria (no editable)")
+    new_groom = e4.number_input(
+        "Grooming (s)", min_value=0.0, step=0.1, format="%.1f",
+        value=float(current_values["grooming"]),
+        key=f"edit_groom_{record_id}",
+    )
+    new_thigmo = e5.number_input(
+        "Thigmotaxis (s)", min_value=0.0, step=0.1, format="%.1f",
+        value=float(current_values["thigmo"]),
+        key=f"edit_thigmo_{record_id}",
+    )
+
+    note = st.text_input(
+        "Motivo de la edicion (obligatorio para auditoria)",
+        key=f"edit_note_{record_id}",
+        placeholder="Ej: el modelo perdio un evento de grooming en el segundo 45",
+    )
+
+    has_changes = (
+        abs(new_open - current_values["open"]) > 0.01
+        or abs(new_closed - current_values["closed"]) > 0.01
+        or abs(new_groom - current_values["grooming"]) > 0.01
+        or abs(new_thigmo - current_values["thigmo"]) > 0.01
+    )
+    has_note = bool((note or "").strip())
+
+    btn_col, info_col = st.columns([1, 3])
+    with btn_col:
+        save_clicked = st.button(
+            "Guardar tiempos editados",
+            type="primary",
+            disabled=not (has_changes and has_note),
+            key=f"save_inline_{record_id}",
+            use_container_width=True,
+        )
+    with info_col:
+        if not has_changes:
+            st.caption("Edita un valor para activar el boton de guardado.")
+        elif not has_note:
+            st.caption("Escribi un motivo para poder guardar (queda en el historial).")
+        else:
+            st.caption("Listo para guardar. Los cambios fluyen al modulo de Comparacion.")
+
+    if save_clicked:
+        ok, msg = update_experiment_times(
+            engine,
+            record_id,
+            new_open,
+            new_closed,
+            new_groom,
+            new_thigmo,
+            user_email=user_email,
+            user_role=user_role,
+            note=note.strip(),
+        )
+        if ok:
+            st.success(msg)
+            st.session_state.pop("results_original_df", None)
+            st.session_state[f"edit_mode_{record_id}"] = False
+            st.rerun()
+        else:
+            st.error(msg)
+
+
+def render_detail_panel(record, trajectory_bundle, engine=None,
+                        is_admin=False, can_edit_record=False,
+                        user_email=None, user_role=None):
     record_id = int(record.get("id", 0) or 0)
     metric_open = coalesce_metric(record, trajectory_bundle, "open_t")
     metric_closed = coalesce_metric(record, trajectory_bundle, "closed_t")
@@ -909,6 +1187,9 @@ def render_detail_panel(record, trajectory_bundle):
 
     st.markdown('<div class="content-card" style="border-top: 4px solid #6F1D46;">', unsafe_allow_html=True)
     st.markdown(f"#### Analisis del registro #{record['id']}")
+
+    if engine and record_id > 0:
+        render_edit_badge(engine, record_id)
 
     info_left, info_right = st.columns(2)
     with info_left:
@@ -921,12 +1202,45 @@ def render_detail_panel(record, trajectory_bundle):
         if trajectory_bundle:
             st.write(f"**Trayectoria:** `{os.path.basename(trajectory_bundle['trajectory_path'])}`")
 
-    k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("Abiertos", format_seconds(metric_open))
-    k2.metric("Cerrados", format_seconds(metric_closed))
-    k3.metric("Centro", format_seconds(metric_center))
-    k4.metric("Grooming", format_seconds(metric_groom))
-    k5.metric("Thigmotaxis", format_seconds(metric_thigmo))
+    edit_mode_key = f"edit_mode_{record_id}"
+    can_show_toggle = bool(engine and record_id > 0 and can_edit_record)
+
+    header_left, header_right = st.columns([4, 1])
+    with header_left:
+        st.markdown("##### Tiempos del registro")
+    with header_right:
+        if can_show_toggle:
+            edit_mode = st.toggle(
+                "Editar",
+                value=st.session_state.get(edit_mode_key, False),
+                key=f"toggle_{edit_mode_key}",
+                help="Activa el modo edicion para corregir los tiempos detectados por el modelo.",
+            )
+            st.session_state[edit_mode_key] = edit_mode
+        else:
+            edit_mode = False
+
+    if edit_mode:
+        render_inline_time_editor_form(
+            engine,
+            record_id,
+            current_values={
+                "open": metric_open,
+                "closed": metric_closed,
+                "center": metric_center,
+                "grooming": metric_groom,
+                "thigmo": metric_thigmo,
+            },
+            user_email=user_email,
+            user_role=user_role,
+        )
+    else:
+        k1, k2, k3, k4, k5 = st.columns(5)
+        k1.metric("Abiertos", format_seconds(metric_open))
+        k2.metric("Cerrados", format_seconds(metric_closed))
+        k3.metric("Centro", format_seconds(metric_center))
+        k4.metric("Grooming", format_seconds(metric_groom))
+        k5.metric("Thigmotaxis", format_seconds(metric_thigmo))
 
     # Mostrar ruta del video analizado
     video_path = record.get('video_path', '')
@@ -1017,11 +1331,12 @@ def render_detail_panel(record, trajectory_bundle):
         fig_timeline.update_layout(hovermode="x unified", xaxis_title="Tiempo (s)", yaxis_title="Segundos acumulados")
         st.plotly_chart(fig_timeline, use_container_width=True, key=f"detail_timeline_{record_id}")
 
-    st.markdown("##### Mapa de calor OpenCV")
+    st.markdown("##### Mapa de calor del experimento")
     heatmap_image = build_opencv_heatmap_image(
         heatmap_df,
         trajectory_bundle["heatmap_width"],
         trajectory_bundle["heatmap_height"],
+        video_path=record.get("video_path"),
     )
     if heatmap_image is None:
         st.info("La trayectoria no trae suficientes coordenadas validas para construir el mapa de calor.")
@@ -1029,8 +1344,36 @@ def render_detail_panel(record, trajectory_bundle):
         st.image(
             heatmap_image,
             use_container_width=True,
-            caption="Mapa de permanencia generado con OpenCV a partir de la trayectoria del roedor.",
+            caption="Mapa de permanencia (colormap PLASMA) superpuesto sobre un frame del video original.",
         )
+
+        # Recuadro separado con la leyenda de la escala de colores.
+        st.markdown("**Como leer este mapa**")
+        st.image(
+            build_plasma_colorbar(),
+            use_container_width=True,
+        )
+        leg_left, leg_right = st.columns(2)
+        with leg_left:
+            st.caption("← Menos tiempo (zona poco visitada)")
+        with leg_right:
+            st.markdown(
+                "<div style='text-align:right;color:#888;font-size:0.85em;'>"
+                "Mas tiempo (zona caliente) →"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        st.caption(
+            "Negro / morado oscuro: el roedor paso poco o nada en esa zona. "
+            "Tonos rosa y naranja: gradacion intermedia. "
+            "Amarillo brillante: zonas donde permanecio mas tiempo durante el experimento."
+        )
+
+    if engine and record_id > 0:
+        st.markdown("---")
+        st.markdown("##### Historial de versiones del registro")
+        can_revert = bool(is_admin or can_edit_record)
+        render_edit_history_expander(engine, record_id, can_revert)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1189,10 +1532,13 @@ try:
                     if owner_email == current_user:
                         editable_exp_ids.add(exp_id)
         
-        # Agregar columna visual de editabilidad para investigadores y admins
-        if is_admin or is_investigador:
-            selection_df.insert(1, "", selection_df["ID"].astype(int).isin(editable_exp_ids))
-        
+        # Nota: en versiones anteriores se insertaba aqui una segunda columna
+        # checkbox sin header para indicar editabilidad. Se removio porque
+        # duplicaba visualmente la columna "Sel.". La info de permisos ya se
+        # comunica via los mensajes st.info/st.warning de mas abajo y por las
+        # celdas de tiempo deshabilitadas para experimentos no editables.
+
+
         # Configurar columnas deshabilitadas basándose en permisos
         time_columns = ["Abiertos (s)", "Cerrados (s)", "Grooming (s)", "Thigmotaxis (s)"]
         
@@ -1343,7 +1689,9 @@ try:
                             change["open_t"],
                             change["closed_t"],
                             change["grooming_t"],
-                            change["thigmo_t"]
+                            change["thigmo_t"],
+                            user_email=current_user,
+                            user_role=user_role,
                         )
                         
                         if success:
@@ -1479,7 +1827,16 @@ try:
 
                 for selected_exp in selected_view.to_dict(orient="records"):
                     trajectory_bundle = load_trajectory_bundle(resolve_trajectory_path(selected_exp))
-                    render_detail_panel(selected_exp, trajectory_bundle)
+                    can_edit_record = int(selected_exp.get("id", 0) or 0) in editable_exp_ids
+                    render_detail_panel(
+                        selected_exp,
+                        trajectory_bundle,
+                        engine=engine,
+                        is_admin=is_admin,
+                        can_edit_record=can_edit_record,
+                        user_email=current_user,
+                        user_role=user_role,
+                    )
                     st.markdown("<br>", unsafe_allow_html=True)
             else:
                 st.info("Selecciona al menos un experimento en la tabla para ver sus graficas y detalles.")
