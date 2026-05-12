@@ -141,6 +141,8 @@ def ensure_simba_project_config(
     config = configparser.ConfigParser()
     config.read(config_path, encoding="utf-8")
 
+    # Actualizar todas las rutas a absolutas desde rutas relativas
+    config.set("General settings", "project_path", str((project_root / "project_folder").resolve()))
     config.set("SML settings", "model_dir", str((project_root / "models").resolve()))
     config.set("SML settings", "model_path_1", str(thigmotaxis_model.resolve()))
     config.set("SML settings", "model_path_2", str(grooming_model.resolve()))

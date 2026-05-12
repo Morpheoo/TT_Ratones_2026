@@ -1,6 +1,9 @@
 import os
 import sys
 from pathlib import Path
+import json
+from datetime import datetime
+from io import BytesIO
 
 import cv2
 import numpy as np
@@ -571,6 +574,331 @@ def render_global_chart(df_view):
     st.plotly_chart(fig, use_container_width=True, key=f"global_chart_{selected_signature}")
 
 
+def generate_experiments_csv(df_experiments):
+    """
+    Genera un archivo CSV con los datos de experimentos seleccionados.
+    """
+    # Seleccionar y renombrar columnas relevantes
+    export_df = df_experiments[[
+        'id', 'rat_id', 'treatment', 'experiment_date', 'responsible',
+        'open_t', 'closed_t', 'center_t', 'grooming_t', 'thigmo_t',
+        'analysis_status', 'owner_email', 'created_at'
+    ]].copy()
+    
+    export_df.columns = [
+        'ID Experimento', 'ID Ratón', 'Tratamiento', 'Fecha Experimento', 'Responsable',
+        'Tiempo Brazos Abiertos (s)', 'Tiempo Brazos Cerrados (s)', 'Tiempo Centro (s)',
+        'Grooming (s)', 'Thigmotaxis (s)', 'Estado Análisis', 'Creado Por', 'Fecha Creación'
+    ]
+    
+    # Agregar BOM UTF-8 para compatibilidad con Excel y reconocimiento de acentos
+    return export_df.to_csv(index=False).encode('utf-8-sig')
+
+
+def generate_experiments_json(df_experiments):
+    """
+    Genera un archivo JSON con los datos de experimentos seleccionados.
+    """
+    # Convertir a formato JSON amigable
+    export_data = {
+        "metadata": {
+            "exported_at": datetime.now().isoformat(),
+            "total_experiments": len(df_experiments),
+            "system": "Sistema EPM - Análisis de Comportamiento Animal",
+            "institution": "IPN - ESCOM - TT 2026"
+        },
+        "experiments": []
+    }
+    
+    for _, row in df_experiments.iterrows():
+        experiment = {
+            "id": int(row['id']),
+            "rat_id": str(row['rat_id']),
+            "treatment": str(row['treatment']),
+            "experiment_date": str(row['experiment_date']),
+            "responsible": str(row['responsible']),
+            "results": {
+                "time_open_arms_seconds": float(row['open_t']),
+                "time_closed_arms_seconds": float(row['closed_t']),
+                "time_center_seconds": float(row['center_t']),
+                "grooming_duration_seconds": float(row['grooming_t']),
+                "thigmotaxis_duration_seconds": float(row['thigmo_t'])
+            },
+            "metadata": {
+                "analysis_status": str(row['analysis_status']),
+                "created_by": str(row.get('owner_email', '')),
+                "created_at": str(row.get('created_at', ''))
+            }
+        }
+        export_data["experiments"].append(experiment)
+    
+    return json.dumps(export_data, indent=2, ensure_ascii=False).encode('utf-8')
+
+
+def generate_experiments_pdf(df_experiments):
+    """
+    Genera un archivo PDF con los datos de experimentos seleccionados.
+    Usa reportlab para crear un reporte profesional.
+    """
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+    except ImportError as e:
+        return generate_experiments_html_as_pdf(df_experiments)
+    
+    if df_experiments is None or df_experiments.empty:
+        return b""
+    
+    buffer = BytesIO()
+    
+    try:
+        # Crear documento
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Título simple
+        elements.append(Paragraph("Sistema de Analisis EPM", styles['Title']))
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("Instituto Politecnico Nacional - ESCOM", styles['Normal']))
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph(f"Reporte: {datetime.now().strftime('%d/%m/%Y')}", styles['Normal']))
+        elements.append(Spacer(1, 20))
+        
+        # Tabla de datos
+        table_data = [['ID', 'Raton', 'Tratamiento', 'Fecha', 'Abiertos', 'Cerrados', 'Grooming', 'Thigmo']]
+        
+        for _, row in df_experiments.iterrows():
+            table_data.append([
+                str(int(row['id'])),
+                str(row['rat_id'])[:10],
+                str(row['treatment'])[:12],
+                str(row['experiment_date'])[:10],
+                f"{float(row['open_t']):.1f}",
+                f"{float(row['closed_t']):.1f}",
+                f"{float(row['grooming_t']):.1f}",
+                f"{float(row['thigmo_t']):.1f}"
+            ])
+        
+        table = Table(table_data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+        
+        # Estadísticas
+        elements.append(Paragraph("Estadisticas Resumidas", styles['Heading2']))
+        elements.append(Spacer(1, 12))
+        
+        stats_data = [
+            ['Metrica', 'Promedio'],
+            ['Brazos Abiertos', f"{df_experiments['open_t'].mean():.1f} s"],
+            ['Brazos Cerrados', f"{df_experiments['closed_t'].mean():.1f} s"],
+            ['Grooming', f"{df_experiments['grooming_t'].mean():.1f} s"],
+            ['Thigmotaxis', f"{df_experiments['thigmo_t'].mean():.1f} s"]
+        ]
+        
+        stats_table = Table(stats_data)
+        stats_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        elements.append(stats_table)
+        
+        # Construir documento
+        doc.build(elements)
+        
+        # Obtener bytes
+        buffer.seek(0)
+        pdf_bytes = buffer.read()
+        buffer.close()
+        
+        return pdf_bytes
+        
+    except Exception as e:
+        try:
+            buffer.close()
+        except:
+            pass
+        return b""
+
+
+def generate_experiments_html_as_pdf(df_experiments):
+    """
+    Genera un HTML formateado para impresión/guardado como PDF (fallback si reportlab no está disponible).
+    """
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Reporte de Experimentos EPM</title>
+        <style>
+            @media print {{
+                body {{ margin: 0; padding: 20px; }}
+            }}
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                color: #333;
+            }}
+            .header {{
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 3px solid #6A1B3F;
+                padding-bottom: 15px;
+            }}
+            .header h1 {{
+                color: #6A1B3F;
+                margin: 5px 0;
+            }}
+            .header p {{
+                color: #666;
+                margin: 3px 0;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+                font-size: 12px;
+            }}
+            th {{
+                background-color: #6A1B3F;
+                color: white;
+                padding: 10px;
+                text-align: left;
+            }}
+            td {{
+                padding: 8px;
+                border: 1px solid #ddd;
+            }}
+            tr:nth-child(even) {{
+                background-color: #f9f9f9;
+            }}
+            .summary {{
+                background-color: #f0f0f0;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 20px 0;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 15px;
+                border-top: 1px solid #ddd;
+                color: #666;
+                font-size: 10px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Sistema de Análisis EPM</h1>
+            <p>Instituto Politécnico Nacional - ESCOM</p>
+            <p>Reporte de Experimentos - {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+        </div>
+        
+        <div class="summary">
+            <strong>Total de experimentos:</strong> {len(df_experiments)}
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Ratón</th>
+                    <th>Tratamiento</th>
+                    <th>Fecha</th>
+                    <th>Abiertos (s)</th>
+                    <th>Cerrados (s)</th>
+                    <th>Grooming (s)</th>
+                    <th>Thigmo (s)</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+    
+    for _, row in df_experiments.iterrows():
+        html += f"""
+                <tr>
+                    <td>{row['id']}</td>
+                    <td>{row['rat_id']}</td>
+                    <td>{row['treatment']}</td>
+                    <td>{str(row['experiment_date'])[:10]}</td>
+                    <td>{float(row['open_t']):.1f}</td>
+                    <td>{float(row['closed_t']):.1f}</td>
+                    <td>{float(row['grooming_t']):.1f}</td>
+                    <td>{float(row['thigmo_t']):.1f}</td>
+                </tr>
+        """
+    
+    html += f"""
+            </tbody>
+        </table>
+        
+        <div class="summary">
+            <h3>Estadísticas Resumidas</h3>
+            <table style="width: 80%; margin: 10px auto;">
+                <tr>
+                    <th>Métrica</th>
+                    <th>Media</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                </tr>
+                <tr>
+                    <td>Brazos Abiertos (s)</td>
+                    <td>{df_experiments['open_t'].mean():.1f}</td>
+                    <td>{df_experiments['open_t'].min():.1f}</td>
+                    <td>{df_experiments['open_t'].max():.1f}</td>
+                </tr>
+                <tr>
+                    <td>Brazos Cerrados (s)</td>
+                    <td>{df_experiments['closed_t'].mean():.1f}</td>
+                    <td>{df_experiments['closed_t'].min():.1f}</td>
+                    <td>{df_experiments['closed_t'].max():.1f}</td>
+                </tr>
+                <tr>
+                    <td>Grooming (s)</td>
+                    <td>{df_experiments['grooming_t'].mean():.1f}</td>
+                    <td>{df_experiments['grooming_t'].min():.1f}</td>
+                    <td>{df_experiments['grooming_t'].max():.1f}</td>
+                </tr>
+                <tr>
+                    <td>Thigmotaxis (s)</td>
+                    <td>{df_experiments['thigmo_t'].mean():.1f}</td>
+                    <td>{df_experiments['thigmo_t'].min():.1f}</td>
+                    <td>{df_experiments['thigmo_t'].max():.1f}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="footer">
+            Sistema EPM - TT 2026 | Generado automáticamente<br>
+            Para guardar como PDF: Ctrl+P → Guardar como PDF
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html.encode('utf-8')
+
+
 def render_detail_panel(record, trajectory_bundle):
     record_id = int(record.get("id", 0) or 0)
     metric_open = coalesce_metric(record, trajectory_bundle, "open_t")
@@ -1052,6 +1380,56 @@ try:
 
         if selected_ids:
             st.caption(f"Seleccionados para visualizar: {len(selected_ids)}")
+            
+            # Botones de descarga de reportes
+            st.markdown("##### Descargar Reportes")
+            col_csv, col_json, col_pdf = st.columns(3)
+            
+            with col_csv:
+                csv_data = generate_experiments_csv(selected_view)
+                st.download_button(
+                    label="CSV",
+                    data=csv_data,
+                    file_name=f"experimentos_epm_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="download_csv_results"
+                )
+                st.caption("Datos tabulares compatibles con Excel")
+            
+            with col_json:
+                json_data = generate_experiments_json(selected_view)
+                st.download_button(
+                    label="JSON",
+                    data=json_data,
+                    file_name=f"experimentos_epm_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                    key="download_json_results"
+                )
+                st.caption("Formato estructurado para APIs")
+            
+            with col_pdf:
+                try:
+                    pdf_data = generate_experiments_pdf(selected_view)
+                    # Verificar que los datos del PDF no estén vacíos
+                    if pdf_data and len(pdf_data) > 100:
+                        st.download_button(
+                            label="PDF",
+                            data=pdf_data,
+                            file_name=f"reporte_experimentos_epm_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key="download_pdf_results"
+                        )
+                        st.caption("Reporte profesional imprimible")
+                    else:
+                        st.error("Error al generar PDF")
+                except Exception as e:
+                    st.error(f"No se pudo generar el PDF: {str(e)}")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
             if blocked_selected_ids:
                 st.warning(
                     "Hay experimentos seleccionados que pertenecen a otros investigadores. "
