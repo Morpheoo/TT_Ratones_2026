@@ -1021,7 +1021,6 @@ def generate_experiments_html_as_pdf(df_experiments):
     return html.encode('utf-8')
 
 
-def render_detail_panel(record, trajectory_bundle):
 def render_edit_badge(engine, record_id):
     """Aviso compacto arriba del panel cuando el experimento tiene ediciones manuales."""
     from db.behavior_edits import load_behavior_edits
