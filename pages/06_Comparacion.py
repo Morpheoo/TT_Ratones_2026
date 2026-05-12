@@ -1,6 +1,8 @@
 import os
 import sys
 from pathlib import Path
+from datetime import datetime
+from io import BytesIO
 
 import pandas as pd
 import plotly.express as px
@@ -506,6 +508,123 @@ with tab2:
     df_comparison_table = pd.DataFrame(comparison_table)
     st.dataframe(df_comparison_table, use_container_width=True, hide_index=True)
 
+# ================= FUNCIÓN GENERACIÓN PDF =================
+def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, group2_treatment, n_group1, n_group2):
+    """
+    Genera un PDF con los resultados de la comparación entre grupos.
+    """
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+    except ImportError:
+        return b""
+    
+    if df_comparison_table is None or df_comparison_table.empty:
+        return b""
+    
+    buffer = BytesIO()
+    
+    try:
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Título
+        elements.append(Paragraph("Sistema de Analisis EPM - Comparacion de Grupos", styles['Title']))
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("Instituto Politecnico Nacional - ESCOM", styles['Normal']))
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph(f"Reporte: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+        elements.append(Spacer(1, 20))
+        
+        # Información de grupos
+        elements.append(Paragraph(f"<b>Comparacion: {group1_treatment} vs {group2_treatment}</b>", styles['Heading2']))
+        elements.append(Spacer(1, 8))
+        elements.append(Paragraph(f"N Grupo 1: {n_group1} | N Grupo 2: {n_group2}", styles['Normal']))
+        elements.append(Spacer(1, 20))
+        
+        # Tabla de comparación
+        elements.append(Paragraph("Comparacion Detallada", styles['Heading3']))
+        elements.append(Spacer(1, 10))
+        
+        # Preparar datos de la tabla
+        table_data = [['Variable', 'Grupo 1', 'Grupo 2', 'Diferencia', '% Cambio']]
+        
+        for _, row in df_comparison_table.iterrows():
+            table_data.append([
+                str(row['Variable'])[:25],
+                str(row[f'Grupo 1 Media±DE'])[:20],
+                str(row[f'Grupo 2 Media±DE'])[:20],
+                str(row['Diferencia']),
+                str(row['% Cambio'])
+            ])
+        
+        table = Table(table_data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ]))
+        
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+        
+        # Estadísticas por grupo
+        elements.append(Paragraph("Estadisticas Descriptivas", styles['Heading3']))
+        elements.append(Spacer(1, 10))
+        
+        stats_data = [['Variable', 'Grupo', 'Media', 'DE', 'N']]
+        
+        for _, row in df_stats.iterrows():
+            stats_data.append([
+                str(row['Variable'])[:20],
+                str(row['Grupo']),
+                f"{float(row['Media']):.2f}",
+                f"{float(row['Desv. Est.']):.2f}",
+                str(int(row['N']))
+            ])
+        
+        stats_table = Table(stats_data)
+        stats_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ]))
+        
+        elements.append(stats_table)
+        elements.append(Spacer(1, 20))
+        
+        # Footer
+        elements.append(Paragraph("Sistema EPM - TT 2026", styles['Normal']))
+        
+        # Construir PDF
+        doc.build(elements)
+        buffer.seek(0)
+        pdf_bytes = buffer.read()
+        buffer.close()
+        
+        return pdf_bytes
+        
+    except Exception as e:
+        try:
+            buffer.close()
+        except:
+            pass
+        return b""
+
 # ================= 9. EXPORTAR CONSOLIDADO PARA ANÁLISIS ESTADÍSTICO =================
 st.markdown("---")
 st.markdown("#### Exportar Consolidado para Análisis Estadístico")
@@ -519,7 +638,6 @@ st.info("""
 """)
 
 # Preparar datos para exportación
-from io import BytesIO
 
 # Hoja 1: Datos individuales
 df_individual_export = df_comparison[[
@@ -618,28 +736,53 @@ with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
 
 excel_data = buffer.getvalue()
 
-col_exp1, col_exp2 = st.columns(2)
+col_exp1, col_exp2, col_exp3 = st.columns(3)
 
 with col_exp1:
     st.download_button(
-        label="Descargar Consolidado Excel (Completo)",
+        label="Excel",
         data=excel_data,
         file_name=f"consolidado_{group1_treatment}_vs_{group2_treatment}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        type="primary"
+        type="primary",
+        use_container_width=True
     )
-    st.caption("4 hojas: Datos individuales, Estadísticas, Resumen comparativo, Metadata")
+    st.caption("Consolidado completo con 4 hojas")
 
 with col_exp2:
-    # CSV simplificado (solo estadísticas)
-    csv_stats = df_stats_export.to_csv(index=False).encode('utf-8')
+    csv_stats = df_stats_export.to_csv(index=False).encode('utf-8-sig')
     st.download_button(
-        label="Descargar Estadísticas (CSV)",
+        label="CSV",
         data=csv_stats,
         file_name=f"estadisticas_{group1_treatment}_vs_{group2_treatment}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
+        mime="text/csv",
+        use_container_width=True
     )
-    st.caption("Tabla de estadísticas descriptivas solamente")
+    st.caption("Estadisticas descriptivas")
+
+with col_exp3:
+    try:
+        pdf_data = generate_comparison_pdf(
+            df_comparison_table,
+            df_stats,
+            group1_treatment,
+            group2_treatment,
+            n_group1,
+            n_group2
+        )
+        if pdf_data and len(pdf_data) > 100:
+            st.download_button(
+                label="PDF",
+                data=pdf_data,
+                file_name=f"comparacion_{group1_treatment}_vs_{group2_treatment}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+            st.caption("Reporte de comparacion")
+        else:
+            st.error("Error al generar PDF")
+    except Exception as e:
+        st.error(f"No se pudo generar PDF")
 
 # ================= 10. RECOMENDACIONES PARA ANÁLISIS =================
 st.markdown("---")

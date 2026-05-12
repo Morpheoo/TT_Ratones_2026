@@ -423,7 +423,7 @@ if canvas_result.json_data:
         st.caption("Las coordenadas mostradas abajo ya quedaron convertidas a la resolucion real del video.")
         st.dataframe(_zones_dataframe(normalized_zones), use_container_width=True, hide_index=True)
         
-        if st.button("💾 GUARDAR CONFIGURACIÓN EXPERIMENTAL", type="primary", use_container_width=True):
+        if st.button("GUARDAR CONFIGURACIÓN EXPERIMENTAL", type="primary", use_container_width=True):
             st.session_state["zonas_configuradas"] = normalized_zones
             save_session()
             db_sync = _persist_zones_to_db(normalized_zones, factor_escala)

@@ -6,6 +6,71 @@ from db.connection import get_db_engine
 from email_utils import send_verification_email
 from security_logger import log_security_event
 
+def sanitize_input(value: str, max_length: int = 255) -> str:
+    """
+    Sanitiza entrada de usuario para prevenir inyecciones.
+    - Remueve caracteres peligrosos
+    - Limita longitud
+    - Normaliza espacios
+    """
+    if not value:
+        return ""
+    
+    # Limitar longitud
+    value = value[:max_length]
+    
+    # Remover caracteres de control y null bytes
+    value = ''.join(char for char in value if ord(char) >= 32 or char in '\t\n\r')
+    
+    # Normalizar espacios múltiples
+    value = ' '.join(value.split())
+    
+    return value.strip()
+
+def validate_email_format(email: str) -> bool:
+    """
+    Valida formato básico de email y previene caracteres sospechosos.
+    """
+    if not email or len(email) > 254:  # RFC 5321
+        return False
+    
+    # Patrón básico de email
+    pattern = r'^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    if not re.match(pattern, email):
+        return False
+    
+    # Verificar que no contenga caracteres peligrosos
+    dangerous_chars = ['<', '>', '"', "'", ';', '\\', '|', '&', '$', '`']
+    if any(char in email for char in dangerous_chars):
+        return False
+    
+    return True
+
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """
+    Valida fortaleza de contraseña.
+    Retorna (es_valida, mensaje_error)
+    """
+    if len(password) < 8:
+        return False, "La contraseña debe tener al menos 8 caracteres."
+    
+    if len(password) > 128:  # Límite razonable
+        return False, "La contraseña es demasiado larga (máximo 128 caracteres)."
+    
+    if not any(c.isupper() for c in password):
+        return False, "La contraseña debe contener al menos 1 letra mayúscula."
+    
+    if not any(c.isdigit() for c in password):
+        return False, "La contraseña debe contener al menos 1 número."
+    
+    # Verificar caracteres peligrosos para SQL (aunque usamos parámetros)
+    dangerous_patterns = ["--", "/*", "*/", "xp_", "sp_", "DROP", "DELETE", "TRUNCATE"]
+    password_upper = password.upper()
+    if any(pattern in password_upper for pattern in dangerous_patterns):
+        return False, "La contraseña contiene patrones no permitidos."
+    
+    return True, ""
 # ============================================================
 # Emails que reciben rol admin automaticamente al registrarse.
 # Se comparan en lowercase. Estos usuarios saltean el OTP y
