@@ -102,3 +102,37 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS centro VARCHAR(100);
 -- hash bcrypt requiere generarse desde Python. La promocion a admin
 -- se hace automaticamente cuando un email de la lista ADMIN_EMAILS
 -- (definida en src/auth.py) se registra a traves de la UI.
+
+-- ─────────────────────────────────────────────
+-- Tabla de Auditoria de Ediciones Manuales de Tiempos Conductuales
+-- ─────────────────────────────────────────────
+-- Cada vez que un usuario corrige los segundos de Abiertos/Cerrados/
+-- Centro/Grooming/Thigmotaxis en la pagina 05, guardamos snapshot
+-- before/after para trazabilidad y posible reversion.
+CREATE TABLE IF NOT EXISTS behavior_edits (
+    id              SERIAL PRIMARY KEY,
+    experiment_id   INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+    edited_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    edited_by_email TEXT,
+    edited_role     TEXT,
+    edited_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    before_open     FLOAT,
+    before_closed   FLOAT,
+    before_center   FLOAT,
+    before_grooming FLOAT,
+    before_thigmo   FLOAT,
+    after_open      FLOAT,
+    after_closed    FLOAT,
+    after_center    FLOAT,
+    after_grooming  FLOAT,
+    after_thigmo    FLOAT,
+    note            TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_behavior_edits_exp
+    ON behavior_edits(experiment_id, edited_at DESC);
+
+-- Upgrade idempotente para DBs creadas con la migration vieja
+-- (add_behavior_edits.py) que no incluia las columnas _center.
+ALTER TABLE behavior_edits ADD COLUMN IF NOT EXISTS before_center FLOAT;
+ALTER TABLE behavior_edits ADD COLUMN IF NOT EXISTS after_center FLOAT;
