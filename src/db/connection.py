@@ -94,13 +94,33 @@ def init_db():
                 return True
             return False
 
-        with engine.connect() as conn:
-            statements = sql_script.split(";")
-            for statement in statements:
-                if _has_executable_sql(statement):
+        # AUTOCOMMIT: cada statement se commitea por si solo. Si uno falla
+        # (ej. un CREATE/ALTER que el esquema actual de la DB no acepta),
+        # se loguea y el resto sigue aplicandose. Antes el script entero
+        # corria en UNA transaccion y un error temprano dejaba sin aplicar
+        # los ALTER TABLE de upgrade (e.g. before_center / after_center).
+        autocommit_conn = engine.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        )
+        applied = 0
+        failed = 0
+        with autocommit_conn as conn:
+            for statement in sql_script.split(";"):
+                if not _has_executable_sql(statement):
+                    continue
+                try:
                     conn.execute(text(statement))
-            conn.commit()
-        _db_logger.info("Tablas inicializadas o verificadas.")
+                    applied += 1
+                except Exception as stmt_exc:
+                    failed += 1
+                    snippet = " ".join(statement.split())[:120]
+                    _db_logger.warning(
+                        f"schema.sql statement fallo (continuo con los demas): "
+                        f"{snippet}... -> {stmt_exc}"
+                    )
+        _db_logger.info(
+            f"schema.sql aplicado: {applied} statements OK, {failed} con error."
+        )
         return True
     except Exception as e:
         _db_logger.error(f"Error ejecutando schema.sql: {e}")
