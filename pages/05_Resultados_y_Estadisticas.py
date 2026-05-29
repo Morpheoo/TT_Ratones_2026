@@ -289,7 +289,8 @@ def delete_owned_experiments(engine, experiment_ids, username):
     return deleted_count, skipped_ids, ""
 
 
-def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t, thigmo_t,
+def update_experiment_times(engine, experiment_id, open_t, closed_t, center_t,
+                            grooming_t, thigmo_t,
                             user_email=None, user_role=None, note=None):
     """
     Actualiza los tiempos de un experimento en analysis_results y registra
@@ -309,7 +310,7 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t,
             before_row = conn.execute(
                 text(
                     """
-                    SELECT id, time_open_arms, time_closed_arms,
+                    SELECT id, time_open_arms, time_closed_arms, time_center,
                            grooming_duration, thigmotaxis_duration
                     FROM analysis_results
                     WHERE experiment_id = :exp_id
@@ -324,6 +325,7 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t,
                 before = {
                     "open":  float(before_row["time_open_arms"] or 0.0),
                     "closed": float(before_row["time_closed_arms"] or 0.0),
+                    "center": float(before_row["time_center"] or 0.0),
                     "grooming": float(before_row["grooming_duration"] or 0.0),
                     "thigmo":  float(before_row["thigmotaxis_duration"] or 0.0),
                 }
@@ -333,6 +335,7 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t,
                         UPDATE analysis_results
                         SET time_open_arms = :open_t,
                             time_closed_arms = :closed_t,
+                            time_center = :center_t,
                             grooming_duration = :grooming_t,
                             thigmotaxis_duration = :thigmo_t,
                             timestamp = CURRENT_TIMESTAMP
@@ -342,26 +345,30 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t,
                     {
                         "open_t": float(open_t),
                         "closed_t": float(closed_t),
+                        "center_t": float(center_t),
                         "grooming_t": float(grooming_t),
                         "thigmo_t": float(thigmo_t),
                         "analysis_id": int(before_row["id"]),
                     },
                 )
             else:
-                before = {"open": 0.0, "closed": 0.0, "grooming": 0.0, "thigmo": 0.0}
+                before = {"open": 0.0, "closed": 0.0, "center": 0.0,
+                          "grooming": 0.0, "thigmo": 0.0}
                 conn.execute(
                     text(
                         """
                         INSERT INTO analysis_results
-                        (experiment_id, time_open_arms, time_closed_arms,
+                        (experiment_id, time_open_arms, time_closed_arms, time_center,
                          grooming_duration, thigmotaxis_duration, status)
-                        VALUES (:exp_id, :open_t, :closed_t, :grooming_t, :thigmo_t, 'completed')
+                        VALUES (:exp_id, :open_t, :closed_t, :center_t,
+                                :grooming_t, :thigmo_t, 'completed')
                         """
                     ),
                     {
                         "exp_id": experiment_id,
                         "open_t": float(open_t),
                         "closed_t": float(closed_t),
+                        "center_t": float(center_t),
                         "grooming_t": float(grooming_t),
                         "thigmo_t": float(thigmo_t),
                     },
@@ -370,6 +377,7 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t,
             after = {
                 "open": float(open_t),
                 "closed": float(closed_t),
+                "center": float(center_t),
                 "grooming": float(grooming_t),
                 "thigmo": float(thigmo_t),
             }
@@ -379,13 +387,15 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t,
                     """
                     INSERT INTO behavior_edits (
                         experiment_id, edited_by, edited_by_email, edited_role,
-                        before_open, before_closed, before_grooming, before_thigmo,
-                        after_open,  after_closed,  after_grooming,  after_thigmo,
+                        before_open, before_closed, before_center,
+                        before_grooming, before_thigmo,
+                        after_open,  after_closed,  after_center,
+                        after_grooming,  after_thigmo,
                         note
                     ) VALUES (
                         :exp_id, :user_id, :user_email, :user_role,
-                        :b_open, :b_closed, :b_groom, :b_thigmo,
-                        :a_open, :a_closed, :a_groom, :a_thigmo,
+                        :b_open, :b_closed, :b_center, :b_groom, :b_thigmo,
+                        :a_open, :a_closed, :a_center, :a_groom, :a_thigmo,
                         :note
                     )
                     """
@@ -396,8 +406,10 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, grooming_t,
                     "user_email": user_email,
                     "user_role": user_role,
                     "b_open": before["open"], "b_closed": before["closed"],
+                    "b_center": before["center"],
                     "b_groom": before["grooming"], "b_thigmo": before["thigmo"],
                     "a_open": after["open"],  "a_closed": after["closed"],
+                    "a_center": after["center"],
                     "a_groom": after["grooming"],  "a_thigmo": after["thigmo"],
                     "note": note,
                 },
@@ -1057,7 +1069,7 @@ def render_edit_history_expander(engine, record_id, can_revert):
     with st.expander(f"Historial de ediciones del registro #{record_id} ({len(edits)})",
                      expanded=False):
         for edit in edits:
-            cols = st.columns([2, 1.4, 1.4, 1.4, 1.4, 1.2])
+            cols = st.columns([2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2])
             cols[0].markdown(
                 f"**#{edit['id']}** &mdash; {edit.get('edited_by_email') or 'desconocido'}  \n"
                 f"<span style='color:#666;font-size:0.78rem;'>"
@@ -1075,10 +1087,11 @@ def render_edit_history_expander(engine, record_id, can_revert):
 
             cols[1].markdown(_delta("Abiertos", edit["before_open"], edit["after_open"]))
             cols[2].markdown(_delta("Cerrados", edit["before_closed"], edit["after_closed"]))
-            cols[3].markdown(_delta("Grooming", edit["before_grooming"], edit["after_grooming"]))
-            cols[4].markdown(_delta("Thigmo", edit["before_thigmo"], edit["after_thigmo"]))
+            cols[3].markdown(_delta("Centro", edit.get("before_center"), edit.get("after_center")))
+            cols[4].markdown(_delta("Grooming", edit["before_grooming"], edit["after_grooming"]))
+            cols[5].markdown(_delta("Thigmo", edit["before_thigmo"], edit["after_thigmo"]))
 
-            with cols[5]:
+            with cols[6]:
                 if can_revert:
                     if st.button("Revertir", key=f"revert_edit_{record_id}_{edit['id']}",
                                  help="Restaura los tiempos al estado anterior a esta edicion"):
@@ -1109,8 +1122,11 @@ def render_inline_time_editor_form(engine, record_id, current_values,
         value=float(current_values["closed"]),
         key=f"edit_closed_{record_id}",
     )
-    e3.metric("Centro", format_seconds(current_values["center"]))
-    e3.caption("Derivado de trayectoria (no editable)")
+    new_center = e3.number_input(
+        "Centro (s)", min_value=0.0, step=0.1, format="%.1f",
+        value=float(current_values["center"]),
+        key=f"edit_center_{record_id}",
+    )
     new_groom = e4.number_input(
         "Grooming (s)", min_value=0.0, step=0.1, format="%.1f",
         value=float(current_values["grooming"]),
@@ -1131,6 +1147,7 @@ def render_inline_time_editor_form(engine, record_id, current_values,
     has_changes = (
         abs(new_open - current_values["open"]) > 0.01
         or abs(new_closed - current_values["closed"]) > 0.01
+        or abs(new_center - current_values["center"]) > 0.01
         or abs(new_groom - current_values["grooming"]) > 0.01
         or abs(new_thigmo - current_values["thigmo"]) > 0.01
     )
@@ -1159,6 +1176,7 @@ def render_inline_time_editor_form(engine, record_id, current_values,
             record_id,
             new_open,
             new_closed,
+            new_center,
             new_groom,
             new_thigmo,
             user_email=user_email,
@@ -1657,10 +1675,17 @@ try:
                     if times_changed:
                         # Verificar permisos: Admin puede editar todo, investigador solo lo suyo
                         if exp_id in editable_exp_ids:
+                            # El centro no es editable en este flujo masivo (tabla),
+                            # asi que reutilizamos su valor original sin cambios.
+                            try:
+                                orig_center = float(original_row["Centro (s)"])
+                            except (KeyError, ValueError, TypeError):
+                                orig_center = 0.0
                             changes_detected.append({
                                 "id": exp_id,
                                 "open_t": edit_open,
                                 "closed_t": edit_closed,
+                                "center_t": orig_center,
                                 "grooming_t": edit_grooming,
                                 "thigmo_t": edit_thigmo
                             })
@@ -1687,6 +1712,7 @@ try:
                             change["id"],
                             change["open_t"],
                             change["closed_t"],
+                            change["center_t"],
                             change["grooming_t"],
                             change["thigmo_t"],
                             user_email=current_user,

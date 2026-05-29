@@ -70,13 +70,15 @@ def record_behavior_edit(engine, *, experiment_id, before, after,
                     """
                     INSERT INTO behavior_edits (
                         experiment_id, edited_by, edited_by_email, edited_role,
-                        before_open, before_closed, before_grooming, before_thigmo,
-                        after_open,  after_closed,  after_grooming,  after_thigmo,
+                        before_open, before_closed, before_center,
+                        before_grooming, before_thigmo,
+                        after_open,  after_closed,  after_center,
+                        after_grooming,  after_thigmo,
                         note
                     ) VALUES (
                         :exp_id, :user_id, :user_email, :user_role,
-                        :b_open, :b_closed, :b_groom, :b_thigmo,
-                        :a_open, :a_closed, :a_groom, :a_thigmo,
+                        :b_open, :b_closed, :b_center, :b_groom, :b_thigmo,
+                        :a_open, :a_closed, :a_center, :a_groom, :a_thigmo,
                         :note
                     )
                     """
@@ -88,10 +90,12 @@ def record_behavior_edit(engine, *, experiment_id, before, after,
                     "user_role": user_role,
                     "b_open":  float(before.get("open", 0.0) or 0.0),
                     "b_closed": float(before.get("closed", 0.0) or 0.0),
+                    "b_center": float(before.get("center", 0.0) or 0.0),
                     "b_groom":  float(before.get("grooming", 0.0) or 0.0),
                     "b_thigmo": float(before.get("thigmo", 0.0) or 0.0),
                     "a_open":  float(after.get("open", 0.0) or 0.0),
                     "a_closed": float(after.get("closed", 0.0) or 0.0),
+                    "a_center": float(after.get("center", 0.0) or 0.0),
                     "a_groom":  float(after.get("grooming", 0.0) or 0.0),
                     "a_thigmo": float(after.get("thigmo", 0.0) or 0.0),
                     "note": note,
@@ -114,8 +118,10 @@ def load_behavior_edits(engine, experiment_id):
                 text(
                     """
                     SELECT id, edited_by_email, edited_role, edited_at,
-                           before_open, before_closed, before_grooming, before_thigmo,
-                           after_open,  after_closed,  after_grooming,  after_thigmo,
+                           before_open, before_closed, before_center,
+                           before_grooming, before_thigmo,
+                           after_open,  after_closed,  after_center,
+                           after_grooming,  after_thigmo,
                            note
                     FROM behavior_edits
                     WHERE experiment_id = :exp_id
@@ -147,8 +153,10 @@ def revert_to_before_snapshot(engine, edit_id):
                 text(
                     """
                     SELECT experiment_id,
-                           before_open, before_closed, before_grooming, before_thigmo,
-                           after_open,  after_closed,  after_grooming,  after_thigmo
+                           before_open, before_closed, before_center,
+                           before_grooming, before_thigmo,
+                           after_open,  after_closed,  after_center,
+                           after_grooming,  after_thigmo
                     FROM behavior_edits
                     WHERE id = :edit_id
                     """
@@ -181,6 +189,7 @@ def revert_to_before_snapshot(engine, edit_id):
                     UPDATE analysis_results
                     SET time_open_arms = :open_t,
                         time_closed_arms = :closed_t,
+                        time_center = :center_t,
                         grooming_duration = :groom_t,
                         thigmotaxis_duration = :thigmo_t,
                         timestamp = CURRENT_TIMESTAMP
@@ -190,6 +199,7 @@ def revert_to_before_snapshot(engine, edit_id):
                 {
                     "open_t":  float(row["before_open"] or 0.0),
                     "closed_t": float(row["before_closed"] or 0.0),
+                    "center_t": float(row["before_center"] or 0.0),
                     "groom_t":  float(row["before_grooming"] or 0.0),
                     "thigmo_t": float(row["before_thigmo"] or 0.0),
                     "analysis_id": int(target[0]),
