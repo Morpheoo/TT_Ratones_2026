@@ -1,7 +1,7 @@
 import tf_keras
 import sys
 
-print(f"tf_keras version: {tf_keras.__version__}")
+print(f"tf_keras versión: {tf_keras.__version__}")
 
 if hasattr(tf_keras, "legacy_tf_layers"):
     print("FOUND: tf_keras.legacy_tf_layers type:", type(tf_keras.legacy_tf_layers))

@@ -110,7 +110,7 @@ if __name__ == "__main__":
         success = setup_database()
         exit(0 if success else 1)
     except KeyboardInterrupt:
-        print("\n\n[CANCELADO] Configuración interrumpida por el usuario")
+        print("\n\n[CANCELADO] configuración interrumpida por el usuario")
         exit(1)
     except Exception as e:
         print(f"\n[ERROR CRÍTICO] {e}")

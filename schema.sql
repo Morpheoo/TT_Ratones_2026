@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS experiments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Configuración de Zonas (ROIs)
+-- configuración de Zonas (ROIs)
 CREATE TABLE IF NOT EXISTS roi_configurations (
     id SERIAL PRIMARY KEY,
     experiment_id INTEGER REFERENCES experiments(id) ON DELETE CASCADE,
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS roi_configurations (
     scale_factor FLOAT
 );
 
--- Resultados de Análisis IA
+-- Resultados de análisis IA
 CREATE TABLE IF NOT EXISTS analysis_results (
     id SERIAL PRIMARY KEY,
     experiment_id INTEGER REFERENCES experiments(id) ON DELETE CASCADE,
@@ -107,7 +107,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS centro VARCHAR(100);
 -- Tabla de Auditoria de Ediciones Manuales de Tiempos Conductuales
 -- ─────────────────────────────────────────────
 -- Cada vez que un usuario corrige los segundos de Abiertos/Cerrados/
--- Centro/Grooming/Thigmotaxis en la pagina 05, guardamos snapshot
+-- Centro/Grooming/Thigmotaxis en la página 05, guardamos snapshot
 -- before/after para trazabilidad y posible reversion.
 CREATE TABLE IF NOT EXISTS behavior_edits (
     id              SERIAL PRIMARY KEY,

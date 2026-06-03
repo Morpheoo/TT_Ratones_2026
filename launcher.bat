@@ -93,7 +93,7 @@ echo [WARN] Faltan librerias basicas en venv_311.
 echo [INFO] Instalando desde requirements_venv311.txt...
 pip install -r requirements_venv311.txt
 if %errorlevel% neq 0 (
-    echo [ERROR] Fallo la instalacion de dependencias.
+    echo [ERROR] Fallo la instalación de dependencias.
     echo [INFO]  Volve a correr install.bat o revisa tu conexion a internet.
     pause
     exit /b 1

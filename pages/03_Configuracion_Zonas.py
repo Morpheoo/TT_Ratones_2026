@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 
 # ================= 0. SETUP & PERSISTENCE =================
-st.set_page_config(page_title="Configuración de Zonas | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Configuración de zonas", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 if os.path.join(os.getcwd(), "src") not in sys.path:
     sys.path.append(os.path.join(os.getcwd(), "src"))
@@ -39,7 +39,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -58,7 +58,7 @@ if not st.session_state.get("logged_in"):
 
 # ================= 2. VIDEO CHECK & LOGIC =================
 if "ruta_video_actual" not in st.session_state:
-    st.warning("No hay un video activo en sesión. Regresa a 'Ingesta de Video'.")
+    st.warning("No hay un video activo en sesión. Regresa al módulo de ingesta de video.")
     st.stop()
 
 OPEN_FILL = "rgba(111,29,70,0.4)"
@@ -84,17 +84,17 @@ def _infer_zone_kind(canvas_obj):
     stroke = _normalize_color(canvas_obj.get("stroke"))
 
     if "abierto" in raw_name_lower:
-        return "Brazo Abierto"
+        return "Brazo abierto"
     if "cerrado" in raw_name_lower:
-        return "Brazo Cerrado"
+        return "Brazo cerrado"
     if "centro" in raw_name_lower:
         return "Centro"
     if "pared" in raw_name_lower or "muro" in raw_name_lower or obj_type == "line":
         return "Muro / Pared"
     if fill == OPEN_FILL:
-        return "Brazo Abierto"
+        return "Brazo abierto"
     if fill == CLOSED_FILL:
-        return "Brazo Cerrado"
+        return "Brazo cerrado"
     if fill == CENTER_FILL:
         return "Centro"
     if stroke == WALL_STROKE:
@@ -162,10 +162,10 @@ def _build_named_zones(canvas_objects, scale_factor):
                 "id": zone_name,
                 "name": zone_name,
                 "Nombre Zona": zone_name,
-                "left": _round_int(left),
-                "top": _round_int(top),
-                "width": _round_int(width),
-                "height": _round_int(height),
+                "Posición en x": _round_int(left),
+                "Posición en y": _round_int(top),
+                "Ancho": _round_int(width),
+                "Alto": _round_int(height),
                 "x": _round_int(left),
                 "y": _round_int(top),
                 "w": _round_int(width),
@@ -182,25 +182,25 @@ def _zones_dataframe(zones):
         if zone.get("type") == "line":
             rows.append(
                 {
-                    "Nombre Zona": zone.get("Nombre Zona"),
+                    "Nombre de la zona": zone.get("Nombre Zona"),
                     "Tipo": zone.get("zone_type"),
-                    "Geometria": "Linea",
-                    "x1": zone.get("x1"),
-                    "y1": zone.get("y1"),
-                    "x2": zone.get("x2"),
-                    "y2": zone.get("y2"),
+                    "Geometría": "Línea",
+                    "Coordenada en x del primer punto": zone.get("x1"),
+                    "Coordenada en y del primer punto": zone.get("y1"),
+                    "Coordenada en x del segundo punto": zone.get("x2"),
+                    "Coordenada en y del segundo punto": zone.get("y2"),
                 }
             )
         else:
             rows.append(
                 {
-                    "Nombre Zona": zone.get("Nombre Zona"),
+                    "Nombre de la zona": zone.get("Nombre Zona"),
                     "Tipo": zone.get("zone_type"),
-                    "Geometria": "Rectangulo",
-                    "left": zone.get("left"),
-                    "top": zone.get("top"),
-                    "width": zone.get("width"),
-                    "height": zone.get("height"),
+                    "Geometría": "Rectángulo",
+                    "Posición en x": zone.get("Posición en x"),
+                    "Posición en y": zone.get("Posición en y"),
+                    "Ancho": zone.get("Ancho"),
+                    "Alto": zone.get("Alto"),
                 }
             )
     return pd.DataFrame(rows)
@@ -228,12 +228,12 @@ def _sync_wall_rois_to_simba(zones):
     if not simba_video_path:
         return {
             "ok": False,
-            "message": "No se encontro un video activo/analizado para asociar las ROIs dentro de SimBA.",
+            "message": "No se encontró un video activo o analizado para asociar las zonas de interés dentro de SimBA.",
         }
 
     video_stem = Path(simba_video_path).stem
     # Proyecto SimBA activo: productivo o sandbox segun el selector
-    # de la pagina Keypoints (persistido en st.session_state).
+    # de la página Keypoints (persistido en st.session_state).
     active_project_dir = get_active_simba_project_dir(
         Path("data/simba_projects").resolve()
     )
@@ -246,9 +246,9 @@ def _sync_wall_rois_to_simba(zones):
         include_user_zones=False,
     )
 
-    # Verificacion post-write: confirmar en disco que el h5 del proyecto
+    # verificación post-write: confirmar en disco que el archivo .h5 del proyecto
     # SimBA activo (productivo o sandbox) contiene las 6 paredes para
-    # este video. Sin esto la UI podria reportar exito aunque la
+    # este video. Sin esto la UI podria reportar éxito aunque la
     # escritura cayera en otro path o fallara silenciosamente.
     roi_path = roi_sync_result.get("roi_path")
     persisted_count = -1
@@ -261,20 +261,20 @@ def _sync_wall_rois_to_simba(zones):
         except Exception as error:
             persist_error = str(error)
     else:
-        persist_error = f"No se encontro el archivo h5 esperado: {roi_path}"
+        persist_error = f"No se encontró el archivo .h5 esperado: {roi_path}"
 
     if persisted_count == 6:
         return {
             "ok": True,
-            "message": f"Se importaron correctamente las 6 ROIs de paredes a SimBA para `{video_stem}`.",
+            "message": f"Se importaron correctamente las 6 zonas de interés de paredes a SimBA para `{video_stem}`.",
             "detail": roi_sync_result,
         }
     return {
         "ok": False,
         "message": (
-            f"La sincronizacion reporto exito pero el h5 del proyecto activo tiene "
+            f"La sincronización reportó éxito pero el archivo .h5 del proyecto activo tiene "
             f"{persisted_count if persisted_count >= 0 else '?'} de 6 paredes para `{video_stem}`. "
-            f"Path verificado: {roi_path}."
+            f"Ruta verificada: {roi_path}."
             + (f" Error de lectura: {persist_error}" if persist_error else "")
         ),
         "detail": roi_sync_result,
@@ -295,14 +295,14 @@ def _persist_zones_to_db(zones, scale_factor):
     if not engine:
         return {
             "ok": False,
-            "message": "No se encontro conexion a PostgreSQL para guardar las zonas historicas.",
+            "message": "No se encontró conexión a PostgreSQL para guardar las zonas históricas.",
         }
 
     video_path = st.session_state.get("ruta_video_actual")
     if not video_path:
         return {
             "ok": False,
-            "message": "No hay video activo para persistir las zonas en la BD.",
+            "message": "No hay vídeo activo para persistir las zonas en la base de datos.",
         }
 
     rat_id = st.session_state.get("id_raton_actual") or Path(video_path).stem
@@ -322,7 +322,7 @@ def _persist_zones_to_db(zones, scale_factor):
     return {
         "ok": True,
         "message": (
-            f"Se guardaron {result['zones_saved']} zonas en la BD para el experimento #{result['experiment_id']}."
+            f"Se guardaron {result['zones_saved']} zonas en la base de datos para el experimento #{result['experiment_id']}."
         ),
         "detail": result,
     }
@@ -335,7 +335,7 @@ def zones_loading_sequence():
     img = Image.fromarray(frame)
     size = clip.size
     clip.close()
-    yield 100, "Iniciando editor ROI."
+    yield 100, "Iniciando editor de zonas de interés."
     return {"image": img, "size": size}
 
 zones_signature = (
@@ -347,13 +347,13 @@ cache = load_resource_with_splash(
     state_key="_zones_cache",
     generator_factory=zones_loading_sequence,
     dependency_signature=zones_signature,
-    subtitle="TT 2026 - Preparando editor ROI...",
+    subtitle="Preparando editor de zonas...",
 )
 if not cache: st.stop()
 
 # ================= 3. CABECERA =================
 render_topbar()
-st.markdown("### Módulo 03: Configuración de Zonas (ROI)")
+st.markdown("### Módulo 03: Configuración de zonas")
 st.markdown("""
     Defina los límites anatómicos del laberinto sobre el video experimental. 
     Las coordenadas se escalarán automáticamente a la resolución original del video.
@@ -375,12 +375,12 @@ col_sidebar, col_main = st.columns([1, 1.8])
 with col_sidebar:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     st.markdown("#### Herramientas de Dibujo")
-    tipo_zona = st.radio("Clasificación de ROI:", ["Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"])
-    operacion = st.radio("Modo de Interacción:", ["Dibujar rectángulos", "Mover / Editar"])
+    tipo_zona = st.radio("Clasificación de zonas de interés:", ["Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"])
+    operación = st.radio("Modo de interacción:", ["Dibujar rectángulos", "Mover / Editar"])
     
     st.divider()
     
-    if st.button("CARGAR PLANTILLA (EPM)", use_container_width=True):
+    if st.button("CARGAR PLANTILLA DEL LABERINTO", use_container_width=True):
         st.info("Plantilla de laberinto cargada.")
     
     if st.button("LIMPIAR LIENZO", type="secondary", use_container_width=True):
@@ -390,10 +390,10 @@ with col_sidebar:
 
 with col_main:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("#### 📐 Lienzo de Configuración")
+    st.markdown("#### Lienzo de configuración")
     st.caption("*(Dibuja rectángulos de interés sobre el fotograma del video).*")
     
-    drawing_mode = "transform" if "Mover" in operacion else ("line" if "Muro" in tipo_zona else "rect")
+    drawing_mode = "transform" if "Mover" in operación else ("line" if "Muro" in tipo_zona else "rect")
     color_map = {
         "Brazo Abierto": "rgba(111, 29, 70, 0.4)",  # IPN Guinda
         "Brazo Cerrado": "rgba(99, 101, 105, 0.4)", # IPN Gray
@@ -420,7 +420,7 @@ if canvas_result.json_data:
         normalized_zones = _build_named_zones(objects, factor_escala)
         st.markdown('<div class="content-card">', unsafe_allow_html=True)
         st.markdown("#### Zonas Detectadas")
-        st.caption("Las coordenadas mostradas abajo ya quedaron convertidas a la resolucion real del video.")
+        st.caption("Las coordenadas mostradas abajo ya quedaron convertidas a la resolución real del video.")
         st.dataframe(_zones_dataframe(normalized_zones), use_container_width=True, hide_index=True)
         
         if st.button("GUARDAR CONFIGURACIÓN EXPERIMENTAL", type="primary", use_container_width=True):
@@ -452,6 +452,6 @@ if canvas_result.json_data:
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(f"""
     <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        IPN - Escuela Superior de Cómputo 2026
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
     </div>
 """, unsafe_allow_html=True)

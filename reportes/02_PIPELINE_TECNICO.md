@@ -1,9 +1,9 @@
-# Pilar 2: Pipeline tecnico end-to-end
+# Pilar 2: Pipeline técnico end-to-end
 
 Fecha: 2026-05-05
 
-Como funciona internamente el sistema de deteccion automatica. Para
-estado y metricas ver pilar 1 (`01_ESTADO_ACTUAL.md`). Para mejoras
+Como funciona internamente el sistema de deteccion automática. Para
+estado y métricas ver pilar 1 (`01_ESTADO_ACTUAL.md`). Para mejoras
 pendientes ver pilar 3 (`03_PLAN_MEJORAS.md`).
 
 ---
@@ -77,7 +77,7 @@ incluyendo:
 - ROI in-zone flags: si keypoints estan en `Brazo Abierto/Cerrado/Centro`
 - Sum probabilities (de las p de keypoints)
 
-**Configuracion ROI**: archivo JSON con poligonos (en `logs/analysis/zonas_activas.json`).
+**Configuración ROI**: archivo JSON con poligonos (en `logs/analysis/zonas_activas.json`).
 
 **Script**: `src/scripts/compute_simba_features.py` (o uses SimBA's GUI).
 
@@ -85,7 +85,7 @@ incluyendo:
 
 **Funcion**: predict_proba por frame. Probabilidad continua [0, 1].
 
-**Configuracion combo (deployment 2026-05-05)**:
+**Configuración combo (deployment 2026-05-05)**:
 
 ```ini
 [create ensemble settings]
@@ -122,7 +122,7 @@ extraidas y predice `Probability_Grooming_LSTM` por frame.
 **Output**: `resultados_yolo/{stem}/{stem}_grooming_lstm.csv` con columnas
 `Frame, Probability_Grooming_LSTM, Grooming_LSTM`.
 
-### 2.5 Logica de combinacion (modo "rescue")
+### 2.5 Lógica de combinacion (modo "rescue")
 
 En `src/scripts/generar_video_prediccion.py` lineas 543-562, el modo
 `--grooming-source rescue` aplica:
@@ -143,11 +143,11 @@ elif grooming_source == "rescue":
     probs_groom[elevate_mask] = np.maximum(probs_groom[elevate_mask], confirm_threshold)
 ```
 
-**Logica narrativa**: si el RF esta titubeando (entre 0.22-0.41) Y la
+**Lógica narrativa**: si el RF esta titubeando (entre 0.22-0.41) Y la
 LSTM confirma (>= 0.11), elevar a Grooming. Tambien, si la LSTM esta muy
 segura (>= 0.50) sin importar RF, elevar.
 
-Esta logica se introdujo el 2026-05-04 cuando el usuario observo que la
+Esta lógica se introdujo el 2026-05-04 cuando el usuario observo que la
 LSTM detectaba pero RF no lo cruzaba al threshold.
 
 ### 2.6 Smoothing y eventos
@@ -157,7 +157,7 @@ LSTM detectaba pero RF no lo cruzaba al threshold.
 **Threshold operativo Grooming**: 0.41 (`GROOMING_CONFIRM_THRESHOLD`).
 **Threshold operativo Thigmotaxis**: 0.30 (`THIGMO_CONFIRM_THRESHOLD`).
 
-**Duracion minima evento**: 0.5 s (15 frames @ 30 fps). Eventos mas
+**Duración minima evento**: 0.5 s (15 frames @ 30 fps). Eventos mas
 cortos se descartan.
 
 ### 2.7 Render multimodal
@@ -187,7 +187,7 @@ si los timestamps son OK). Ideal para procesar videos nuevos.
 
 ## 3. Scripts auxiliares importantes
 
-### Validacion blind real (LOO)
+### validación blind real (LOO)
 
 | Script | Funcion |
 |---|---|
@@ -212,7 +212,7 @@ Todos usan lock file `.leaveoneout.lock` para evitar conflictos.
 | `src/scripts/compute_periodic_features.py` | Features espectrales (FFT, autocorr). NO usadas — SimBA las filtra. |
 | `src/scripts/build_yolo_simba_project.py` | Crea proyecto SimBA YOLO desde cero |
 
-## 4. Configuracion (src/config.py)
+## 4. configuración (src/config.py)
 
 Constantes globales del proyecto:
 
@@ -268,12 +268,12 @@ TT_Ratones_2026/
   │   ├── analysis_logic.py              # detectar_thigmotaxis, checar_zona
   │   └── scripts/                       # todos los scripts del pipeline
   ├── reportes/                          # documentacion
-  ├── logs/                              # logs de ejecucion
+  ├── logs/                              # logs de ejecución
   ├── venv_310/, venv_311/               # entornos python
   └── pages/                             # interfaz Streamlit (UI)
 ```
 
-## 7. Codigo critico de leer en este orden
+## 7. código critico de leer en este orden
 
 Si queres entender el sistema (humano o IA cold start), lee en este
 orden:
@@ -281,9 +281,9 @@ orden:
 1. `src/config.py` — paths globales
 2. `src/scripts/run_behavior_pipeline.py` — orquestador principal
 3. `src/scripts/generar_video_prediccion.py` — render multimodal final
-   (logica de rescue, smoothing, etc.)
+   (lógica de rescue, smoothing, etc.)
 4. `src/scripts/retrain_simba_models.py` — como se entrenan los RF
-5. `src/scripts/loo_full_bsoid.py` — como se valida blind real
+5. `src/scripts/loo_full_bsoid.py` — como se válida blind real
 
 Eso da una vision completa en ~30 min de lectura.
 
@@ -339,7 +339,7 @@ O paso a paso:
 #  3. Reentrena ambos RF SimBA sin el video (~12 min)
 #  4. Reentrena B-SOiD sin el video (~3 min)
 #  5. Predice sobre el video held-out
-#  6. Reporta metricas SimBA / B-SOiD / Ensemble
+#  6. Reporta métricas SimBA / B-SOiD / Ensemble
 #  7. Restaura todo (target + 2 modelos originales)
 #  Tiempo total: ~15 min
 ```

@@ -36,9 +36,9 @@ def send_verification_email(to_email, code):
     if sender_email in placeholders or sender_password in placeholders:
         print("")
         print("=" * 60)
-        print("[DEV-OTP] SMTP no configurado. Codigo de verificacion:")
+        print("[DEV-OTP] SMTP no configurado. código de verificación:")
         print(f"[DEV-OTP]   destinatario : {to_email}")
-        print(f"[DEV-OTP]   codigo OTP   : {code}")
+        print(f"[DEV-OTP]   código OTP   : {code}")
         print("[DEV-OTP] Ingresalo en la UI para completar el registro.")
         print("[DEV-OTP] Para enviar mails reales, configura")
         print("[DEV-OTP]   GMAIL_SENDER_EMAIL y GMAIL_APP_PASSWORD en .env")
@@ -51,14 +51,14 @@ def send_verification_email(to_email, code):
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = to_email
-        msg['Subject'] = "Código de Verificación - TT Ratones 2026"
+        msg['Subject'] = "Código de verificación - TT Ratones 2026"
 
         body = f"""
         <html>
           <body>
             <h2>Verificación de Cuenta</h2>
             <p>Hola,</p>
-            <p>Tu código de verificación para el sistema TT Ratones 2026 es:</p>
+            <p>Tu código de verificación para el prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad es:</p>
             <h1 style="color: #2e7d32; font-size: 32px;">{code}</h1>
             <p>Ingresa este código en la aplicación para activar tu cuenta.</p>
             <p>Si no solicitaste este código, ignora este mensaje.</p>

@@ -1,4 +1,4 @@
-# ✅ Checklist de Configuración del Sistema
+# ✅ Checklist de configuración del Sistema
 
 ## Pre-requisitos
 - [ ] Python 3.11 instalado
@@ -6,7 +6,7 @@
 - [ ] Dependencias instaladas (`pip install -r requirements.txt`)
 - [ ] Git instalado (opcional)
 
-## Configuración de Base de Datos
+## configuración de Base de Datos
 
 ### Opción A: Local (Docker)
 - [ ] Docker Desktop instalado
@@ -58,7 +58,7 @@
 
 ## Sistema de Correo Configurado
 - [ ] Cuenta de Gmail configurada
-- [ ] Verificación en dos pasos activada en Gmail
+- [ ] verificación en dos pasos activada en Gmail
 - [ ] Contraseña de aplicación generada
 - [ ] `GMAIL_SENDER_EMAIL` en `.env`
 - [ ] `GMAIL_APP_PASSWORD` en `.env`
@@ -74,7 +74,7 @@ python test_remote_db.py
 - [ ] Todas las tablas listadas
 - [ ] Conteo de usuarios correcto
 
-### Validación de Configuración
+### validación de Configuración
 ```bash
 python check_setup.py
 ```
@@ -88,7 +88,7 @@ python check_setup.py
 - [ ] Formulario de registro para investigadores funciona
 - [ ] Sistema de verificación por correo funciona:
   - [ ] Correo OTP recibido
-  - [ ] Código OTP validado correctamente
+  - [ ] código OTP validado correctamente
   - [ ] Cuenta activada exitosamente
 - [ ] Login con cuenta verificada funciona
 - [ ] Login con cuenta no verificada muestra mensaje apropiado
@@ -111,18 +111,18 @@ python check_setup.py
 
 ### Módulos Principales
 - [ ] Home (Dashboard) carga correctamente
-- [ ] Módulo de Login/Registro funciona
+- [ ] módulo de Login/Registro funciona
 - [ ] Ingesta de Video funciona
-- [ ] Configuración de Zonas funciona
-- [ ] Análisis Final funciona
-- [ ] Resultados y Estadísticas funciona
-- [ ] Comparación ANOVA funciona
+- [ ] configuración de Zonas funciona
+- [ ] análisis Final funciona
+- [ ] Resultados y estadísticas funciona
+- [ ] comparación ANOVA funciona
 - [ ] Perfil de usuario funciona
 
 ### Flujo Completo de Usuario Nuevo
 1. [ ] Registro exitoso (estudiante o investigador)
 2. [ ] Correo de verificación recibido
-3. [ ] Código OTP ingresado correctamente
+3. [ ] código OTP ingresado correctamente
 4. [ ] Cuenta verificada
 5. [ ] Login exitoso
 6. [ ] Acceso a módulos permitido

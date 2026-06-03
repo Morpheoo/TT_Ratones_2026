@@ -69,7 +69,7 @@ DOWNSCALE_FACTOR = 1.0          # Keep original resolution for DLC accuracy
 DLC_BATCHSIZE    = 32           # Default optimizado para 12GB VRAM (RTX 5070 Ti)
 DLC_VIDEO_ADAPT  = False        # False = más rápido; True = mayor precisión en iluminación irregular
 
-# ── Parámetros de Recorte Temporizado (Streamlit Pestaña 01) ─────────
+# ── parámetros de Recorte Temporizado (Streamlit Pestaña 01) ─────────
 TRIM_START = 0.0
 TRIM_END   = 0.0
 
@@ -193,15 +193,15 @@ def step2_dlc_analysis():
         print(f"  DLC results already exist: {existing[0]}")
         return True
         
-    # Check TensorFlow version for GPU support (Windows Native GPU dropped after 2.10)
+    # Check TensorFlow versión for GPU support (Windows Native GPU dropped after 2.10)
     try:
         import tensorflow as tf
         tf_ver = tf.__version__
-        print(f"  TensorFlow Version: {tf_ver}")
+        print(f"  TensorFlow Versión: {tf_ver}")
         
         # If running in venv_311 (TF 2.11+) -> Respawn in venv_310 (TF 2.10)
         # Windows Native GPU support was dropped in TF 2.10.
-        # Any version > 2.10 must use venv_310 for GPU.
+        # Any versión > 2.10 must use venv_310 for GPU.
         major, minor, patch = tf_ver.split(".")[:3]
         if int(major) == 2 and int(minor) > 10:
              print(f"  [WARN] TF {tf_ver} > 2.10 detected (No GPU on Windows). Respawning in venv_310...")

@@ -100,7 +100,7 @@ def test_researcher_registration():
         role="investigador",
         full_name="Dra. María González Ramírez",
         num_empleado="EMP20230456",
-        area="Inteligencia Artificial y Análisis de Comportamiento",
+        area="Inteligencia Artificial y análisis de Comportamiento",
         centro="ESCOM",
         accepted_terms=True
     )

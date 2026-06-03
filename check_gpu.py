@@ -27,17 +27,17 @@ import sys
 print("-" * 30)
 print(f"Python Executable: {sys.executable}")
 print("-" * 30)
-print(f"TensorFlow Version: {tf.__version__}")
+print(f"TensorFlow Versión: {tf.__version__}")
 print(f"Num GPUs (TF): {len(tf.config.list_physical_devices('GPU'))}")
 print(f"GPU Devices (TF): {tf.config.list_physical_devices('GPU')}")
 print("-" * 30)
-print(f"PyTorch Version: {torch.__version__}")
+print(f"PyTorch Versión: {torch.__version__}")
 print(f"CUDA Available (Torch): {torch.cuda.is_available()}")
 if torch.cuda.is_available():
     print(f"GPU Name (Torch): {torch.cuda.get_device_name(0)}")
 print("-" * 30)
 try:
     import deeplabcut
-    print(f"DeepLabCut Version: {deeplabcut.__version__}")
+    print(f"DeepLabCut Versión: {deeplabcut.__version__}")
 except ImportError:
     print("DeepLabCut not found")

@@ -18,7 +18,7 @@ Se creo:
 
 - `src/scripts/loo_bagging_grooming.py`
 
-Caracteristicas:
+Características:
 
 - No toca modelos productivos.
 - Usa las mismas features del `Grooming.sav` productivo (`model.feature_names_in_`, 242 columnas).
@@ -34,7 +34,7 @@ Caracteristicas:
 - Threshold operativo: `0.41`.
 - Smoothing: 15 frames.
 
-## Validacion
+## Validación
 
 Primero se hizo smoke test:
 

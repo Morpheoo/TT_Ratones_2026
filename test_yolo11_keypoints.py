@@ -40,7 +40,7 @@ def test_yolo_model():
     # Para modelos de pose, los keypoints están definidos en el modelo
     # Intentar obtener información del modelo
     if hasattr(model.model, 'yaml'):
-        print(f"\n[INFO] Configuración del modelo:")
+        print(f"\n[INFO] configuración del modelo:")
         yaml_config = model.model.yaml
         if isinstance(yaml_config, dict):
             for key, value in yaml_config.items():

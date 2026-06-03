@@ -5,14 +5,14 @@ Mantenedor: usuario + asistentes (Claude, Codex)
 
 Este reporte resume QUE TENEMOS Y COMO FUNCIONA ahora mismo. Para
 entender como funciona internamente el pipeline ver pilar 2
-(`02_PIPELINE_TECNICO.md`). Para saber que viene despues ver pilar 3
+(`02_PIPELINE_TECNICO.md`). Para saber que viene después ver pilar 3
 (`03_PLAN_MEJORAS.md`).
 
 ---
 
 ## 1. Objetivo del proyecto
 
-Sistema de deteccion automatica de comportamientos en ratones (laberinto
+Sistema de deteccion automática de comportamientos en ratones (laberinto
 en cruz, EPM):
 
 - **Grooming**: el raton se acicala (lava cara, cuerpo, etc.).
@@ -49,7 +49,7 @@ Detalles en pilar 2.
 | Velocidad | ~3.5 min por video (vs 4h+ con DLC) |
 | Status | ACTIVO, validado |
 
-### 3.2 Modelos SimBA RF (configuracion "combo")
+### 3.2 Modelos SimBA RF (configuración "combo")
 
 | Atributo | Grooming.sav | Thigmotaxis.sav |
 |---|---|---|
@@ -62,7 +62,7 @@ Detalles en pilar 2.
 | n_features | 242 | 242 |
 | Videos training | 26 | 26 |
 
-Configuracion combo en `data/simba_projects/grooming_thigmotaxis_yolo/project_folder/project_config.ini`,
+Configuración combo en `data/simba_projects/grooming_thigmotaxis_yolo/project_folder/project_config.ini`,
 seccion `[create ensemble settings]`. Esta config fue el fix critico que
 saco al modelo del overfitting por animal.
 
@@ -82,7 +82,7 @@ saco al modelo del overfitting por animal.
 | Atributo | Valor |
 |---|---|
 | Path | `data/bsoid_models/bsoid_artifacts_all26_fine.pkl` |
-| Configuracion | UMAP 3D, HDBSCAN min_cluster=0.1% (242 frames) |
+| configuración | UMAP 3D, HDBSCAN min_cluster=0.1% (242 frames) |
 | Motivos descubiertos | 165 (10+ "puros" de Grooming con P>0.95) |
 | Status | Validado en LOO; mejora F1 Grooming en videos donde SimBA falla |
 | Integracion al pipeline | NO INTEGRADA AUN — pendiente ensemble condicional |
@@ -107,9 +107,9 @@ saco al modelo del overfitting por animal.
 Estamos por debajo del minimo recomendado para Grooming. Esta es la causa
 matematica de la varianza alta entre videos en LOO (F1 entre 0.00 y 0.99).
 
-## 5. Validacion blind real (resumen)
+## 5. validación blind real (resumen)
 
-Validacion via leave-one-out (sacar video del training, reentrenar,
+Validación via leave-one-out (sacar video del training, reentrenar,
 evaluar sobre el video held-out). 13 videos validados con SimBA + B-SOiD,
 7 mas con SimBA solo. Total 20 mediciones blind.
 
@@ -194,7 +194,7 @@ evaluar sobre el video held-out). 13 videos validados con SimBA + B-SOiD,
 4. **B-SOiD como ensemble es valioso pero condicional**: ayuda solo cuando
    SimBA falla. Cuando SimBA es fuerte, B-SOiD agrega FPs.
 
-5. **El usuario tiene mejor intuicion que las metricas internas para
+5. **El usuario tiene mejor intuicion que las métricas internas para
    detectar problemas reales**: la observacion del usuario sobre R7YB20
    (`el modelo queria detectar grooming pero no se animaba`) llevo
    directamente al diagnostico de regularizacion.
@@ -209,7 +209,7 @@ evaluar sobre el video held-out). 13 videos validados con SimBA + B-SOiD,
 3. **B-SOiD no integrado al pipeline operativo**: solo experimental hasta
    que se implemente ensemble condicional.
 
-4. **Etiquetas humanas son de un solo observador**: no hay validacion
+4. **Etiquetas humanas son de un solo observador**: no hay validación
    inter-observador.
 
 5. **Variabilidad por animal**: el modelo aprende patrones especificos
@@ -235,7 +235,7 @@ data/bsoid_models/bsoid_artifacts_all26_fine.pkl        # B-SOiD pipeline entren
 
 ## 9. Reportes vivos en este folder
 
-- `01_ESTADO_ACTUAL.md` (este) — estado y metricas actuales
+- `01_ESTADO_ACTUAL.md` (este) — estado y métricas actuales
 - `02_PIPELINE_TECNICO.md` — como funciona el pipeline end-to-end
 - `03_PLAN_MEJORAS.md` — que sigue (5 mejoras priorizadas)
 - `SETUP_COLABORADOR.md` — setup del entorno para nuevos colaboradores

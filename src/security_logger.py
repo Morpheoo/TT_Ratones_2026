@@ -1,5 +1,5 @@
 """
-security_logger.py — Módulo Centralizado de Logging de Seguridad
+security_logger.py — módulo Centralizado de Logging de Seguridad
 TT Ratones 2026 | ESCOM - IPN
 
 Implementa logging dual:
@@ -19,7 +19,7 @@ import os
 from datetime import datetime
 
 # ─────────────────────────────────────────────
-#  1. Configuración del logger de archivo
+#  1. configuración del logger de archivo
 # ─────────────────────────────────────────────
 
 LOG_DIR = os.path.join(os.getcwd(), "logs")
@@ -70,9 +70,9 @@ def log_security_event(
     Registra un evento de seguridad en archivo y (opcionalmente) en BD.
 
     Args:
-        event:   Código del evento (ej. "LOGIN_SUCCESS", "OTP_FAILED").
+        event:   código del evento (ej. "LOGIN_SUCCESS", "OTP_FAILED").
         user:    Identificador del usuario involucrado (email).
-        message: Descripción libre del evento.
+        message: descripción libre del evento.
         level:   Nivel de severidad: DEBUG, INFO, WARNING, ERROR, CRITICAL.
         ip:      Dirección IP del cliente (si está disponible).
         success: Si la operación fue exitosa (para la columna `success` en BD).

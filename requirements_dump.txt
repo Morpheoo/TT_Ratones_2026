@@ -89,7 +89,7 @@ Se avala que la documentación entregada mediante discos en formato DVD fue revi
 de manera precisa y exhaustiva con el propósito de asegurar que los avances 
 desarrollados bajo la supervisión de quien o quienes suscriben, hayan cumplido con lo 
 planteado en el protocolo original, así como en lo establecido por el Documento Rector 
-de Operación y Evaluación para los Trabajos Terminales de la ESCOM. 
+de operación y Evaluación para los Trabajos Terminales de la ESCOM. 
  
 ATENTAMENTE 
 “LA TÉCNICA AL SERVICIO DE LA PATRIA” 
@@ -179,7 +179,7 @@ Agradecimientos ................................ ...............................
 Indice de figuras ................................ ................................ ..... ¡Error! Marcador no definido. 
 Glosario de términos ................................ ..............................  ¡Error! Marcador no definido. 
 Abreviaturas ................................ ................................ ................................ ...................  18 
-Capítulo 1. Introducción ................................ ................................ ................................ .. 19 
+Capítulo 1. introducción ................................ ................................ ................................ .. 19 
 1.1 Antecedentes ................................ ................................ ................................ ......... 19 
 1.2 Planteamiento del problema ................................ ................................ ....................  20 
 1.3 Propuesta de solución................................ ................................ .............................  20 
@@ -189,7 +189,7 @@ Capítulo 1. Introducción ................................ ....................
 1.6 Alcance del proyecto................................ ................................ ...............................  22 
 1.7 Metodología ................................ ................................ ................................ ........... 23 
 Capítulo 2. Estado del arte. ................................ ................................ ..............................  25 
-2.1 Análisis etológico y temporal del comportamiento similar a la ansiedad: el modelo de 
+2.1 análisis etológico y temporal del comportamiento similar a la ansiedad: el modelo de 
 EPM elevado 20 años después ................................ ................................ ......................  26 
 2.2 El laberinto en T elevado como modelo experimental de ansiedad ..............................  26 
 2.3 El uso del EPM como un ensayo del comportamiento relacionado con la ansiedad en 
@@ -232,25 +232,25 @@ Capítulo 3. Marco Teórico ................................ ...................
 3.4.1.2 Evitación ................................ ................................ ................................ ....... 61 
 3.4.1.3 Inmovilidad/congelación ................................ ................................ ................ 63 
 3.4.2 Laberinto en Cruz Elevada (EPM) ................................ ................................ ........ 64 
-Capítulo 4. Análisis ................................ ................................ ................................ .......... 67 
+Capítulo 4. análisis ................................ ................................ ................................ .......... 67 
 4.1 Requerimientos ................................ ................................ ................................ ...... 67 
 4.1.1 Requerimientos Funcionales (RF) ................................ ................................ ....... 67 
 4.1.2 Requerimientos No Funcionales (RNF) ................................ ...............................  68 
 4.1.3 Reglas del negocio ................................ ................................ ............................  68 
-4.2 Análisis de las herramientas a utilizar ................................ ................................ ....... 70 
-4.2.1 Análisis de técnicas de detección de objetos ................................ ......................  71 
-4.2.2 Análisis de técnicas de estimación de pose con aprendizaje profundo ..................  71 
+4.2 análisis de las herramientas a utilizar ................................ ................................ ....... 70 
+4.2.1 análisis de técnicas de detección de objetos ................................ ......................  71 
+4.2.2 análisis de técnicas de estimación de pose con aprendizaje profundo ..................  71 
    
  
 9 
  
-4.2.3 Análisis de técnicas de estimación de pose ................................ ........................  71 
-4.2.4 Análisis de herramientas de seguimiento visual ................................ ..................  72 
-4.2.5 Análisis de conceptos etológicos para análisis de ansiedad ................................ . 72 
-4.3 Análisis de riesgos ................................ ................................ ................................ .. 74 
+4.2.3 análisis de técnicas de estimación de pose ................................ ........................  71 
+4.2.4 análisis de herramientas de seguimiento visual ................................ ..................  72 
+4.2.5 análisis de conceptos etológicos para análisis de ansiedad ................................ . 72 
+4.3 análisis de riesgos ................................ ................................ ................................ .. 74 
 4.3.6 Identificación de requerimientos técnicos ................................ ..........................  79 
 4.3.7 Requerimientos del prototipo ................................ ................................ ............ 80 
-4.4 Análisis de factibilidad ................................ ................................ ............................  80 
+4.4 análisis de factibilidad ................................ ................................ ............................  80 
 4.4.1 Factibilidad tecnológica ................................ ................................ ....................  80 
 4.4.1.1 Evaluación de recursos actuales y brechas tecnológicas ................................ .. 80 
 4.4.1.2 Simulación, modelado y pruebas ................................ ................................ .... 80 
@@ -263,7 +263,7 @@ Capítulo 4. Análisis ................................ ........................
 4.4.3.4 Conclusión de viabilidad económica ................................ ...............................  84 
 4.4.4 Factibilidad legal................................ ................................ ...............................  84 
 4.4.4.1 Identificación del marco legal aplicable ................................ ...........................  84 
-4.5 Análisis de sostenibilidad ................................ ................................ ........................  85 
+4.5 análisis de sostenibilidad ................................ ................................ ........................  85 
 Capítulo 5. Diseño ................................ ................................ ................................ ........... 90 
 5.1 Arquitectura del prototipo ................................ ................................ .......................  90 
 5.2 Modelo de bases de datos ................................ ................................ .......................  90 
@@ -353,7 +353,7 @@ Ilustración 44: “Proceso de inicio de sesión del administrador [autoría pro
 Ilustración 45: “Proceso de cambio de contraseña del investigador [autoría propia]” ................................ ...... 96 
 Ilustración 46: “Proceso de cambio de contraseña del administrador [autoría propia]”................................ .... 97 
 Ilustración 47: “Manejo de usuarios [autoría propia]” ................................ ................................ ...................  98 
-Ilustración 48: Configuración de Perfil [autoría propia] ................................ ................................ .................  99 
+Ilustración 48: configuración de Perfil [autoría propia] ................................ ................................ .................  99 
 Ilustración 49: “Configurar Perfil Administrador [autoría propia]” ................................ ................................  100 
 Ilustración 50: “Cerrar Sesión [autoría propia]” ................................ ................................ .........................  101 
 Ilustración 51: “Cerrar sesión Administrador [autoría propia]” ................................ ................................ .... 101 
@@ -376,7 +376,7 @@ Ilustración 63 "Ilustración del modelo prototipo II [auditoria propia]" ......
 13 
  
 INDICE DE TABLAS 
-Tabla 1: Comparación de trabajos similares [autoría propia] ................................ ................................ .........  33 
+Tabla 1: comparación de trabajos similares [autoría propia] ................................ ................................ .........  33 
 Tabla 2: Complejidad por capa y longitud de camino para diferentes arquitecturas ................................ .........  49 
 Tabla 3: "Requerimientos Funcionales (RF)"................................ ................................ ................................  67 
  Tabla 4: "Requerimientos No Funcionales (RNF) ................................ ................................ .........................  68 
@@ -525,7 +525,7 @@ series de video.
 Área de interés Zona específica del video que se analiza 
 separadamente, como los brazos abiertos o 
 cerrados del EPM. 
-Simulación Ejecución de pruebas controladas que imitan 
+Simulación ejecución de pruebas controladas que imitan 
 condiciones reales para validar modelos o 
 sistemas. 
 Máquina de vectores de soporte Support Vector Machine. Algoritmo de 
@@ -590,7 +590,7 @@ YOLO You Only Look Once. (Solo miras una vez).
  
 19 
  
-Capítulo 1. Introducción 
+Capítulo 1. introducción 
 1.1 Antecedentes 
 El análisis del comportamiento animal utilizando inteligencia artificial (IA) ha cobrado gran relevancia 
 en la última década debido a su potencial para aumentar la precisión, eficiencia y reproducibilidad en 
@@ -655,7 +655,7 @@ Este prototipo integrará tres componentes principales:
 1. Detección de objetos mediante redes neuronales convolucionales (CNN) tipo YOLOv11 , 
 entrenadas específicamente para identificar y localizar con alta precisión a los roedores dentro 
 del entorno experimental. 
-2. Análisis de secuencias temporales con redes LSTM (Long Short -Term Memory) , que 
+2. análisis de secuencias temporales con redes LSTM (Long Short -Term Memory) , que 
 procesarán las trayectorias obtenidas para reconocer patrones conductuales asociados con 
 diferentes respuestas de ansiedad. 
 3. Estimación de postura mediante técnicas de pose estimation  (MediaPipe o DeepLabCut), 
@@ -856,7 +856,7 @@ con tecnologías emergentes de visión por computadora e inteligencia artificial
  
 26 
  
-2.1 Análisis etológico y temporal del comportamiento similar a la ansiedad: 
+2.1 análisis etológico y temporal del comportamiento similar a la ansiedad: 
 el modelo de EPM elevado 20 años después 
 En este artículo se enfatiza que el uso del EPM constituye un recurso esencial para investigar conductas 
 vinculadas con la ansiedad en roedores. P ese a que en un principio fue desarrollado como un 
@@ -1120,7 +1120,7 @@ Estos proyectos permiten contextualizar el desarrollo de nuestra propuesta.
 33 
  
  
-Tabla 1: Comparación de trabajos similares [autoría propia] 
+Tabla 1: comparación de trabajos similares [autoría propia] 
 
    
  
@@ -1999,7 +1999,7 @@ personalización de aplicaciones preexistentes [84].
  
  
  
-Capítulo 4. Análisis 
+Capítulo 4. análisis 
 4.1 Requerimientos 
 4.1.1 Requerimientos Funcionales (RF) 
  
@@ -2052,7 +2052,7 @@ Cada regla está formulada de manera verificable, clara y orientada a buenas pr�
 software: 
  
 Tabla 5: "Reglas de Negocio" 
-4.2 Análisis de las herramientas a utilizar 
+4.2 análisis de las herramientas a utilizar 
 Las herramientas por utilizar en este prototipo se dividen de la siguiente manera: 
 
    
@@ -2064,7 +2064,7 @@ Las herramientas por utilizar en este prototipo se dividen de la siguiente maner
 • Algoritmos de clasificación (Clustering). 
 • Herramientas estadísticas. 
 • Conceptos etológicos para análisis de ansiedad. 
-4.2.1 Análisis de técnicas de detección de objetos 
+4.2.1 análisis de técnicas de detección de objetos 
 Se analizaron las siguientes técnicas de detección de objetos: 
 Tabla 6: "Tabla de análisis de técnicas de detección de objetos [autoría propia]" 
 Se optó por utilizar YOLO (You Only Look Once) sobre otras herramientas debido a que su tiempo 
@@ -2072,7 +2072,7 @@ de inferencia fue menor que varias implementaciones de Faster R -CNN con solo un
 milisegundos [55]. También suele ser más preciso que Retina Net y EfficientDet por márgenes de más 
 de 40% [56]. Por otra parte, Adhikari et al sostienen que YOLO equilibra mejores factores como la 
 precisión, velocidad, robustez y facilidad de uso [57]. 
-4.2.2 Análisis de técnicas de estimación de pose con aprendizaje profundo 
+4.2.2 análisis de técnicas de estimación de pose con aprendizaje profundo 
 Se analizaron las siguientes técnicas de estimación de pose con aprendizaje profundo: 
 Tabla 7: "Tabla de análisis de técnicas de estimación de pose con aprendizaje profundo [autoría propia]" 
 A pesar de que DLC (DeepLabCut), DPK (DeepPoseKit) y SLEAP poseen características similares  
@@ -2082,7 +2082,7 @@ oclusiones [ 58]. DLC puede ser entrenado para ser preciso con datasets pequeño
 imágenes, en comparación con otras herramientas que utilizan mayores cantidades de datos y no 
 alcanzan una precisión como la de DLC [59].  
  
-4.2.3 Análisis de técnicas de estimación de pose 
+4.2.3 análisis de técnicas de estimación de pose 
 Se analizaron las siguientes técnicas de estimación de pose: 
  
 
@@ -2095,7 +2095,7 @@ Tabla 8: "Tabla de análisis de técnicas de estimación de pose [autoría propi
 Según Lauer et al, Pose Estimation basada en DLC suele ser precisa sin necesidad de un marcador 
 además de que es adaptable a varias especies de animales [60]. Mientras tanto, Kinect Skeleton y Vicon 
 requieren de marcadores y es limitado en entornos naturales [61].  
-4.2.4 Análisis de herramientas de seguimiento visual 
+4.2.4 análisis de herramientas de seguimiento visual 
 Se analizaron las siguientes herramientas de seguimiento visual: 
  
 Tabla 9: "Tabla de análisis de herramientas de seguimiento visual [autoría propia]" 
@@ -2103,7 +2103,7 @@ Se eligió CAMShift gracias a su simplicidad y eficiencia. CAMShift es basado en
 entornos controlados [62]. En cambio, MeanShift se pierde fácilmente con cambios de escala [63]. 
 CAMShift no requiere una carga s ignificativa de recursos computacionales a diferencia de CSRT y 
 KLT que, no solo requieren más recursos, sino que también no funciona bien con oclusiones [64]. 
-4.2.5 Análisis de arquitecturas de redes neuronales profundas para visión por 
+4.2.5 análisis de arquitecturas de redes neuronales profundas para visión por 
 computadora 
 Tabla 10: "Tabla de análisis de arquitecturas de redes neuronales profundas para visión por computadora [autoría propia]" 
 Se optó por usar CNN como arquitectura para visión por computadora debido a que, a diferencia de 
@@ -2115,7 +2115,7 @@ MLP, CNN aplica filtros para detectar patrones jerárquicos, desde bordes hasta 
  
 MLP trata a la imagen como un vector plano ignorando relaciones especiales [65]. Según Rajagukguk 
 et al, CNN tiene una aplicación exitosa en la supervisión de animales [66]. 
-4.2.6 Análisis de arquitecturas de aprendizaje profundo para series temporales 
+4.2.6 análisis de arquitecturas de aprendizaje profundo para series temporales 
 De forma conjunta, se optó por utilizar las siguientes arquitecturas: 
 • RNN (Red Neuronal Recurrente). 
 • LSTM (Long Short-Term Memory). 
@@ -2125,19 +2125,19 @@ con anterioridad, además de que maneja entradas y salidas de longitud variable 
 LSTM retienen información por largos períodos de tiempos capturando tendencias de largo plazo [68]. 
 Mientras tanto, los Transformers suelen examinar las secuencias de entrada  simultáneamente en vez 
 de paso a paso [69]. 
-4.2.7 Análisis de técnicas de minería de datos 
+4.2.7 análisis de técnicas de minería de datos 
 Se optó por utilizar K -Means ya que reduce la complejidad de una imagen ya que se puede utilizar 
 como herramienta de apoyo para segmentar poblaciones [70]. Por otra parte, Random Forest ayuda a 
 clasificar el comportamiento animal a partir de datos de postura o movimiento, según Rew et al [71]. 
 Las Máquinas de Soporte Vectorial (SVM) son una opción robusta para clasificar comportamientos de 
 animales cuando se cuentan con datos de etiquetado para el entrenamiento, según Mosquera et al [72]. 
-4.2.8 Análisis de sistemas operativos 
+4.2.8 análisis de sistemas operativos 
 Se analizaron los siguientes sistemas operativos: 
  
 Se optó por usar Windows como sistema operativo del prototipo debido a su compatibilidad con 
 herramientas de Deep Learning además de que hay soporte técnico comercial que evita 
 incompatibilidades entre herramientas. 
-4.2.9 Análisis de los lenguajes de programación 
+4.2.9 análisis de los lenguajes de programación 
 Se analizaron los siguientes lenguajes de programación: 
  
 
@@ -2147,7 +2147,7 @@ Se analizaron los siguientes lenguajes de programación:
  
 Se optó por utilizar el lenguaje de programación Python debido a su velocidad de desarrollo y 
 rendimiento en tareas de Machine Learning. 
-4.3 Análisis de riesgos 
+4.3 análisis de riesgos 
 En concordancia con la metodología espiral de Boehm, se determina un proceso sistemático 
 para detectar, evaluar y manejar los riesgos relacionados con el desarrollo del prototipo. Este 
 procedimiento es un elemento fundamental de la planificación porque posibilita prever eventos 
@@ -2266,7 +2266,7 @@ El prototipo propuesto —un prototipo para el análisis automatizado de comport
 ansiedad— integra procesos de visión por computadora, aprendizaje profundo, minería de datos 
 y visualización interactiva , por lo que sus requerimientos se dividen en funcionales (RF)  y no 
 funcionales (RNF). 
-4.4 Análisis de factibilidad 
+4.4 análisis de factibilidad 
 4.4.1 Factibilidad tecnológica 
 La factibilidad tecnológica consiste en evaluar si el proyecto puede desarrollarse con la infraestructura 
 técnica, el conocimiento especializado y los recursos disponibles. Su propósito es determinar si las 
@@ -2444,7 +2444,7 @@ El prototipo se enmarca en las políticas de investigación del IPN y cumple con
 Propiedad Intelectual y Transferencia de Conocimiento (2023) del Instituto. 
 Además, su uso está destinado exclusivamente a fines científicos, educativos y de investigación, sin 
 propósito comercial directo. 
-4.5 Análisis de sostenibilidad 
+4.5 análisis de sostenibilidad 
 El análisis de sostenibilidad es un componente clave en el desarrollo de sistemas tecnológicos porque 
 posibilita la detección y la mitigación de los efectos sociales, técnicos y ambientales que se producen 
 durante todo el ciclo vital del software. Según la s directrices establecidas en ISO 14064 -1 y en las 
@@ -2557,10 +2557,10 @@ Escenario B:
 𝐶𝑂𝑡𝑜𝑡𝑎𝑙𝐵 = 6.144 + 0.48 = 6.624𝑘𝑔𝐶𝑂2 
 Escenario C: 
 𝐶𝑂𝑡𝑜𝑡𝑎𝑙𝐶 = 6.144 + 0.96 = 7.104𝑘𝑔𝐶𝑂2 
-3.5.4 Comparación con el prototipo 
+3.5.4 comparación con el prototipo 
 Como se estableció previamente, el prototipo genera. 
 𝐶𝑂𝑝𝑟𝑜𝑡𝑜𝑡𝑖𝑝𝑜=0.04557𝑘𝑔𝐶𝑂2 𝑝𝑜𝑟 𝑎𝑛á𝑙𝑖𝑠𝑖𝑠 𝑐𝑜𝑚𝑝𝑙𝑒𝑡𝑜  
- Comparación porcentual: 
+ comparación porcentual: 
 Escenario A ≈ 99.33% 
 Escenario B: ≈ 99.31% 
 Escenario C: ≈ 99.35% 
@@ -2733,7 +2733,7 @@ Ilustración 47: “Manejo de usuarios [autoría propia]”
 Las ilustraciones 48 y 49 muestra la configuración de perfil. Solo se muestra el cambio de nombre. El 
 cambio de contraseña es en la pantalla principal. 
  
-Ilustración 48: Configuración de Perfil [autoría propia] 
+Ilustración 48: configuración de Perfil [autoría propia] 
  
  
  
@@ -3185,7 +3185,7 @@ predictive recurrent neural network,” Sensors, vol. 19, no. 20, p. 4411, Oct. 
 10.3390/s19204411. 
 [72] R. Mosquera, O. D. Castrillón, and L. Parra, “Máquinas de Soporte Vectorial, Clasificador Naïve 
 Bayes y Algoritmos Genéticos para la Predicción de Riesgos Psicosociales en Docentes de Colegios 
-Públicos Colombianos  Información Tecnológica, vol. 29, no. 6, pp. 153 –162, Dec. 2018, doi: 
+Públicos Colombianos  información Tecnológica, vol. 29, no. 6, pp. 153 –162, Dec. 2018, doi: 
 10.4067/s0718-07642018000600153. 
 [73] ISO, “ISO 14064-1: Greenhouse gases — Part 1: Specification with guidance at the organization 
 level,” 2018. 
@@ -3248,7 +3248,7 @@ manera rudimentaria.
  
 123 
  
-2. Ejecución completamente en local. En esta segunda etapa, todo el sistema se ejecutaba 
+2. ejecución completamente en local. En esta segunda etapa, todo el sistema se ejecutaba 
 únicamente en la computadora local, lo que significaba depender por completo del hardware personal 
 disponible. Esto nos permitió tener un primer acercamiento práctico al flujo de trabajo, pero también 
 nos enfrentó rápidamente a varias limitaciones importantes. El procesamiento de los videos resultaba 

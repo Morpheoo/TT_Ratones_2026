@@ -5,7 +5,7 @@ os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 import deeplabcut
 import pprint
 
-print("DeepLabCut version:", deeplabcut.__version__)
+print("DeepLabCut versión:", deeplabcut.__version__)
 print("\nTop level attributes with 'animal' or 'zoo':")
 print([x for x in dir(deeplabcut) if 'animal' in x.lower() or 'zoo' in x.lower()])
 

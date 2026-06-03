@@ -1,5 +1,5 @@
 """
-config.py - Configuración Centralizada del Proyecto
+config.py - configuración Centralizada del Proyecto
 TT Ratones 2026 | ESCOM - IPN
 
 Maneja todas las rutas del proyecto de forma relativa y portable.
@@ -123,7 +123,7 @@ def get_model_path(model_name: str) -> Path:
     return MODELS_DIR / model_name
 
 def validate_paths():
-    """Valida que las rutas críticas existan."""
+    """Válida que las rutas críticas existan."""
     issues = []
 
     if not GROOMING_MODEL.exists():

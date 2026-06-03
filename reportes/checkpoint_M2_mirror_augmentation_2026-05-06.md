@@ -10,7 +10,7 @@ Probar mirror augmentation para duplicar dataset efectivo de Grooming/Thigmotaxi
 - 26 mirrors sinteticos
 - 52 videos efectivos para training
 
-El mirror se considera valido porque el test de espejo previo no mostro bias direccional fuerte.
+El mirror se considera válido porque el test de espejo previo no mostro bias direccional fuerte.
 
 ## Implementacion
 
@@ -50,7 +50,7 @@ Notas:
 - `retrain_simba_models.py --yolo --dry-run` confirma dataset efectivo: 52 videos.
 - Targets espejo verificados: columnas `Grooming` y `Thigmotaxis` identicas al original.
 
-## Validacion LOO blind real
+## validación LOO blind real
 
 Se corrieron 5 videos criticos. En cada LOO se excluyo original + mirror:
 
@@ -72,7 +72,7 @@ Promedios:
 | G Conditional | 0.324 |
 | T SimBA | 0.621 |
 
-## Comparacion con M1
+## comparación con M1
 
 En los mismos 5 videos criticos:
 
@@ -87,7 +87,7 @@ Mirror augmentation queda implementado y dataset 52 queda disponible, pero NO se
 
 Motivo:
 
-- En esta validacion critica, mirror augmentation no mejoro el LOO blind.
+- En esta validación critica, mirror augmentation no mejoro el LOO blind.
 - SimBA Grooming siguio fallando casi completo en los 5 casos criticos.
 - B-SOiD cambio mucho con mirrors: rescato R6DZ, pero colapso en R6B20 y bajo en R7YB20.
 

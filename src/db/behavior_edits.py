@@ -2,7 +2,7 @@
 Capa de auditoria para ediciones manuales de tiempos conductuales.
 
 Cada vez que un investigador o admin corrige los segundos de
-Abiertos / Cerrados / Grooming / Thigmotaxis en la pagina 05,
+Abiertos / Cerrados / Grooming / Thigmotaxis en la página 05,
 guardamos un snapshot before/after en la tabla `behavior_edits`.
 
 Asi se puede revertir y trazar quien, cuando y por que hubo

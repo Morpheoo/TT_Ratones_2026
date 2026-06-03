@@ -113,7 +113,7 @@ def cargar_motores():
     return
 
 def dlc_loading_sequence():
-    """Generador para el splash screen de Análisis IA."""
+    """Generador para el splash screen de análisis IA."""
     yield 10, "Validando entorno Blackwell/CPU..."
     time.sleep(0.4)
     
@@ -133,8 +133,8 @@ if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.stop()
 
 # Verificar que estemos usando el entorno correcto (3.11 para DLC)
-if not sys.version.startswith("3.11"):
-    st.error(f"⚠️ **ENTORNO INCORRECTO**: Estás usando Python {sys.version.split()[0]}.")
+if not sys.versión.startswith("3.11"):
+    st.error(f"⚠️ **ENTORNO INCORRECTO**: Estás usando Python {sys.versión.split()[0]}.")
     st.info("Para usar DeepLabCut, debes cerrar esta pestaña y ejecutar la aplicación desde el entorno `dlc_env_311`.")
     st.code(f"Usa el comando: ..\\DeepLabCut\\DeepLabCut\\dlc_env_311\\Scripts\\python.exe -m streamlit run Home.py")
     if not st.checkbox("Continuar de todos modos (DLC no funcionará)"):
@@ -364,7 +364,7 @@ if "ruta_video_actual" not in st.session_state or not st.session_state["ruta_vid
     st.stop()
 
 if "zonas_configuradas" not in st.session_state or not st.session_state["zonas_configuradas"]:
-    st.error("⚠️ No hay zonas configuradas. Carga un *Template* arriba o ve a **02 · Configuración de Zonas**.")
+    st.error("⚠️ No hay zonas configuradas. Carga un *Template* arriba o ve a **02 · configuración de Zonas**.")
     st.stop()
 
 ruta_video = st.session_state["ruta_video_actual"]
@@ -375,11 +375,11 @@ fin = st.session_state.get("fin_recorte", math.inf)  # Default ∞ si no hay fin
 # ================== 6. LAYOUT PRINCIPAL ==================
 col_cfg, col_video = st.columns([1, 2])
 
-# ---- Configuración y, debajo, métrica en vivo
+# ---- configuración y, debajo, métrica en vivo
 with col_cfg:
     st.markdown('<div class="tt-card">', unsafe_allow_html=True)
     st.markdown(
-        '<div class="tt-section-title">⚙️ Configuración del análisis</div>',
+        '<div class="tt-section-title">⚙️ configuración del análisis</div>',
         unsafe_allow_html=True,
     )
     
@@ -394,7 +394,7 @@ with col_cfg:
     )
     
     # Actualizar encabezado
-    header_title = "🧠 Análisis Multimodal" if "SimBA" in motor else "🧠 Análisis Clásico"
+    header_title = "🧠 análisis Multimodal" if "SimBA" in motor else "🧠 análisis Clásico"
     header_placeholder.markdown(
         f'<div class="tt-ia-title">{header_title}</div>',
         unsafe_allow_html=True,
@@ -609,8 +609,8 @@ if st.session_state.get("pipeline_dlc_activo") or _pipeline_is_running() or os.p
         st.info(monitor_label)
     elif terminado:
         st.session_state["pipeline_dlc_activo"] = False
-        exito = open(PIPELINE_DONE).read().strip() == "0"
-        if exito:
+        éxito = open(PIPELINE_DONE).read().strip() == "0"
+        if éxito:
             st.success("✅ **¡Pipeline DLC completado con éxito!** Puedes lanzar el Re-Análisis Acelerado.")
         else:
             st.error("❌ El pipeline terminó con errores. Revisa los logs abajo.")
@@ -823,7 +823,7 @@ if iniciar_acelerado:
                 )
         else:
             status_container.update(label="❌ Error en el re-análisis", state="error")
-            st.error("El proceso acelerado falló. Valida las zonas o el .h5")
+            st.error("El proceso acelerado falló. Válida las zonas o el .h5")
     except Exception as e:
         status_container.update(label="❌ Error Crítico", state="error")
         st.error(f"Excepción: {e}")
@@ -1293,7 +1293,7 @@ if iniciar:
             barra_progreso.progress(min(max(progreso, 0.0), 1.0))
 
         cap.release()
-        st.success("✅ Análisis completado.")
+        st.success("✅ análisis completado.")
 
     # ================== 9. PERSISTENCIA EN BASE DE DATOS ==================
     df_final = pd.DataFrame(resultados_data)

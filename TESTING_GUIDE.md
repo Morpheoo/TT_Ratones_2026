@@ -50,7 +50,7 @@ python test_docker_setup.py
 7. PostgreSQL health check
 8. Conexión psycopg2
 9. SQLAlchemy engine
-10. Ejecución de start_services.py
+10. ejecución de start_services.py
 
 **Cuándo usarlo:**
 - Primera vez que configuras el proyecto
@@ -203,7 +203,7 @@ docker ps -a
 ## 📞 Checklist Rápido
 
 - [ ] Docker Desktop instalado y abierto
-- [ ] docker-compose disponible (`docker-compose --version`)
+- [ ] docker-compose disponible (`docker-compose --versión`)
 - [ ] Archivo .env presente con credenciales
 - [ ] docker-compose.yml presente
 - [ ] Python 3.11 o superior (para DLC)

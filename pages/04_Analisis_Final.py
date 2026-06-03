@@ -32,24 +32,24 @@ from config import (
 )
 from sandbox_utils import get_active_simba_project_dir
 
-st.set_page_config(page_title="Analisis Final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Análisis final", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesion antes de usar el sistema.")
+    st.warning("Debes iniciar sesión antes de usar el sistema.")
     st.stop()
 
 run_page_splash(
     "page_analysis_final",
     [
-        "Inicializando pipeline multimodal...",
+        "Inicializando flujo multimodal...",
         "Verificando modelos y recursos activos...",
-        "Preparando ejecucion conductual...",
+        "Preparando ejecución conductual...",
     ],
-    subtitle="TT 2026 - Cargando analisis final...",
+    subtitle="Cargando módulo de análisis final...",
 )
 
 # ================= SIDEBAR =================
@@ -66,7 +66,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -99,7 +99,7 @@ def read_log_lines(log_path):
 
 def trim_log_text(lines, max_lines=180):
     if not lines:
-        return "[INFO] Aun no hay logs del pipeline."
+        return "[INFO] Aún no hay registros del flujo."
     return "\n".join(lines[-max_lines:])
 
 
@@ -118,12 +118,12 @@ def collect_output_markers(lines):
 
 def parse_pipeline_progress(lines, current_progress):
     progress = max(current_progress, 0.02)
-    status = "Preparando pipeline multimodal..."
+    status = "Preparando flujo multimodal..."
 
     for line in lines:
         if "[STEP] BOOT" in line:
             progress = max(progress, 0.05)
-            status = "Preparando pipeline multimodal..."
+            status = "Preparando flujo multimodal..."
         elif "[STEP] DLC" in line:
             progress = max(progress, 0.14)
             status = "Extrayendo keypoints con DeepLabCut..."
@@ -132,7 +132,7 @@ def parse_pipeline_progress(lines, current_progress):
             status = "Extrayendo keypoints con YOLO Pose..."
         elif "[STEP] BBOX" in line:
             progress = max(progress, 0.46)
-            status = "Aplicando filtro anatomico bbox..."
+            status = "Aplicando filtro anatómico bbox..."
         elif "[STEP] SIMBA_FEATURES" in line:
             progress = max(progress, 0.68)
             status = "Importando pose al proyecto SimBA..."
@@ -143,7 +143,7 @@ def parse_pipeline_progress(lines, current_progress):
             progress = max(progress, 0.82)
             status = "Renderizando video multimodal final..."
         elif "[STEP] ERROR" in line or line.startswith("[ERROR]"):
-            status = "El pipeline termino con error."
+            status = "El flujo multimodal terminó con error."
 
     for line in reversed(lines):
         trim_match = re.search(r"\[TRIM\]\s+(\d+)/(\d+)", line)
@@ -184,7 +184,7 @@ def parse_pipeline_progress(lines, current_progress):
             total = max(int(bbox_render_match.group(2)), 1)
             ratio = current / total
             progress = max(progress, 0.58 + (0.08 * ratio))
-            status = f"Renderizando validacion bbox... {int(ratio * 100)}%"
+            status = f"Renderizando validación bbox... {int(ratio * 100)}%"
             break
 
         final_render_match = re.search(r"Renderizados\s+(\d+)/(\d+)\s+frames", line)
@@ -193,14 +193,14 @@ def parse_pipeline_progress(lines, current_progress):
             total = max(int(final_render_match.group(2)), 1)
             ratio = current / total
             progress = max(progress, 0.84 + (0.14 * ratio))
-            status = f"Renderizando HUD multimodal... {int(ratio * 100)}%"
+            status = f"Renderizando interfaz visual multimodal... {int(ratio * 100)}%"
             break
 
-    if any("SUCCESS: Full behavior pipeline complete." in line for line in lines) or any(
+    if any("ÉXITO: Flujo completado." in line for line in lines) or any(
         line.startswith("[OUTPUT] FINAL_VIDEO=") for line in lines
     ):
         progress = 1.0
-        status = "Pipeline multimodal completado."
+        status = "Flujo multimodal completado."
 
     return progress, status, collect_output_markers(lines)
 
@@ -239,12 +239,12 @@ def is_pid_alive(pid):
 def launch_background_analysis(command, log_path):
     wrapper_script = os.path.abspath(os.path.join("src", "scripts", "run_with_live_log.py"))
     with open(log_path, "w", encoding="utf-8") as f:
-        f.write("[INFO] Lanzando pipeline multimodal en segundo plano...\n")
+        f.write("[INFO] Lanzando flujo multimodal en segundo plano...\n")
 
     wrapper_command = [
         sys.executable, wrapper_script,
         "--log", log_path,
-        "--label", "TT 2026 - Analisis Final YOLO",
+        "--label", "Análisis final",
         "--",
     ] + command
 
@@ -263,7 +263,7 @@ def launch_background_analysis(command, log_path):
         "completion_handled": False,
     }
     save_analysis_meta(meta)
-    st.session_state["analysis_last_status"] = "Pipeline multimodal lanzado en segundo plano."
+    st.session_state["analysis_last_status"] = "Flujo multimodal lanzado en segundo plano."
     st.session_state["analysis_last_progress"] = 0.03
     st.session_state["analysis_last_logs"] = trim_log_text(read_log_lines(log_path))
 
@@ -273,14 +273,14 @@ def cancel_background_analysis(meta):
         return
     log_path = meta.get("log_path") or os.path.join(ensure_logs_dir(), "analysis_pipeline.log")
     with open(log_path, "a", encoding="utf-8") as f:
-        f.write("[STEP] CANCELLED\n[INFO] Cancelado por el usuario.\n")
+        f.write("[PASO] CANCELADO\n[INFO] Cancelado por el usuario.\n")
     pid = meta.get("pid")
     if pid:
         subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
                        capture_output=True, check=False)
     meta["status"] = "cancelled"
     save_analysis_meta(meta)
-    st.session_state["analysis_last_status"] = "Pipeline cancelado por el usuario."
+    st.session_state["analysis_last_status"] = "Análisis cancelado por el usuario."
 
 
 def get_analysis_snapshot():
@@ -298,25 +298,25 @@ def get_analysis_snapshot():
             save_analysis_meta(meta)
         else:
             if meta.get("status") == "running":
-                if any("[STEP] COMPLETE" in l for l in lines):
+                if any("[PASO] COMPLETADO" in l for l in lines):
                     meta["status"] = "completed"
-                elif any("[STEP] CANCELLED" in l for l in lines):
+                elif any("[PASO] CANCELADO" in l for l in lines):
                     meta["status"] = "cancelled"
                 else:
                     meta["status"] = "error"
 
             if meta["status"] == "completed":
                 progress = 1.0
-                status = "Pipeline multimodal completado."
+                status = "Flujo multimodal completado."
                 if not meta.get("outputs_imported"):
                     _sync_analysis_outputs(outputs)
                     meta["outputs_imported"] = True
                 if not meta.get("completion_handled"):
                     st.session_state["analysis_show_toast"] = True
             elif meta["status"] == "cancelled":
-                status = "Pipeline cancelado por el usuario."
+                status = "Flujo cancelado por el usuario."
             else:
-                status = "El pipeline termino con error. Revisa los logs."
+                status = "El flujo terminó con error. Revisa los registros."
 
             meta["last_progress"] = progress
             if not meta.get("completion_handled"):
@@ -388,7 +388,7 @@ def find_feature_file(video_path):
     if not video_path:
         return None
     # Buscar el feature CSV en el proyecto SimBA activo (productivo o
-    # sandbox segun el selector de la pagina Keypoints).
+    # sandbox segun el selector de la página Keypoints).
     active_project_dir = get_active_simba_project_dir(
         Path("data/simba_projects").resolve()
     )
@@ -525,7 +525,7 @@ def load_previous_experiment_context(record):
 
     engine = get_db_engine()
     if not engine:
-        return False, "No se encontro conexion a PostgreSQL para recuperar zonas historicas."
+        return False, "No se encontró conexión a PostgreSQL para recuperar zonas históricas."
 
     experiment_id = int(record["id"])
     zones = load_experiment_zones(engine, experiment_id)
@@ -543,7 +543,7 @@ def load_previous_experiment_context(record):
     save_session()
 
     return True, (
-        f"Se cargo el registro previo #{experiment_id} para reprocesarlo con el pipeline actual. "
+        f"Se cargó el registro previo #{experiment_id} para reprocesarlo con el flujo actual. "
         f"Recorte inferido: {format_mm_ss(start_seconds)} -> "
         f"{format_mm_ss(end_seconds) if end_seconds is not None else 'fin del video'}."
     )
@@ -683,11 +683,11 @@ def persist_summary_to_db(summary):
 
         engine = get_db_engine()
         if not engine:
-            return "No se encontro una conexion activa a PostgreSQL."
+            return "No se encontró una conexión activa a PostgreSQL."
 
         video_path = st.session_state.get("ruta_video_actual")
         if not video_path:
-            return "No hay video activo para registrar en BD."
+            return "No hay vídeo activo para registrar en la base de datos."
 
         selected_experiment_id = st.session_state.get("analysis_selected_experiment_id")
         video_path_candidates = _video_path_variants(video_path)
@@ -837,16 +837,16 @@ def persist_summary_to_db(summary):
             )
             conn.commit()
 
-        return f"Resumen persistido en BD para el experimento #{experiment_id}."
+        return f"Resumen persistido en base de datos para el experimento #{experiment_id}."
     except Exception as error:
-        return f"Pipeline listo, pero no se pudo persistir el resumen en BD: {error}"
+        return f"Flujo listo, pero no se pudo persistir el resumen en la base de datos: {error}"
 
 
 def render_status_panel():
-    st.markdown("#### Estado y Logs")
+    st.markdown("#### Estado y registros")
     last_progress = float(st.session_state.get("analysis_last_progress", 0.0) or 0.0)
-    last_status = st.session_state.get("analysis_last_status", "Aun no se ejecuta el pipeline final.")
-    last_logs = st.session_state.get("analysis_last_logs", "[INFO] Aun no hay logs del pipeline.")
+    last_status = st.session_state.get("analysis_last_status", "Aún no se ejecuta el flujo final.")
+    last_logs = st.session_state.get("analysis_last_logs", "[ATENCIÓN] Aún no hay registros del flujo.")
 
     st.progress(min(max(last_progress, 0.0), 1.0), text=last_status)
     st.code(last_logs, language="bash")
@@ -974,7 +974,7 @@ def render_output_panel():
     if final_video and os.path.exists(final_video):
         st.video(final_video)
     else:
-        st.info("Aun no existe un video multimodal final para este registro.")
+        st.info("Aún no existe un vídeo multimodal final para este registro.")
 
     # Carpeta de resultados YOLO
     active_video = st.session_state.get("ruta_video_actual")
@@ -1012,7 +1012,7 @@ def render_output_panel():
             save_session()
 
         st.markdown("---")
-        st.markdown("##### Resumen rapido")
+        st.markdown("##### Resumen rápido")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Abiertos", f"{summary['time_open_arms']:.1f}s")
         m2.metric("Cerrados", f"{summary['time_closed_arms']:.1f}s")
@@ -1044,28 +1044,28 @@ def resolve_status_flags():
 
 # ================= 2. CABECERA =================
 render_topbar()
-st.markdown("### Modulo 04: Analisis Final Conductual")
+st.markdown("### Módulo 04: Análisis final")
 st.markdown(
     """
     Ejecuta el flujo operativo completo del proyecto activo:
-    YOLO Pose, SimBA, RF calibrado, rescate temporal LSTM para Grooming y render multimodal final.
+    YOLO Pose, SimBA, RF calibrado, rescate temporal con redes LSTM para Grooming y renderizado multimodal final.
     """
 )
 st.caption(
-    "Recomendacion operativa: primero agrega y etiqueta videos nuevos en SimBA, luego reentrena los modelos, "
-    "y por ultimo vuelve a correr aqui los videos historicos que quieras reprocesar con el modelo mejorado."
+    "Recomendación operativa: primero agrega y etiqueta videos nuevos en SimBA, luego reentrena los modelos, "
+    "y por último vuelve a correr aquí los videos históricos que quieras reprocesar con el modelo mejorado."
 )
 
 st.divider()
 
 # ================= 3. VIDEO CHECK =================
-video_ok = render_video_banner("Video de Analisis Activo")
+video_ok = render_video_banner("Video de análisis activo")
 
 history_records = fetch_reprocessable_experiments()
 selected_history_record = None
 
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Reprocesar videos anteriores")
+st.markdown("#### Reprocesar vídeos anteriores")
 if history_records:
     history_options = {
         (
@@ -1085,10 +1085,10 @@ if history_records:
     with history_cols[0]:
         inferred_start, inferred_end = infer_trim_window(selected_history_record)
         st.caption(
-            f"Video: `{selected_history_record['video_path']}` | "
+            f"Vídeo: `{selected_history_record['video_path']}` | "
             f"Zonas guardadas: `{selected_history_record.get('zone_count', 0)}` | "
             f"Recorte inferido: `{format_mm_ss(inferred_start)}` -> "
-            f"`{format_mm_ss(inferred_end) if inferred_end is not None else 'fin del video'}`"
+            f"`{format_mm_ss(inferred_end) if inferred_end is not None else 'fin del vídeo'}`"
         )
     with history_cols[1]:
         if st.button("CARGAR REGISTRO PREVIO", use_container_width=True, key="btn_load_previous_analysis_record"):
@@ -1099,11 +1099,11 @@ if history_records:
             else:
                 st.error(message)
 else:
-    st.info("Aun no hay experimentos previos disponibles con video recuperable desde la BD.")
+    st.info("Aún no hay experimentos previos disponibles con vídeo recuperable desde la BD.")
 st.markdown("</div>", unsafe_allow_html=True)
 
 if not video_ok:
-    st.warning("No hay video activo en esta sesion. Puedes cargar uno desde Ingesta o usar el selector de registros previos de arriba.")
+    st.warning("No hay vídeo activo en esta sesión. Puedes cargar uno desde el módulo de ingesta de vídeo o usar el selector de registros previos de arriba.")
 
 status_flags = resolve_status_flags()
 device_option = st.session_state.get("dlc_device_opt", "Auto (Recomendado)")
@@ -1112,7 +1112,7 @@ zones_ready = bool(st.session_state.get("zonas_configuradas"))
 
 # ================= 4. PREREQUISITES PANEL =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Validacion de Prerrequisitos")
+st.markdown("#### Validación de prerrequisitos")
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
@@ -1132,12 +1132,12 @@ with c2:
 with c3:
     st.markdown(
         f'<div style="text-align:center;"><div style="color: {"#1E8E3E" if status_flags["has_models"] else "#D93025"}; font-weight: 700;">'
-        f'{"Modelos SimBA OK" if status_flags["has_models"] else "Modelos no hallados"}</div>'
-        f'<div style="font-size:0.8rem; margin-top:8px;">Generated models</div></div>',
+        f'{"Modelos SimBA en estado óptimo" if status_flags["has_models"] else "Modelos no hallados"}</div>'
+        f'<div style="font-size:0.8rem; margin-top:8px;">Modelos generados</div></div>',
         unsafe_allow_html=True,
     )
 with c4:
-    state_label = "Pose DLC lista" if status_flags["has_pose"] else "Se generara pose nueva"
+    state_label = "Pose DLC lista" if status_flags["has_pose"] else "Se generará una pose nueva"
     state_color = "#1E8E3E" if status_flags["has_pose"] else "#B26A00"
     st.markdown(
         f'<div style="text-align:center;"><div style="color: {state_color}; font-weight: 700;">{state_label}</div>'
@@ -1152,32 +1152,32 @@ left_col, right_col = st.columns([1, 1.35])
 
 with left_col:
     st.markdown('<div class="content-card" style="border-top: 4px solid #6F1D46;">', unsafe_allow_html=True)
-    st.markdown("#### Ejecucion del Pipeline")
+    st.markdown("#### Ejecución del flujo")
     st.caption(
         f"Rango activo: `{format_mm_ss(st.session_state.get('inicio_recorte', 0))}` -> "
-        f"`{format_mm_ss(st.session_state.get('fin_recorte')) if st.session_state.get('fin_recorte') is not None else 'fin del video'}`"
+        f"`{format_mm_ss(st.session_state.get('fin_recorte')) if st.session_state.get('fin_recorte') is not None else 'fin del vídeo'}`"
     )
 
-    with st.expander("Parametros de Ejecucion", expanded=True):
+    with st.expander("Parámetros de ejecución", expanded=True):
         batch_size = st.slider(
             "Batch Size DLC",
             min_value=4,
             max_value=32,
             value=int(st.session_state.get("dlc_batch_size", 16) or 16),
             step=4,
-            help="Se mantiene capado a 32 para no castigar la GPU. 16 suele ser el punto mas estable.",
+            help="Se mantiene capado a 32 para no sobrecargar la GPU. 16 suele ser el punto más estable.",
         )
         device_option = st.selectbox(
             "Dispositivo Hardware",
             ["Auto (Recomendado)", "CPU (Forzar)"],
             index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
         )
-        st.caption("Grooming usa RF calibrado con rescate temporal LSTM cuando el RF queda en zona gris.")
-        st.caption("El pipeline reutiliza pose, features, LSTM y video final si ya existen y siguen vigentes.")
+        st.caption("Grooming usa RF calibrado con rescate temporal con redes LSTM cuando el RF queda en zona gris.")
+        st.caption("El flujo reutiliza pose, features, LSTM y vídeo final si ya existen y siguen vigentes.")
 
     can_run = status_flags["has_video"] and status_flags["has_zonas"] and status_flags["has_models"]
     if not status_flags["has_zonas"]:
-        st.error("Necesitas guardar primero las ROIs en el Modulo 03.")
+        st.error("Necesitas guardar primero las zonas de interés en el módulo 03 (configuración de zonas).")
     if not status_flags["has_models"]:
         st.error("No se encontraron los modelos activos de SimBA en generated_models.")
 
@@ -1185,15 +1185,15 @@ with left_col:
     if analysis_snapshot["needs_rerun"]:
         st.rerun()
     if st.session_state.pop("analysis_show_toast", False):
-        st.toast("Pipeline multimodal completado. Revisa el panel de salida.")
+        st.toast("Flujo multimodal completado. Revisa el panel de salida.")
 
     pipeline_running = analysis_snapshot["is_running"]
 
     if pipeline_running:
-        st.info("El pipeline corre en segundo plano. Puedes moverte entre módulos y volver.")
+        st.info("El flujo corre en segundo plano. Puedes moverte entre módulos y volver.")
         col_stop, col_log = st.columns(2)
         with col_stop:
-            if st.button("DETENER PIPELINE", use_container_width=True, key="btn_stop_analysis"):
+            if st.button("DETENER FLUJO", use_container_width=True, key="btn_stop_analysis"):
                 action = "cancel"
         with col_log:
             if st.button("ABRIR CONSOLA DE LOGS", use_container_width=True, key="btn_log_analysis"):
@@ -1202,7 +1202,7 @@ with left_col:
             st.caption(f"PID activo: `{analysis_snapshot['meta'].get('pid')}`")
     else:
         if st.button(
-            "INICIAR PIPELINE MULTIMODAL",
+            "INICIAR FLUJO MULTIMODAL",
             type="primary",
             use_container_width=True,
             disabled=not can_run,
@@ -1241,7 +1241,7 @@ elif action == "open_console":
     safe_path = os.path.abspath(log_path).replace("'", "''")
     subprocess.Popen(
         [powershell, "-NoExit", "-Command",
-         f"$host.UI.RawUI.WindowTitle='TT 2026 - Analisis Final'; Get-Content -Path '{safe_path}' -Wait -Tail 40"],
+         f"$host.UI.RawUI.WindowTitle='Análisis final'; Get-Content -Path '{safe_path}' -Wait -Tail 40"],
         cwd=os.getcwd(),
         creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
     )
@@ -1260,7 +1260,7 @@ def render_analysis_monitor():
     if is_running and progress < 0.95:
         render_loading_animation(
             "El análisis final está en proceso.<br>"
-            "Por favor no cierre la ventana ni recargue la página.<br>"
+            "Por favor, no cierre la ventana ni recargue la página.<br>"
             "Tampoco cierre la ventana de consola. Espere a que se complete."
         )
     
@@ -1283,7 +1283,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     f"""
     <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Identidad Institucional IPN &bull; ESCOM &bull; TT 2026
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
     </div>
     """,
     unsafe_allow_html=True,

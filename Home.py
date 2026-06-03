@@ -8,7 +8,7 @@ from session_utils import load_session, save_session, clear_session
 from ui_components import run_page_splash
 
 st.set_page_config(
-    page_title="EPM Platform | Inicio",
+    page_title="Inicio",
     page_icon="assets/logos/logo_ria.png",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -36,7 +36,7 @@ run_page_splash(
         "Sincronizando panel principal...",
         "Preparando módulos del sistema...",
     ],
-    subtitle="TT 2026 - Cargando tablero principal...",
+    subtitle="Cargando tablero principal...",
 )
 
 with st.sidebar:
@@ -52,7 +52,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -101,7 +101,7 @@ else:
 # ================= 4. ESTRUCTURA PRINCIPAL =================
 st.markdown(f"""
 <div style="margin-bottom: 2rem;">
-    <h1 style="font-size: 2rem; margin: 0; color: {colors['text_main']}; letter-spacing: -0.02em;">Bienvenido, {user_first_name}</h1>
+    <h1 style="font-size: 2rem; margin: 0; color: {colors['text_main']}; letter-spacing: -0.02em;">¡Bienvenido, {user_first_name}!</h1>
     <p style="color: {colors['text_sub']}; font-size: 0.95rem; margin-top: 0.4rem; max-width: 800px;">
         Plataforma institucional para análisis automatizado y visualización de comportamiento en modelos de ansiedad.
     </p>
@@ -212,8 +212,7 @@ st.markdown(f"""
 # --- MODULOS GRID ---
 st.markdown(f"""
 <div style="margin-bottom: 1.5rem;">
-    <h3 style="margin:0; font-size:1.25rem; font-weight: 700; color: {colors['text_main']}; letter-spacing: -0.01em;">Módulos Principales</h3>
-    <p style="margin:0; font-size:0.85rem; color: {colors['text_sub']}; margin-top: 4px;">Flujo de análisis automatizado de comportamiento</p>
+    <h3 style="margin:0; font-size:1.25rem; font-weight: 700; color: {colors['text_main']}; letter-spacing: -0.01em;">Módulos principales</h3>
 </div>
 """, unsafe_allow_html=True)
 
@@ -234,25 +233,25 @@ def module_card(icon, title, desc, btn_key, btn_label, target_page):
 
 m1, m2, m3 = st.columns(3)
 with m1:
-    module_card(svg_video, "Ingesta de Video", "Sube y procesa tus videos experimentales", "btn_m1", "Comenzar", "pages/01_Ingesta_de_Video.py")
+    module_card(svg_video, "Ingesta de vídeo", "Sube y procesa tus videos experimentales.", "btn_m1", "Comenzar", "pages/01_Ingesta_de_Video.py")
 with m2:
-    module_card(svg_keypoints, "Keypoints", "Detección y marcaje de puntos corporales", "btn_m2", "Procesar", "pages/02_Keypoints.py")
+    module_card(svg_keypoints, "Keypoints", "Detección y marcaje de puntos corporales.", "btn_m2", "Procesar", "pages/02_Keypoints.py")
 with m3:
-    module_card(svg_zones, "Configuración de Zonas", "Define regiones de interés del EPM", "btn_m3", "Configurar", "pages/03_Configuracion_Zonas.py")
+    module_card(svg_zones, "Configuración de zonas", "Define regiones de interés del EPM", "btn_m3", "Configurar", "pages/03_Configuracion_Zonas.py")
 
 m4, m5, m6 = st.columns(3)
 with m4:
-    module_card(svg_analysis, "Análisis Final", "Ejecución del modelo YOLO + LSTM", "btn_m4", "Analizar", "pages/04_Analisis_Final.py")
+    module_card(svg_analysis, "Análisis final", "Ejecución del modelo YOLO + LSTM.", "btn_m4", "Analizar", "pages/04_Analisis_Final.py")
 with m5:
-    module_card(svg_chart, "Resultados y Estadísticas", "Métricas, heatmaps y reportes", "btn_m5", "Ver Resultados", "pages/05_Resultados_y_Estadisticas.py")
+    module_card(svg_chart, "Resultados y estadísticas", "Métricas, heatmaps y reportes.", "btn_m5", "Ver resultados", "pages/05_Resultados_y_Estadisticas.py")
 with m6:
-    module_card(svg_compare, "Comparación de Grupos", "Consolidado estadístico para ANOVA", "btn_m6", "Comparar", "pages/06_Comparacion.py")
+    module_card(svg_compare, "Comparación de grupos", "Consolidado estadístico para ANOVA.", "btn_m6", "Comparar", "pages/06_Comparacion.py")
 
 # Módulos administrativos
 if st.session_state.get("role") == "admin":
     m7, m8, m9 = st.columns(3)
     with m7:
-        module_card(svg_user, "Admin Panel", "Gestión de usuarios e investigadores", "btn_m7", "Administrar", "pages/99_Admin_Panel.py")
+        module_card(svg_user, "Panel de administración", "Gestión de usuarios e investigadores.", "btn_m7", "Administrar", "pages/99_Admin_Panel.py")
     with m8:
         st.empty()
     with m9:
