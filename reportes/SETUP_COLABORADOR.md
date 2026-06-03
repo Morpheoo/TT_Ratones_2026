@@ -1,7 +1,7 @@
-# Guia de Instalacion - TT Ratones 2026
+# Guia de instalación - TT Ratones 2026
 
 Esta guia te lleva paso a paso para instalar el sistema completo de
-deteccion automatica de Grooming y Thigmotaxis en una laptop nueva.
+deteccion automática de Grooming y Thigmotaxis en una laptop nueva.
 
 **Tiempo estimado: 30-45 min** (la mayoria es descarga de PyTorch).
 
@@ -9,7 +9,7 @@ deteccion automatica de Grooming y Thigmotaxis en una laptop nueva.
 
 ## 1. Prerequisitos (instalalos antes)
 
-| Software | Version | Link |
+| Software | versión | Link |
 |---|---|---|
 | Git | cualquiera | https://git-scm.com/downloads |
 | Python 3.10 | 3.10.x | https://www.python.org/downloads/release/python-31011/ |
@@ -23,31 +23,31 @@ deteccion automatica de Grooming y Thigmotaxis en una laptop nueva.
 Abre **CMD** o **PowerShell** y corre estos comandos:
 
 ```bash
-git --version
-py --version
+git --versión
+py --versión
 py -0p
-py -3.10 --version
-py -3.11 --version
-docker --version
-docker compose version
+py -3.10 --versión
+py -3.11 --versión
+docker --versión
+docker compose versión
 ```
 
 Resultado esperado:
 
 ```text
-git version ...
+git versión ...
 Python Launcher ...
 -V:3.11 ...
 -V:3.10 ...
 Python 3.10.x
 Python 3.11.x
-Docker version ...
-Docker Compose version ...
+Docker versión ...
+Docker Compose versión ...
 ```
 
 Si `py` o `py -0p` fallan, reinstala Python desde python.org y activa
 **Install launcher for all users (recommended)**. `install.bat` usa ese
-launcher para crear `venv_310` y `venv_311` con la version correcta.
+launcher para crear `venv_310` y `venv_311` con la versión correcta.
 
 > ¿Por que dos Pythons? El proyecto usa SimBA + TensorFlow/Keras 2 para LSTM (3.10) y
 > YOLO Pose + Streamlit (3.11). Cada uno con sus dependencias en venvs
@@ -87,7 +87,7 @@ pesan demasiado (3.3 GB total). Te los pasamos en USB.
 **Procedimiento**:
 
 1. Conecta el USB que contiene la carpeta `TT_Ratones_2026_modelos/`.
-2. Abre el USB y abre el archivo `LEEME_PRIMERO.txt` para verificacion
+2. Abre el USB y abre el archivo `LEEME_PRIMERO.txt` para verificación
    de tamanos byte-a-byte.
 3. Copia **todo el contenido** de `TT_Ratones_2026_modelos/` sobre la
    raiz del proyecto (la estructura del USB es espejo del proyecto):
@@ -102,7 +102,7 @@ pesan demasiado (3.3 GB total). Te los pasamos en USB.
    xcopy /E /I /Y "D:\TT_Ratones_2026_modelos\*" .
    ```
 
-4. Despues de copiar, debe haber estos modelos exactamente en estas rutas:
+4. Después de copiar, debe haber estos modelos exactamente en estas rutas:
 
    | Tipo | Archivo | Ruta exacta dentro del proyecto |
    |---|---|---|
@@ -119,10 +119,10 @@ pesan demasiado (3.3 GB total). Te los pasamos en USB.
 
    El archivo B-SOiD es opcional: solo se usa si activas el modo
    `--grooming-source ensemble_conditional` (mejora F1 de 0.45 a 0.60
-   segun validacion LOO blind). Si solo vas a usar el modo `rescue`
+   segun validación LOO blind). Si solo vas a usar el modo `rescue`
    por defecto, podes saltarte ese archivo.
 
-   Para verificar los modelos despues de copiar:
+   Para verificar los modelos después de copiar:
 
    ```bash
    venv_311\Scripts\python.exe validar_instalacion.py
@@ -158,14 +158,14 @@ El script hace todo automaticamente:
 8. Sincroniza los paths absolutos del `project_config.ini` de SimBA al
    path de tu equipo (ver seccion 11 si esto falla).
 9. Corre `validar_instalacion.py` que chequea modelos, imports, CUDA y
-   configuracion de `.env`.
+   configuración de `.env`.
 
 **Tiempo total: ~30-45 min**, dependiendo de tu conexion.
 La parte mas lenta es la descarga de PyTorch + ultralytics (~3-5 GB de wheels).
 
 Si todo sale bien, el reporte final dice:
 ```
-[RESULTADO] Instalacion 100% completa y validada.
+[RESULTADO] instalación 100% completa y validada.
 ```
 
 ---
@@ -178,7 +178,7 @@ usuarios.
 
 ### 5.1 Configurar `.env` con el asistente
 
-Despues de correr `install.bat`, el instalador ejecuta este asistente
+Después de correr `install.bat`, el instalador ejecuta este asistente
 automaticamente:
 
 ```bash
@@ -269,7 +269,7 @@ Comando recomendado para validar esto:
 venv_311\Scripts\python.exe validar_instalacion.py
 ```
 
-En la sección "Archivos de configuracion" debes ver:
+En la sección "Archivos de configuración" debes ver:
 
 ```text
 [OK] .env tiene variables de Postgres
@@ -345,7 +345,7 @@ venv_311\Scripts\python.exe src/scripts/run_behavior_pipeline.py ^
   --video videos_data/MI_VIDEO.mp4
 ```
 
-Para activar el modo con B-SOiD (mejor F1 segun validacion):
+Para activar el modo con B-SOiD (mejor F1 segun validación):
 
 ```bash
 venv_311\Scripts\python.exe src/scripts/run_behavior_pipeline.py ^
@@ -362,7 +362,7 @@ Outputs en `resultados_yolo/MI_VIDEO/`:
 
 ---
 
-## 9. Validar la instalacion en cualquier momento
+## 9. Validar la instalación en cualquier momento
 
 ```bash
 venv_311\Scripts\python.exe validar_instalacion.py
@@ -380,7 +380,7 @@ Exit code 0 si todo OK, 1 si hay fallas criticas.
 
 ---
 
-## 10. Flujo diario (despues de instalado)
+## 10. Flujo diario (después de instalado)
 
 1. Abre Docker Desktop (si vas a usar la UI con historial).
 2. Doble clic al acceso directo "TT Ratones 2026" del Escritorio
@@ -389,7 +389,7 @@ Exit code 0 si todo OK, 1 si hay fallas criticas.
 
 ---
 
-## 11. Troubleshooting comun
+## 11. Troubleshooting común
 
 ### "py: command not found"
 No instalaste Python 3.10/3.11 con la opcion "Add to PATH". Reinstalalos.
@@ -423,7 +423,7 @@ Volve al paso 3: copia el USB sobre la raiz del proyecto y vuelve a validar.
 SimBA guarda paths absolutos en `project_config.ini` que apuntan al equipo
 donde se commiteo el archivo. Si moviste la carpeta del proyecto, clonaste
 en un usuario distinto, o pulleaste cambios del equipo, los paths quedan
-desactualizados. `install.bat` corre el fix automatico, pero podes forzarlo
+desactualizados. `install.bat` corre el fix automático, pero podes forzarlo
 en cualquier momento:
 
 ```bash
@@ -446,7 +446,7 @@ Busca el código de 6 dígitos en la **consola negra** de `launcher.bat`. Aparec
 
 ---
 
-## 12. Estructura del proyecto despues del setup
+## 12. Estructura del proyecto después del setup
 
 ```
 TT_Ratones_2026/
@@ -474,7 +474,7 @@ TT_Ratones_2026/
 
 ## 13. Documentacion adicional
 
-- `reportes/01_ESTADO_ACTUAL.md` - estado del proyecto y metricas LOO blind
+- `reportes/01_ESTADO_ACTUAL.md` - estado del proyecto y métricas LOO blind
 - `reportes/02_PIPELINE_TECNICO.md` - como funciona el pipeline end-to-end
 - `reportes/03_PLAN_MEJORAS.md` - plan de mejoras y por que se descartaron M2/M4/M5
 - `reportes/checkpoint_M*.md` - registro de validaciones realizadas

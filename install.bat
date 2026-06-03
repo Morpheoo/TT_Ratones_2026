@@ -4,7 +4,7 @@ title Instalador TT Ratones 2026
 
 echo ============================================================
 echo   INSTALADOR TT_Ratones_2026
-echo   Crea venv_310, venv_311, sincroniza paths SimBA y valida.
+echo   Crea venv_310, venv_311, sincroniza paths SimBA y válida.
 echo ============================================================
 echo.
 
@@ -14,35 +14,35 @@ REM ============================================================
 REM 1/10 - Verificar Python 3.10 y 3.11
 REM ============================================================
 echo [1/10] Verificando Python 3.10 y 3.11...
-py --version >nul 2>&1
+py --versión >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] No se encontro Python Launcher ^(comando py^).
     echo         Reinstala Python 3.10 y 3.11 desde python.org y marca:
     echo           - Add Python to PATH
     echo           - Install launcher for all users ^(recommended^)
-    echo         Verifica despues con:
+    echo         Verifica después con:
     echo           py -0p
     pause
     exit /b 1
 )
-py -3.10 --version >nul 2>&1
+py -3.10 --versión >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] No se encontro Python 3.10.
     echo         Instalalo desde https://www.python.org/downloads/release/python-31011/
-    echo         IMPORTANTE: marca "Add Python to PATH" durante la instalacion.
+    echo         IMPORTANTE: marca "Add Python to PATH" durante la instalación.
     pause
     exit /b 1
 )
-py -3.11 --version >nul 2>&1
+py -3.11 --versión >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] No se encontro Python 3.11.
     echo         Instalalo desde https://www.python.org/downloads/release/python-3119/
-    echo         IMPORTANTE: marca "Add Python to PATH" durante la instalacion.
+    echo         IMPORTANTE: marca "Add Python to PATH" durante la instalación.
     pause
     exit /b 1
 )
-for /f "tokens=*" %%v in ('py -3.10 --version') do echo   [OK] %%v
-for /f "tokens=*" %%v in ('py -3.11 --version') do echo   [OK] %%v
+for /f "tokens=*" %%v in ('py -3.10 --versión') do echo   [OK] %%v
+for /f "tokens=*" %%v in ('py -3.11 --versión') do echo   [OK] %%v
 
 REM ============================================================
 REM 2/10 - Detectar GPU
@@ -71,7 +71,7 @@ if %errorlevel% equ 0 (
         echo   Procesar un video llevara ~25 min en lugar de ~5 min con NVIDIA.
         choice /C YN /M "   Continuar con CPU-only"
         if errorlevel 2 (
-            echo Instalacion cancelada.
+            echo instalación cancelada.
             pause
             exit /b 1
         )
@@ -80,7 +80,7 @@ if %errorlevel% equ 0 (
         echo   Se instalara PyTorch CPU-only ^(funcional pero ~5x mas lento^).
         choice /C YN /M "   Continuar con CPU-only"
         if errorlevel 2 (
-            echo Instalacion cancelada.
+            echo instalación cancelada.
             pause
             exit /b 1
         )
@@ -138,7 +138,7 @@ if %errorlevel% neq 0 (
 )
 pip install -r requirements_venv310.txt
 if %errorlevel% neq 0 (
-    echo   [ERROR] Fallo la instalacion de venv_310.
+    echo   [ERROR] Fallo la instalación de venv_310.
     echo          Revisar el log de pip arriba.
     pause
     exit /b 1
@@ -164,7 +164,7 @@ if %errorlevel% neq 0 (
 echo   [INFO] Instalando PyTorch desde !TORCH_INDEX! ...
 pip install !TORCH_PIN! --index-url !TORCH_INDEX!
 if %errorlevel% neq 0 (
-    echo   [ERROR] Fallo la instalacion de PyTorch.
+    echo   [ERROR] Fallo la instalación de PyTorch.
     echo          Verifica conexion a internet y vuelve a intentar.
     pause
     exit /b 1
@@ -172,7 +172,7 @@ if %errorlevel% neq 0 (
 echo   [INFO] Instalando resto de dependencias ^(streamlit, ultralytics, etc.^)...
 pip install -r requirements_venv311.txt
 if %errorlevel% neq 0 (
-    echo   [ERROR] Fallo la instalacion de venv_311.
+    echo   [ERROR] Fallo la instalación de venv_311.
     pause
     exit /b 1
 )
@@ -206,7 +206,7 @@ if %errorlevel% neq 0 (
     echo          Si lo tenes instalado: abrilo y volvelo a chequear.
     echo          Si no lo tenes: descargalo de https://www.docker.com/products/docker-desktop/
     echo          La app Streamlit funciona sin Docker, pero el historial
-    echo          de analisis ^(Postgres^) no estara disponible.
+    echo          de análisis ^(Postgres^) no estara disponible.
 ) else (
     echo   [OK] Docker Desktop disponible.
 )
@@ -226,10 +226,10 @@ if %errorlevel% neq 0 (
 )
 
 REM ============================================================
-REM 10/10 - Validacion final
+REM 10/10 - validación final
 REM ============================================================
 echo.
-echo [10/10] Validando instalacion completa...
+echo [10/10] Validando instalación completa...
 echo.
 call venv_311\Scripts\activate.bat
 python validar_instalacion.py
@@ -257,7 +257,7 @@ if !VALIDA_EXIT! equ 0 (
     echo ============================================================
     echo.
     echo   Revisa el reporte de validar_instalacion.py arriba.
-    echo   Lo mas comun: faltan modelos pesados ^(.sav, .keras, .pkl, .pt^).
+    echo   Lo mas común: faltan modelos pesados ^(.sav, .keras, .pkl, .pt^).
     echo   Copia el contenido del USB sobre la raiz del proyecto.
     echo.
 )

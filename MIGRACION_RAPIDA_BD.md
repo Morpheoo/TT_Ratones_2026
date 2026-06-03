@@ -60,7 +60,7 @@ Para instrucciones detalladas, consulta: **[GUIA_BASE_DATOS_EN_LINEA.md](GUIA_BA
 
 ## 🔧 Scripts Útiles
 
-| Script | Descripción |
+| Script | descripción |
 |--------|-------------|
 | `test_remote_db.py` | Prueba la conexión a la BD remota |
 | `setup_remote_db.py` | Ejecuta el schema en la BD remota |

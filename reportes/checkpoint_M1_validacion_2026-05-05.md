@@ -1,4 +1,4 @@
-# Checkpoint M1: validacion ensemble_conditional
+# Checkpoint M1: validación ensemble_conditional
 
 Fecha: 2026-05-05
 
@@ -75,7 +75,7 @@ El mejor umbral simple fue `min_frames=250`: mejora el promedio 0.445 -> 0.602 y
 
 ## Recomendacion
 
-Promover `bsoid_simba_min_frames` a 250 como default del codigo. No se modifico `project_config.ini`.
+Promover `bsoid_simba_min_frames` a 250 como default del código. No se modifico `project_config.ini`.
 
 Cambios aplicados:
 
@@ -83,7 +83,7 @@ Cambios aplicados:
 - `src/scripts/bsoid_evaluate.py`: `CONDITIONAL_SIMBA_MIN_FRAMES = 250`.
 - `src/scripts/loo_full_bsoid.py`: `CONDITIONAL_SIMBA_MIN_FRAMES = 250`.
 
-Validacion tecnica: `py_compile` OK.
+Validación técnica: `py_compile` OK.
 
 ## Seguridad
 

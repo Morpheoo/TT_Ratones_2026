@@ -53,8 +53,8 @@ def test_connection():
             # Test 1: Conexión básica
             print("[OK] Conexión establecida exitosamente\n")
             
-            result = conn.execute(text("SELECT version()")).scalar()
-            print(f"[OK] PostgreSQL Version:")
+            result = conn.execute(text("SELECT versión()")).scalar()
+            print(f"[OK] PostgreSQL Versión:")
             print(f"     {result[:80]}...\n")
             
             # Test 2: Verificar tablas

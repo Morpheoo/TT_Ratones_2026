@@ -5,7 +5,7 @@ import pandas as pd
 from sqlalchemy import bindparam, text
 
 # ================= 0. SETUP & PERSISTENCE =================
-st.set_page_config(page_title="Admin Panel | IPN", layout="wide", page_icon="assets/logos/logo_ria.png")
+st.set_page_config(page_title="Panel de administración", layout="wide", page_icon="assets/logos/logo_ria.png")
 
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
@@ -28,7 +28,7 @@ if not st.session_state.get("logged_in"):
 
 role = st.session_state.get("role", "")
 if not check_admin_access(role):
-    st.error("ACCESO RESTRINGIDO. Se requiere privilegio de Administrador Institucional.")
+    st.error("Acceso restringido. Se requiere privilegio de administrador.")
     st.stop()
 
 run_page_splash(
@@ -38,7 +38,7 @@ run_page_splash(
         "Sincronizando directorio de usuarios...",
         "Preparando consola institucional...",
     ],
-    subtitle="TT 2026 - Cargando panel administrativo...",
+    subtitle="Cargando panel de administración...",
 )
 
 # ================= SIDEBAR =================
@@ -55,7 +55,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -69,10 +69,9 @@ with st.sidebar:
 
 # ================= 2. CABECERA =================
 render_topbar()
-st.markdown("### Panel de Administración")
+st.markdown("### Panel de administración")
 st.markdown("""
-    Gestión de identidades, privilegios y auditoría de experimentos del sistema institucional. 
-    Este tablero es exclusivo para personal de administración central.
+    Gestión de identidades, privilegios y auditoría de experimentos del prototipo.
 """)
 
 st.divider()
@@ -119,29 +118,29 @@ def delete_admin_experiments(engine, experiment_ids):
 
 # ================= 3. USER MANAGEMENT =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Gestión de Usuarios")
+st.markdown("#### Gestión de usuarios")
 
 # --- REGISTRO DE PERSONAL POR ADMINISTRADOR ---
-with st.expander("➕ REGISTRAR NUEVO PERSONAL (ADMIN)"):
+with st.expander("Regisrar nuevo usuario"):
     st.info("Este formulario permite dar de alta a investigadores o estudiantes sin que tengan que esperar el correo de verificación.")
     with st.form("admin_register_form", clear_on_submit=True):
         col_a, col_b = st.columns(2)
         with col_a:
-            new_email = st.text_input("Correo Institucional (@ipn.mx / @alumno.ipn.mx)")
-            new_name = st.text_input("Nombre Completo")
-            new_role = st.selectbox("Rol Institucional", ["investigador", "estudiante", "admin"])
+            new_email = st.text_input("Correo institucional (@ipn.mx / @alumno.ipn.mx)")
+            new_name = st.text_input("Nombre completo")
+            new_role = st.selectbox("Rol", ["investigador", "estudiante", "admin"])
         with col_b:
-            new_pwd = st.text_input("Contraseña Temporal", type="password", help="Mínimo 8 caracteres, 1 mayúscula, 1 número.")
+            new_pwd = st.text_input("Contraseña temporal", type="password", help="Mínimo 8 caracteres, 1 mayúscula, 1 número.")
             if new_role == "estudiante":
-                new_id = st.text_input("Número de Boleta")
+                new_id = st.text_input("Número de boleta")
                 new_extra1 = st.text_input("Escuela (Ej: ESCOM)")
                 new_extra2 = st.text_input("Carrera")
             else:
-                new_id = st.text_input("Número de Empleado")
+                new_id = st.text_input("Número de empleado")
                 new_extra1 = st.text_input("Centro / Dependencia")
                 new_extra2 = st.text_input("Área / Departamento")
         
-        if st.form_submit_button("CREAR CUENTA VERIFICADA", use_container_width=True):
+        if st.form_submit_button("Crear nueva cuenta", use_container_width=True):
             if not new_email or not new_pwd:
                 st.error("Email y contraseña son obligatorios.")
             else:
@@ -160,12 +159,12 @@ with st.expander("➕ REGISTRAR NUEVO PERSONAL (ADMIN)"):
                     force_verified=True
                 )
                 if success:
-                    st.success(f"✅ Usuario {new_email} creado exitosamente como {new_role}.")
+                    st.success(f"Usuario {new_email} creado exitosamente como {new_role}.")
                     st.rerun()
                 else:
-                    st.error(f"❌ Error: {msg}")
+                    st.error(f"Error: {msg}")
 
-st.markdown("##### Directorio de Usuarios")
+st.markdown("##### Directorio de usuarios")
 
 
 # Data fetch
@@ -173,8 +172,8 @@ with engine.connect() as conn:
     df_users = safe_df(pd.read_sql(text("SELECT id, username, role, is_verified, is_active FROM users"), conn))
 
 c1, c2, c3 = st.columns(3)
-with c1: st.metric("Cuentas Totales", len(df_users))
-with c2: st.metric("Sujetos Verificados", len(df_users[df_users['is_verified'] == True]))
+with c1: st.metric("Cuentas totales", len(df_users))
+with c2: st.metric("Sujetos verificados", len(df_users[df_users['is_verified'] == True]))
 with c3: st.metric("Investigadores", len(df_users[df_users['role'] == 'investigador']))
 
 st.dataframe(df_users, use_container_width=True, hide_index=True)
@@ -183,9 +182,9 @@ st.dataframe(df_users, use_container_width=True, hide_index=True)
 st.markdown("---")
 cols = st.columns(2)
 with cols[0]:
-    st.markdown("##### Editar Privilegios")
-    u_sel = st.selectbox("Seleccionar Usuario", df_users['username'])
-    new_r = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"])
+    st.markdown("##### Editar rol")
+    u_sel = st.selectbox("Seleccionar usuario", df_users['username'])
+    new_r = st.selectbox("Nuevo rol", ["estudiante", "investigador", "admin"])
     
     u_sel_role = df_users[df_users['username'] == u_sel]['role'].values[0]
     is_self_demote = (u_sel == st.session_state.get('user', '')) and (new_r != "admin")
@@ -194,11 +193,11 @@ with cols[0]:
     disable_demote = is_self_demote or is_other_admin_demote
     
     if is_self_demote:
-        st.warning("⚠️ No puedes revocar tus propios privilegios.")
+        st.warning("No puedes revocar tus propios privilegios.")
     elif is_other_admin_demote:
-        st.warning("🛡️ Acción denegada: No puedes revocar privilegios de otro administrador.")
+        st.warning("Acción denegada. No puedes revocar privilegios de otro administrador.")
         
-    if st.button("Actualizar Rol", use_container_width=True, disabled=disable_demote):
+    if st.button("Actualizar rol", use_container_width=True, disabled=disable_demote):
         with engine.connect() as conn:
             conn.execute(text("UPDATE users SET role = :r WHERE username = :u"), {"r": new_r, "u": u_sel})
             conn.commit()
@@ -206,7 +205,7 @@ with cols[0]:
             st.rerun()
 
 with cols[1]:
-    st.markdown("##### Gestión de Estado")
+    st.markdown("##### Gestión de estado")
     u_mod = st.selectbox("Usuario a modificar", df_users['username'], key="u_mod")
     current_s = df_users[df_users['username'] == u_mod]['is_active'].values[0]
     u_mod_role = df_users[df_users['username'] == u_mod]['role'].values[0]
@@ -218,9 +217,9 @@ with cols[1]:
     disable_suspend = is_self_suspend or is_other_admin_suspend
     
     if is_self_suspend:
-        st.warning("⚠️ No puedes suspender tu propia cuenta.")
+        st.warning("No puedes suspender tu propia cuenta.")
     elif is_other_admin_suspend:
-        st.warning("🛡️ Acción denegada: No puedes suspender a otro administrador.")
+        st.warning("Acción denegada. No puedes suspender a otro administrador.")
         
     if st.button(btn_label, type="primary" if current_s else "secondary", use_container_width=True, disabled=disable_suspend):
         with engine.connect() as conn:
@@ -231,8 +230,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # ================= 4. EXPERIMENT AUDIT =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Auditoría de Experimentos")
-st.markdown("#### Auditoria de Experimentos")
+st.markdown("#### Auditoria de experimentos")
 admin_delete_notice = st.session_state.pop("admin_delete_notice", None)
 if admin_delete_notice:
     st.success(admin_delete_notice)
@@ -320,7 +318,7 @@ else:
             st.session_state["admin_delete_notice"] = f"Se borraron {deleted_count} experimento(s)."
             st.rerun()
 
-    if st.button("LIMPIAR REGISTROS HUERFANOS", type="secondary"):
+    if st.button("LIMPIAR REGISTROS HUÉRFANOS", type="secondary"):
         with engine.connect() as conn:
             conn.execute(text("DELETE FROM experiments WHERE processed = FALSE"))
             conn.commit()
@@ -330,8 +328,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Footer
 st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(f"""
+st.markdown(
+    f"""
     <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Administración Central de Plataforma &bull; IPN &bull; ESCOM &bull; 2026
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
     </div>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)

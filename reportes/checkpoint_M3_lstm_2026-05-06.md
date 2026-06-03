@@ -30,7 +30,7 @@ Antes:
   - `--lstm-rescue-threshold`
   - `--lstm-confident-threshold`
 
-Eso hacia que el rescue fuera demasiado estricto. La logica documentada en `02_PIPELINE_TECNICO.md` dice:
+Eso hacia que el rescue fuera demasiado estricto. La lógica documentada en `02_PIPELINE_TECNICO.md` dice:
 
 - rescue LSTM bajo: `0.11`
 - LSTM confiada: `0.50`
@@ -56,11 +56,11 @@ Tambien se actualizo:
   - default: excluye `*_mirror`
   - nuevo flag: `--include-mirrors`
 
-## Evaluacion rapida de la LSTM actual
+## Evaluacion rápida de la LSTM actual
 
 Se corrio inferencia LSTM actual sobre 5 videos criticos y se comparo contra las etiquetas humanas reales.
 
-Importante: esto NO es blind, porque la LSTM actual ya vio estos videos en training/validacion. Sirve para confirmar que el backend LSTM reconoce bien esos patrones cuando esta disponible.
+Importante: esto NO es blind, porque la LSTM actual ya vio estos videos en training/validación. Sirve para confirmar que el backend LSTM reconoce bien esos patrones cuando esta disponible.
 
 | Video | GT Grooming | LSTM frames @0.75 | P @0.75 | R @0.75 | F1 @0.75 | F1 @0.50 | F1 @0.11 |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -89,9 +89,9 @@ Con el fix, la LSTM vuelve a cumplir su rol:
 
 ## Decision
 
-- No reentrenar/reemplazar LSTM ahora, porque ya esta en version 26 videos.
+- No reentrenar/reemplazar LSTM ahora, porque ya esta en versión 26 videos.
 - Mantener el fix de integracion del pipeline.
-- Si se quiere medir aporte blind real de LSTM, crear despues un LOO especifico LSTM; no se hizo en este checkpoint.
+- Si se quiere medir aporte blind real de LSTM, crear después un LOO específico LSTM; no se hizo en este checkpoint.
 
 ## Archivos de evaluacion
 

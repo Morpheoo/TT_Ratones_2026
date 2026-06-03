@@ -1,7 +1,7 @@
 import sys
 import os
 
-print(f"Python: {sys.version}")
+print(f"Python: {sys.versión}")
 print(f"CWD: {os.getcwd()}")
 print(f"sys.path: {sys.path}")
 

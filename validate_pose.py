@@ -1,5 +1,5 @@
 """
-Inferencia de validacion visual — primeros 30 segundos del video.
+Inferencia de validación visual — primeros 30 segundos del video.
 Uso: python validate_pose.py
 """
 from ultralytics import YOLO

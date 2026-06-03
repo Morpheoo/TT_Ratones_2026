@@ -9,7 +9,7 @@ evitando la confusión entre videos del mismo escenario.
 Uso:
     from src.video_context_banner import render_video_banner, render_video_banner_mini
     render_video_banner()        # Banner completo (para módulos de análisis)
-    render_video_banner_mini()   # Versión compacta (para cabeceras de página)
+    render_video_banner_mini()   # versión compacta (para cabeceras de página)
 """
 
 import os
@@ -128,7 +128,7 @@ def render_video_banner(module_label: str = "Video en análisis") -> bool:
 
 def render_video_banner_mini() -> bool:
     """
-    Versión compacta del indicador de video (badge inline).
+    versión compacta del indicador de video (badge inline).
     Útil para cabeceras donde el espacio es limitado.
     Devuelve True si hay video cargado.
     """

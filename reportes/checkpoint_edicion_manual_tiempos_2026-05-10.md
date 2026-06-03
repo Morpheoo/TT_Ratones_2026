@@ -7,8 +7,8 @@ Fecha: 2026-05-10
 Se agrego la capacidad de que admins e investigadores corrijan
 manualmente los tiempos conductuales (Abiertos, Cerrados, Grooming,
 Thigmotaxis) directamente sobre el panel de detalle de cada
-experimento en la pagina 05, con auditoria completa, posibilidad de
-revertir y propagacion automatica al modulo de Comparacion (Excel).
+experimento en la página 05, con auditoria completa, posibilidad de
+revertir y propagacion automática al módulo de comparación (Excel).
 
 Motivacion: el modelo no es 100% preciso en Grooming/Thigmotaxis
 (F1 LOO blind 0.45-0.60). Esta feature permite al investigador
@@ -36,27 +36,27 @@ behavior_edits (
 )
 ```
 
-Indice por `(experiment_id, edited_at DESC)` para query rapido del
+Indice por `(experiment_id, edited_at DESC)` para query rápido del
 historial.
 
 La tabla se auto-crea en runtime via
-`ensure_behavior_edits_schema(conn)` la primera vez que la pagina 05
+`ensure_behavior_edits_schema(conn)` la primera vez que la página 05
 se abre, asi que no requiere correr la migracion manualmente.
 
-API publica del helper:
+API pública del helper:
 - `record_behavior_edit(...)` — guarda snapshot before/after.
 - `load_behavior_edits(engine, exp_id)` — devuelve lista, mas reciente primero.
 - `revert_to_before_snapshot(engine, edit_id)` — restaura `analysis_results`
   al estado anterior a esa edicion.
 
-### 2. Refactor de la pagina 05 (`pages/05_Resultados_y_Estadisticas.py`)
+### 2. Refactor de la página 05 (`pages/05_Resultados_y_Estadisticas.py`)
 
 **`update_experiment_times()`** ahora:
 - Captura el snapshot before del UPDATE.
 - Hace el UPDATE en `analysis_results`.
 - Inserta un registro en `behavior_edits` con quien (email + rol),
   cuando, before/after y nota.
-- Toda la operacion en una transaccion.
+- Toda la operación en una transaccion.
 
 **Panel de detalle (`render_detail_panel`)**:
 - Por defecto muestra las KPIs grandes como antes (Abiertos 261.6s, etc.).
@@ -82,14 +82,14 @@ al final del panel, debajo del heatmap. Cada edicion muestra
 
 ### 3. Fix critico: `coalesce_metric` ahora prefiere DB sobre CSV
 
-Bug detectado: tras editar Grooming de 6.2s a 26.2s, la metrica grande
+Bug detectado: tras editar Grooming de 6.2s a 26.2s, la métrica grande
 seguia mostrando 6.2s aunque el historial tenia el cambio correcto.
 
 Causa: `coalesce_metric` priorizaba el valor calculado del trayectoria
 CSV (output crudo del modelo) sobre el valor del DB.
 
 Fix: invertir prioridad. El DB (`analysis_results`) es la fuente de
-verdad para metricas mostradas. Solo cae al CSV si el DB esta vacio
+verdad para métricas mostradas. Solo cae al CSV si el DB esta vacio
 (legacy / sin procesar).
 
 Las gráficas de "Conductas acumuladas" siguen mostrando la curva del
@@ -99,7 +99,7 @@ modelo.
 ### 4. Fix bonus: `init_db()` parser tolerante a comments
 
 Pre-existente, descubierto en este checkpoint. `schema.sql` termina con
-un bloque `-- NOTA: ...` despues del ultimo `;`. El parser hacia
+un bloque `-- NOTA: ...` después del ultimo `;`. El parser hacia
 `split(";")` y enviaba esos comentarios a psycopg2, que los recibia
 como query vacia y rompia el boot.
 
@@ -118,13 +118,13 @@ filtra statements que solo contienen lineas vacias o comentarios `--`.
 
 ---
 
-## Export al modulo de Comparacion (pagina 06)
+## Export al módulo de comparación (página 06)
 
-Sin cambios necesarios. La pagina 06 ya lee directamente de
+Sin cambios necesarios. La página 06 ya lee directamente de
 `analysis_results.grooming_duration`, `time_open_arms`, etc.
 (lineas 105-109, 339-340, 527-528 de `pages/06_Comparacion.py`).
 Como `update_experiment_times()` actualiza esa misma tabla, los
-Excels generados por la comparacion siempre reflejan la version mas
+Excels generados por la comparación siempre reflejan la versión mas
 reciente — incluyendo correcciones manuales.
 
 ---
@@ -133,14 +133,14 @@ reciente — incluyendo correcciones manuales.
 
 1. Reiniciar la app (recoge el fix del init_db).
 2. Login como investigador → seleccionar un experimento propio en
-   pagina 05 → activar toggle "Editar" → modificar Grooming →
+   página 05 → activar toggle "Editar" → modificar Grooming →
    escribir motivo → Guardar.
-3. La metrica grande debe actualizarse al nuevo valor.
+3. La métrica grande debe actualizarse al nuevo valor.
 4. Badge naranja debe aparecer arriba del panel.
 5. Expander al final muestra la edicion con before -> after.
 6. Login como admin → mismo experimento → boton "Revertir" → el
    tiempo vuelve al original.
-7. Pagina 06 → exportar Excel → verificar que el valor editado
+7. Página 06 → exportar Excel → verificar que el valor editado
    aparece en la hoja "Datos_Individuales".
 
 ---
@@ -166,6 +166,6 @@ Modificados:
   investigador puede ajustar el total pero no marcar exactamente
   donde estuvo. Requeriria editor sobre el timelog CSV.
 - Exportar tambien el historial de ediciones en una hoja extra del
-  Excel de comparacion, para defensa metodologica.
+  Excel de comparación, para defensa metodologica.
 - Mostrar diff visual en el video multimodal cuando hubo ediciones
   (overlay tipo "tiempo corregido manualmente: X -> Y").

@@ -15,7 +15,7 @@ def main():
     print(f"Dataset: {DATA_YAML}")
     assert os.path.exists(DATA_YAML), f"No se encontro {DATA_YAML}"
 
-    # Modelo base pose de Ultralytics (nano = rapido, ideal para empezar)
+    # Modelo base pose de Ultralytics (nano = rápido, ideal para empezar)
     model = YOLO("yolo11n-pose.pt")
 
     results = model.train(

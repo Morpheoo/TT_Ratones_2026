@@ -9,7 +9,7 @@
 # Si vas a instalar manualmente, corre primero:
 #   pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 \
 #     --index-url https://download.pytorch.org/whl/cu128
-# y despues:
+# y después:
 #   pip install -r requirements_venv311.txt
 # =============================================================
 

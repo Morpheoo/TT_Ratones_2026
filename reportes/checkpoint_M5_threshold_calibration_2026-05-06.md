@@ -4,7 +4,7 @@ Fecha: 2026-05-06
 
 ## Objetivo
 
-Validar Mejora #5: calibracion dinamica del threshold de Grooming por video.
+Validar Mejora #5: calibracion dinámica del threshold de Grooming por video.
 
 Idea original:
 
@@ -18,13 +18,13 @@ Se modifico:
 
 - `src/scripts/loo_full_bsoid.py`
 
-Se agrego una metrica adicional llamada `dynamic`, solo para validacion LOO.
+Se agrego una métrica adicional llamada `dynamic`, solo para validación LOO.
 
 Regla implementada:
 
 - Si SimBA predice `>= 250` frames Grooming con threshold `0.41`, mantener `0.41`.
 - Si SimBA predice `< 250` frames, usar el percentil 97 de `proba_g`.
-- El threshold dinamico queda limitado a `[0.20, 0.41]`.
+- El threshold dinámico queda limitado a `[0.20, 0.41]`.
 
 Constantes:
 
@@ -35,7 +35,7 @@ Constantes:
 
 Importante: esta mejora no se integro al renderer productivo. Solo se probo dentro del LOO.
 
-## Validacion
+## Validación
 
 Se corrieron 5 videos criticos donde SimBA habia fallado y un smoke test adicional con cero Grooming real.
 
@@ -85,7 +85,7 @@ Sin embargo, sigue muy por debajo del ensemble condicional:
 - Dynamic: `0.144`
 - Conditional: `0.374`
 
-Esto indica que bajar threshold no basta cuando el RF no separa bien el comportamiento. B-SOiD aporta informacion complementaria y sigue siendo la mejor mejora productiva.
+Esto indica que bajar threshold no basta cuando el RF no separa bien el comportamiento. B-SOiD aporta información complementaria y sigue siendo la mejor mejora productiva.
 
 ## Decision
 

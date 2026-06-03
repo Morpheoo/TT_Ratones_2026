@@ -140,7 +140,7 @@ def configure_admin(values: dict[str, str], force: bool) -> dict[str, str]:
         print()
         print("[IMPORTANTE] Password temporal generado para el admin inicial:")
         print(f"  {password}")
-        print("Guardalo en el gestor del equipo y cambialo despues del primer login.")
+        print("Guardalo en el gestor del equipo y cambialo después del primer login.")
     else:
         while True:
             password = getpass.getpass("Password temporal del admin inicial: ").strip()

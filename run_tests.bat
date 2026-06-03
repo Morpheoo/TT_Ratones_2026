@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 title Test Suite - TT Ratones 2026
 
 echo ========================================================
-echo       TEST SUITE - Sistema de Verificacion
+echo       TEST SUITE - Sistema de Verificación
 echo ========================================================
 echo.
 
@@ -11,7 +11,7 @@ cd /d "%~dp0"
 
 echo Selecciona el tipo de test que deseas ejecutar:
 echo.
-echo   1) Quick Diagnostic (10 segundos - rapido)
+echo   1) Quick Diagnostic (10 segundos - rápido)
 echo   2) Full Test Suite (1-2 minutos - completo)
 echo   3) Interactive Test (30-60 seg - flujo simulado)
 echo   4) Run All Tests in Sequence
@@ -58,7 +58,7 @@ if "%choice%"=="1" (
     pause
     
 ) else (
-    echo Opcion invalida
+    echo Opcion inválida
     pause
     exit /b 1
 )

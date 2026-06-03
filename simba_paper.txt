@@ -558,7 +558,7 @@ SHAP vales for classifying attack and non-attack events in the male and female C
 experiments within 1min bins and showed that SHAP values are not affected by time of 
 session.
 Supplementary Material
-Refer to Web version on PubMed Central for supplementary material.
+Refer to Web versión on PubMed Central for supplementary material.
 Acknowledgements:
 The research was supported by NIDA R00DA045662 (SAG), NIDA R01DA059374 (SAG), NIDA P30DA048736 
 (MH & SAG), NARSAD Young Investigator Award 27082 (SAG), NIMH 1F31MH125587 (NLG), F31AA025827 
@@ -577,7 +577,7 @@ https://github.com/sgoldenlab/simba/tree/simba-data/data
 The CRIM13 database is publicly available at https://paperswithcode.com/dataset/crim13.
 Code availability statement
 Code and documentation are available at https://github.com/sgoldenlab/simba. SimBA was 
-built with Python version 3.6.
+built with Python versión 3.6.
 References47,64,72,78–94
 1. Krakauer JW, Ghazanfar AA, Gomez-Marin A, MacIver MA, and Poeppel D. (2017). 
 Neuroscience Needs Behavior: Correcting a Reductionist Bias. Neuron 93, 480–490. 10.1016/
@@ -878,7 +878,7 @@ Bentzley BS, Eshel N, et al. (2020). Simple Behavioral Analysis (SimBA): an open
 for computer classification of complex social behaviors in experimental animals. Preprint at Cold 
 Spring Harbor Laboratory, 10.1101/2020.04.19.049452 10.1101/2020.04.19.049452.
 99. Xavier P Burgos-Artizzu, o Piotr, Lin Dayu, Anderson David J., and Perona Pietro (2021). 
-CRIM13 (Caltech Resident-Intruder Mouse 13). Version 1.0 (CaltechDATA). 10.22002/D1.1892 
+CRIM13 (Caltech Resident-Intruder Mouse 13). versión 1.0 (CaltechDATA). 10.22002/D1.1892 
 10.22002/D1.1892.
 100. Lee W, Fu J, Bouwman N, Farago P, and Curley JP. (2019). Temporal microstructure of 
 dyadic social behavior during relationship formation in mice. PLoS ONE 14, e0220596. 10.1371/

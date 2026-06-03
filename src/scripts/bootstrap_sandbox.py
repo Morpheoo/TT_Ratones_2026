@@ -203,7 +203,7 @@ def main() -> int:
     print()
     print("Proximos pasos:")
     print("  1. Recarga la app Streamlit (Ctrl+Shift+R en la pestaña).")
-    print(f"  2. En la pagina Keypoints, selecciona '{sandbox_name}' en")
+    print(f"  2. En la página Keypoints, selecciona '{sandbox_name}' en")
     print("     el selector 'Proyecto SimBA'.")
     print("  3. Procesa el video; las zonas, features y video_info iran")
     print("     al sandbox sin tocar el productivo.")
