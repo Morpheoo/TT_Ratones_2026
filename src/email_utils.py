@@ -58,7 +58,7 @@ def send_verification_email(to_email, code):
           <body>
             <h2>Verificación de Cuenta</h2>
             <p>Hola,</p>
-            <p>Tu código de verificación para el sistema TT Ratones 2026 es:</p>
+            <p>Tu código de verificación para el prototipo TT Ratones 2026 es:</p>
             <h1 style="color: #2e7d32; font-size: 32px;">{code}</h1>
             <p>Ingresa este código en la aplicación para activar tu cuenta.</p>
             <p>Si no solicitaste este código, ignora este mensaje.</p>

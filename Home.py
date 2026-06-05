@@ -34,7 +34,7 @@ run_page_splash(
     [
         "Recuperando sesión institucional...",
         "Sincronizando panel principal...",
-        "Preparando módulos del sistema...",
+        "Preparando módulos del prototipo...",
     ],
     subtitle="TT 2026 - Cargando tablero principal...",
 )
@@ -181,14 +181,14 @@ kpi_card(c1, svg_docker,
          docker_ok)
 
 kpi_card(c2, svg_db,
-         "Base de Datos",
+         "Base de datos",
          "Conectado" if db_ok else "Desconectado",
          db_sub,
          db_ok)
 
 kpi_card(c3, svg_ai,
          "Motor de IA",
-         "GPU Activa" if gpu_active else "CPU Habilitado",
+         "GPU activa" if gpu_active else "CPU habilitado",
          gpu_name,
          gpu_active)
 
@@ -202,7 +202,7 @@ st.markdown(f"""
             {svg_flask}
         </div>
         <div>
-            <h4 style="margin:0; font-size: 1.15rem; color: {colors['text_main']}; font-weight: 700;">Sistema listo para análisis</h4>
+            <h4 style="margin:0; font-size: 1.15rem; color: {colors['text_main']}; font-weight: 700;">Prototipo listo para análisis</h4>
             <p style="margin:0; font-size: 0.85rem; color: {colors['text_sub']}; margin-top: 4px;">Todos los módulos están operativos. Ingresa un video para comenzar.</p>
         </div>
     </div>
@@ -212,7 +212,7 @@ st.markdown(f"""
 # --- MODULOS GRID ---
 st.markdown(f"""
 <div style="margin-bottom: 1.5rem;">
-    <h3 style="margin:0; font-size:1.25rem; font-weight: 700; color: {colors['text_main']}; letter-spacing: -0.01em;">Módulos Principales</h3>
+    <h3 style="margin:0; font-size:1.25rem; font-weight: 700; color: {colors['text_main']}; letter-spacing: -0.01em;">Módulos principales</h3>
     <p style="margin:0; font-size:0.85rem; color: {colors['text_sub']}; margin-top: 4px;">Flujo de análisis automatizado de comportamiento</p>
 </div>
 """, unsafe_allow_html=True)
@@ -234,19 +234,19 @@ def module_card(icon, title, desc, btn_key, btn_label, target_page):
 
 m1, m2, m3 = st.columns(3)
 with m1:
-    module_card(svg_video, "Ingesta de Video", "Sube y procesa tus videos experimentales", "btn_m1", "Comenzar", "pages/01_Ingesta_de_Video.py")
+    module_card(svg_video, "Ingesta de video", "Sube y procesa tus videos experimentales", "btn_m1", "Comenzar", "pages/01_Ingesta_de_Video.py")
 with m2:
     module_card(svg_keypoints, "Keypoints", "Detección y marcaje de puntos corporales", "btn_m2", "Procesar", "pages/02_Keypoints.py")
 with m3:
-    module_card(svg_zones, "Configuración de Zonas", "Define regiones de interés del EPM", "btn_m3", "Configurar", "pages/03_Configuracion_Zonas.py")
+    module_card(svg_zones, "Configuración de zonas", "Define regiones de interés del EPM", "btn_m3", "Configurar", "pages/03_Configuracion_Zonas.py")
 
 m4, m5, m6 = st.columns(3)
 with m4:
-    module_card(svg_analysis, "Análisis Final", "Ejecución del modelo YOLO + LSTM", "btn_m4", "Analizar", "pages/04_Analisis_Final.py")
+    module_card(svg_analysis, "Análisis final", "Ejecución del modelo YOLO + LSTM", "btn_m4", "Analizar", "pages/04_Analisis_Final.py")
 with m5:
-    module_card(svg_chart, "Resultados y Estadísticas", "Métricas, heatmaps y reportes", "btn_m5", "Ver Resultados", "pages/05_Resultados_y_Estadisticas.py")
+    module_card(svg_chart, "Resultados y estadísticas", "Métricas, heatmaps y reportes", "btn_m5", "Ver resultados", "pages/05_Resultados_y_Estadisticas.py")
 with m6:
-    module_card(svg_compare, "Comparación de Grupos", "Consolidado estadístico para ANOVA", "btn_m6", "Comparar", "pages/06_Comparacion.py")
+    module_card(svg_compare, "Comparación de grupos", "Consolidado estadístico para ANOVA", "btn_m6", "Comparar", "pages/06_Comparacion.py")
 
 # Módulos administrativos
 if st.session_state.get("role") == "admin":

@@ -55,7 +55,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -71,7 +71,7 @@ with st.sidebar:
 render_topbar()
 st.markdown("### Panel de Administración")
 st.markdown("""
-    Gestión de identidades, privilegios y auditoría de experimentos del sistema institucional. 
+    Gestión de identidades, privilegios y auditoría de experimentos del prototipo institucional. 
     Este tablero es exclusivo para personal de administración central.
 """)
 
@@ -117,9 +117,41 @@ def delete_admin_experiments(engine, experiment_ids):
         conn.commit()
     return int(result.rowcount or 0)
 
+
+def sync_admin_selection_from_editor(df_exp):
+    selected_ids = {
+        int(exp_id)
+        for exp_id in st.session_state.get("admin_selected_experiment_ids", [])
+        if str(exp_id).isdigit()
+    }
+
+    editor_state = st.session_state.get("admin_experiment_selection_editor")
+    if isinstance(editor_state, dict):
+        edited_rows = editor_state.get("edited_rows", {})
+        for row_index, changes in edited_rows.items():
+            if not isinstance(changes, dict) or "Seleccionar" not in changes:
+                continue
+            try:
+                row_position = int(row_index)
+            except (TypeError, ValueError):
+                continue
+            if row_position < 0 or row_position >= len(df_exp):
+                continue
+
+            exp_id = int(df_exp.iloc[row_position]["id"])
+            if bool(changes["Seleccionar"]):
+                selected_ids.add(exp_id)
+            else:
+                selected_ids.discard(exp_id)
+
+    visible_ids = {int(exp_id) for exp_id in df_exp["id"].tolist()}
+    selected_ids = selected_ids.intersection(visible_ids)
+    st.session_state["admin_selected_experiment_ids"] = sorted(selected_ids, reverse=True)
+    return selected_ids
+
 # ================= 3. USER MANAGEMENT =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Gestión de Usuarios")
+st.markdown("#### Gestión de usuarios")
 
 # --- REGISTRO DE PERSONAL POR ADMINISTRADOR ---
 with st.expander("➕ REGISTRAR NUEVO PERSONAL (ADMIN)"):
@@ -127,11 +159,11 @@ with st.expander("➕ REGISTRAR NUEVO PERSONAL (ADMIN)"):
     with st.form("admin_register_form", clear_on_submit=True):
         col_a, col_b = st.columns(2)
         with col_a:
-            new_email = st.text_input("Correo Institucional (@ipn.mx / @alumno.ipn.mx)")
+            new_email = st.text_input("Correo institucional (@ipn.mx / @alumno.ipn.mx)")
             new_name = st.text_input("Nombre Completo")
             new_role = st.selectbox("Rol Institucional", ["investigador", "estudiante", "admin"])
         with col_b:
-            new_pwd = st.text_input("Contraseña Temporal", type="password", help="Mínimo 8 caracteres, 1 mayúscula, 1 número.")
+            new_pwd = st.text_input("Contraseña temporal", type="password", help="Mínimo 8 caracteres, 1 mayúscula, 1 número.")
             if new_role == "estudiante":
                 new_id = st.text_input("Número de Boleta")
                 new_extra1 = st.text_input("Escuela (Ej: ESCOM)")
@@ -165,7 +197,7 @@ with st.expander("➕ REGISTRAR NUEVO PERSONAL (ADMIN)"):
                 else:
                     st.error(f"❌ Error: {msg}")
 
-st.markdown("##### Directorio de Usuarios")
+st.markdown("##### Directorio de usuarios")
 
 
 # Data fetch
@@ -184,7 +216,7 @@ st.markdown("---")
 cols = st.columns(2)
 with cols[0]:
     st.markdown("##### Editar Privilegios")
-    u_sel = st.selectbox("Seleccionar Usuario", df_users['username'])
+    u_sel = st.selectbox("Seleccionar usuario", df_users['username'])
     new_r = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"])
     
     u_sel_role = df_users[df_users['username'] == u_sel]['role'].values[0]
@@ -270,13 +302,7 @@ with engine.connect() as conn:
 if df_exp.empty:
     st.info("No hay experimentos registrados en la plataforma.")
 else:
-    selected_admin_ids = {
-        int(exp_id)
-        for exp_id in st.session_state.get("admin_selected_experiment_ids", [])
-        if str(exp_id).isdigit()
-    }
-    visible_admin_ids = {int(exp_id) for exp_id in df_exp["id"].tolist()}
-    selected_admin_ids = selected_admin_ids.intersection(visible_admin_ids)
+    selected_admin_ids = sync_admin_selection_from_editor(df_exp)
 
     admin_selection_df = df_exp.copy()
     admin_selection_df.insert(0, "Seleccionar", admin_selection_df["id"].astype(int).isin(selected_admin_ids))
@@ -317,6 +343,7 @@ else:
         ):
             deleted_count = delete_admin_experiments(engine, selected_admin_ids)
             st.session_state["admin_selected_experiment_ids"] = []
+            st.session_state.pop("admin_experiment_selection_editor", None)
             st.session_state["admin_delete_notice"] = f"Se borraron {deleted_count} experimento(s)."
             st.rerun()
 

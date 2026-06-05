@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import cv2
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -127,6 +129,102 @@ def is_output_fresh(output_path: Path, dependencies: list[Path]) -> bool:
         if dependency.exists() and dependency.stat().st_mtime > output_mtime:
             return False
     return True
+
+
+def get_video_metadata(video_path: Path) -> dict[str, float]:
+    capture = cv2.VideoCapture(str(video_path))
+    if not capture.isOpened():
+        capture.release()
+        raise RuntimeError(f"Could not open video: {video_path}")
+
+    fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
+    frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+    height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+    capture.release()
+
+    if fps <= 0 or frame_count <= 0 or width <= 0 or height <= 0:
+        raise RuntimeError(f"Invalid video metadata for: {video_path}")
+
+    return {
+        "fps": fps,
+        "frame_count": float(frame_count),
+        "width": float(width),
+        "height": float(height),
+        "duration_seconds": frame_count / fps,
+    }
+
+
+def trim_video_segment(video_path: Path, start_seconds: float, end_seconds: float, output_path: Path) -> Path:
+    metadata = get_video_metadata(video_path)
+    fps = float(metadata["fps"])
+    total_frames = int(metadata["frame_count"])
+    width = int(metadata["width"])
+    height = int(metadata["height"])
+
+    start_frame = max(0, min(int(start_seconds * fps), total_frames - 1))
+    end_frame = max(start_frame + 1, min(int(end_seconds * fps), total_frames))
+    frames_to_write = max(end_frame - start_frame, 1)
+
+    log("[STEP] TRIM")
+    log(f"[INFO] Applying trim window: {start_seconds:.2f}s -> {end_seconds:.2f}s")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    capture = cv2.VideoCapture(str(video_path))
+    capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    writer = cv2.VideoWriter(
+        str(output_path),
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        fps,
+        (width, height),
+    )
+
+    if not writer.isOpened():
+        capture.release()
+        writer.release()
+        raise RuntimeError(f"Could not create trimmed video: {output_path}")
+
+    written = 0
+    try:
+        while written < frames_to_write:
+            ok, frame = capture.read()
+            if not ok:
+                break
+            writer.write(frame)
+            written += 1
+            if written == 1 or written == frames_to_write or written % max(int(fps * 5), 1) == 0:
+                log(f"[TRIM] {written}/{frames_to_write}")
+    finally:
+        capture.release()
+        writer.release()
+
+    if written <= 0:
+        raise RuntimeError("Trim operation produced an empty output video.")
+
+    return output_path.resolve()
+
+
+def resolve_analysis_video(video_path: Path, start_seconds: float, end_seconds: float | None) -> Path:
+    metadata = get_video_metadata(video_path)
+    total_duration = float(metadata["duration_seconds"])
+    safe_end = total_duration if end_seconds is None else min(float(end_seconds), total_duration)
+    safe_start = max(0.0, min(float(start_seconds or 0.0), safe_end - 0.1))
+
+    needs_trim = safe_start > 0.0 or safe_end < total_duration - 0.5
+    if not needs_trim:
+        log("[INFO] Full video will be analyzed.")
+        log(f"[OUTPUT] ANALYZED_VIDEO={video_path.resolve()}")
+        return video_path.resolve()
+
+    trimmed_name = f"{video_path.stem}_trimmed_{int(safe_start)}_{int(safe_end)}.mp4"
+    trimmed_path = video_path.with_name(trimmed_name).resolve()
+    if is_output_fresh(trimmed_path, [video_path]):
+        log(f"[INFO] Reusing existing trimmed file: {trimmed_path}")
+    else:
+        trim_video_segment(video_path, safe_start, safe_end, trimmed_path)
+
+    log(f"[OUTPUT] ANALYZED_VIDEO={trimmed_path}")
+    return trimmed_path
 
 
 def ensure_simba_project_config(
@@ -528,7 +626,12 @@ def main() -> int:
         log(f"[OUTPUT] SIMBA_CONFIG={config_path.resolve()}")
 
         if args.backend == "yolo":
-            analyzed_video, filtered_csv, kp_video = run_yolo_pose_stage(video_path=video_path)
+            analysis_video = resolve_analysis_video(
+                video_path,
+                start_seconds=float(args.start_seconds or 0.0),
+                end_seconds=None if args.end_seconds is None else float(args.end_seconds),
+            )
+            analyzed_video, filtered_csv, kp_video = run_yolo_pose_stage(video_path=analysis_video)
             feature_csv = run_feature_stage(
                 analyzed_video=analyzed_video,
                 filtered_csv=filtered_csv,
@@ -544,7 +647,7 @@ def main() -> int:
                 log("SUCCESS: Keypoints prep pipeline complete.")
                 log("=" * 72)
             else:
-                yolo_out_dir = RESULTADOS_YOLO_DIR / video_path.stem
+                yolo_out_dir = RESULTADOS_YOLO_DIR / analyzed_video.stem
                 lstm_grooming_csv = None
                 if args.grooming_source != "rf":
                     lstm_grooming_csv = run_grooming_lstm_stage(

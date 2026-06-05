@@ -52,7 +52,7 @@ def get_video_metadata(video_path: str) -> dict:
         capture.release()
         raise RuntimeError(f"Could not open video: {video_path}")
 
-    fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
+    fps = capture.get(cv2.CAP_PROP_FPS) or 0.0
     frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
@@ -87,7 +87,7 @@ def trim_video_segment(video_path: str, start_seconds: float, end_seconds: float
     capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
     writer = cv2.VideoWriter(
         output_path,
-        cv2.VideoWriter_fourcc(*"mp4v"),
+        cv2.VideoWriter.fourcc(*"mp4v"),
         fps,
         (width, height),
     )
@@ -173,10 +173,6 @@ def run_yolo11_inference(
     Returns:
         DataFrame con columnas multi-nivel compatibles con DeepLabCut/SimBA:
         - Nivel 0: scorer (nombre del modelo)
-        - Nivel 1: bodyparts (
-    Returns:
-        DataFrame con columnas multi-nivel compatibles con DeepLabCut/SimBA:
-        - Nivel 0: scorer (nombre del modelo)
         - Nivel 1: bodyparts (nombres de keypoints)
         - Nivel 2: coords ('x', 'y', 'likelihood')
     """
@@ -235,7 +231,7 @@ def run_yolo11_inference(
         progress_step = max(1, total_frames // 20)
 
         for result in results:
-            frame_data = {"frame": frame_idx}
+            frame_data: dict[str, float] = {"frame": frame_idx}
 
             # Extraer keypoints si hay detecciones
             if result.keypoints is not None and len(result.keypoints) > 0:
@@ -372,7 +368,13 @@ def analyze_video(
     base_name = os.path.splitext(os.path.basename(analysis_video))[0]
     output_csv = os.path.join(os.path.dirname(analysis_video), f"{base_name}_YOLO11_pose.csv")
 
-SS: Analysis complete.")
+    df_poses.to_csv(output_csv)
+    log(f"[INFO] Pose CSV saved: {output_csv}")
+    log(f"[OUTPUT] POSE_FILE={output_csv}")
+    log("[STEP] COMPLETE")
+    log(f"[OUTPUT] ANALYZED_VIDEO={analysis_video}")
+    log("=" * 60)
+    log("SUCCESS: Analysis complete.")
     log("=" * 60)
 
 

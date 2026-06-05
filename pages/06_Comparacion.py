@@ -59,7 +59,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -72,11 +72,11 @@ with st.sidebar:
     inject_sidebar_profile(show_admin_button=True)
 # ================= 2. CABECERA =================
 render_topbar()
-st.markdown("### Módulo 06: Comparación de Grupos Experimentales")
+st.markdown("### Módulo 06: Comparación de grupos experimentales")
 st.markdown("""
     Genera tablas consolidadas con estadísticas descriptivas por grupo de tratamiento.
     Exporta datos formateados para análisis estadístico (ANOVA, prueba t, etc.).
-    **Recomendado:** 6-8 ratas por grupo para validez estadística.
+    **Recomendado:** 4-8 ratas por grupo para validez estadística.
 """)
 
 # ================= 3. FUNCIONES AUXILIARES =================
@@ -131,7 +131,7 @@ with st.spinner("Cargando experimentos..."):
 
 if df_experiments.empty:
     st.warning("No hay experimentos completados para comparar.")
-    st.info("Completa al menos 2 experimentos en el Módulo 04: Análisis Final para usar esta función.")
+    st.info("Completa al menos 2 experimentos en el Módulo 04: Análisis final para usar esta función.")
     st.stop()
 
 # Agregar columna de etiqueta
@@ -139,13 +139,13 @@ df_experiments['label'] = df_experiments.apply(create_comparison_label, axis=1)
 
 # ================= 5. SELECCIÓN DE GRUPOS =================
 st.markdown("---")
-st.markdown("#### Selección Manual de Experimentos para Comparación")
+st.markdown("#### Selección manual de experimentos para comparación")
 
 st.info("""
 **Instrucciones:**
 1. Selecciona el **tratamiento** para cada grupo
 2. Selecciona los **experimentos específicos** que deseas incluir de cada tratamiento
-3. Cada grupo debe tener **entre 6 y 8 experimentos** (válido para análisis estadístico)
+3. Cada grupo debe tener **entre 4 y 8 experimentos** (válido para análisis estadístico)
 4. Ambos grupos **deben tener la misma cantidad** de experimentos
 5. Presiona el botón **Comparar** para generar el análisis
 """)
@@ -195,14 +195,14 @@ with col1:
     n_group1 = len(selected_group1_labels)
 
     if n_group1 > 0:
-        if 6 <= n_group1 <= 8:
+        if 4 <= n_group1 <= 8:
             st.success(f"Experimentos seleccionados: **{n_group1}** ✓")
-        elif n_group1 < 6:
-            st.warning(f"Experimentos seleccionados: **{n_group1}** (mínimo requerido: 6)")
+        elif n_group1 < 4:
+            st.warning(f"Experimentos seleccionados: **{n_group1}** (mínimo requerido: 4)")
         else:  # n_group1 > 8
             st.error(f"Experimentos seleccionados: **{n_group1}** (máximo permitido: 8)")
     else:
-        st.info("Selecciona entre 6 y 8 experimentos")
+        st.info("Selecciona entre 4 y 8 experimentos")
 
 with col2:
     st.markdown("##### Grupo 2")
@@ -243,14 +243,14 @@ with col2:
     n_group2 = len(selected_group2_labels)
 
     if n_group2 > 0:
-        if 6 <= n_group2 <= 8:
+        if 4 <= n_group2 <= 8:
             st.success(f"Experimentos seleccionados: **{n_group2}** ✓")
-        elif n_group2 < 6:
-            st.warning(f"Experimentos seleccionados: **{n_group2}** (mínimo requerido: 6)")
+        elif n_group2 < 4:
+            st.warning(f"Experimentos seleccionados: **{n_group2}** (mínimo requerido: 4)")
         else:  # n_group2 > 8
             st.error(f"Experimentos seleccionados: **{n_group2}** (máximo permitido: 8)")
     else:
-        st.info("Selecciona entre 6 y 8 experimentos")
+        st.info("Selecciona entre 4 y 8 experimentos")
 
 # ================= VALIDACIÓN Y BOTÓN COMPARAR =================
 st.markdown("---")
@@ -260,13 +260,13 @@ if n_group1 == 0 or n_group2 == 0:
     st.warning("Debes seleccionar experimentos en ambos grupos antes de comparar.")
     st.stop()
 
-# Verificar rango permitido (6-8 experimentos)
-if n_group1 < 6 or n_group1 > 8:
-    st.error(f"Grupo 1: Se requieren entre 6 y 8 experimentos (actualmente: {n_group1})")
+# Verificar rango permitido (4-8 experimentos)
+if n_group1 < 4 or n_group1 > 8:
+    st.error(f"Grupo 1: Se requieren entre 4 y 8 experimentos (actualmente: {n_group1})")
     st.stop()
 
-if n_group2 < 6 or n_group2 > 8:
-    st.error(f"Grupo 2: Se requieren entre 6 y 8 experimentos (actualmente: {n_group2})")
+if n_group2 < 4 or n_group2 > 8:
+    st.error(f"Grupo 2: Se requieren entre 4 y 8 experimentos (actualmente: {n_group2})")
     st.stop()
 
 # Verificar si tienen el mismo número
@@ -279,7 +279,7 @@ if n_group1 != n_group2:
 st.success(f"✓ Validación exitosa: Ambos grupos tienen **{n_group1}** experimento(s) seleccionado(s)")
 
 # Botón para ejecutar la comparación
-if st.button("Comparar Grupos", type="primary", use_container_width=True):
+if st.button("Comparar grupos", type="primary", use_container_width=True):
     st.session_state['comparison_ready'] = True
     st.session_state['selected_g1'] = selected_group1_labels
     st.session_state['selected_g2'] = selected_group2_labels
@@ -289,7 +289,7 @@ if st.button("Comparar Grupos", type="primary", use_container_width=True):
 
 # Verificar si se ha ejecutado la comparación
 if not st.session_state.get('comparison_ready', False):
-    st.info("Presiona el botón 'Comparar Grupos' para generar el análisis estadístico.")
+    st.info("Presiona el botón 'Comparar grupos' para generar el análisis estadístico.")
     st.stop()
 
 # Recuperar selecciones de session_state
@@ -313,9 +313,9 @@ st.markdown("---")
 # Botón para reiniciar comparación
 col_title, col_reset = st.columns([4, 1])
 with col_title:
-    st.markdown("#### Datos Individuales por Sujeto")
+    st.markdown("#### Datos individuales por sujeto")
 with col_reset:
-    if st.button("Nueva Comparación", type="secondary"):
+    if st.button("Nueva comparación", type="secondary"):
         st.session_state['comparison_ready'] = False
         st.session_state.pop('selected_g1', None)
         st.session_state.pop('selected_g2', None)
@@ -324,7 +324,7 @@ with col_reset:
         st.rerun()
 
 # Mostrar resumen de selección
-with st.expander("Resumen de Experimentos Seleccionados", expanded=False):
+with st.expander("Resumen de experimentos seleccionados", expanded=False):
     col_sum1, col_sum2 = st.columns(2)
     with col_sum1:
         st.markdown(f"**Grupo 1: {group1_treatment}**")
@@ -352,19 +352,37 @@ display_df.columns = [
 # Formatear fecha
 display_df['Fecha'] = pd.to_datetime(display_df['Fecha']).dt.strftime('%Y-%m-%d')
 
-# Mostrar tabla
-st.dataframe(
-    display_df.style.background_gradient(subset=[
-        'T. Abiertos (s)', 'T. Cerrados (s)', 'T. Centro (s)',
-        'Grooming (s)', 'Tigmotaxis (s)'
-    ], cmap='RdYlGn', axis=0),
-    use_container_width=True,
-    hide_index=True
+# Mostrar tabla con gradientes semánticamente correctos por columna:
+#   T. Abiertos  → RdYlGn normal:   ALTO valor = VERDE (más abiertos = menos ansiedad)
+#   T. Cerrados  → RdYlGn invertido: ALTO valor = ROJO  (más cerrados = más ansiedad)
+#   T. Centro    → RdYlGn invertido: ALTO valor = ROJO  (mucho centro = hesitación/ansiedad)
+#   Grooming     → RdYlGn invertido: ALTO valor = ROJO  (más grooming = más ansiedad)
+#   Tigmotaxis   → RdYlGn invertido: ALTO valor = ROJO  (más thigmo = más ansiedad)
+_styler = (
+    display_df.style
+    # Brazos abiertos: indicador POSITIVO — más tiempo = menos ansiedad = verde
+    .background_gradient(subset=["T. Abiertos (s)"], cmap="RdYlGn", axis=0)
+    # Brazos cerrados, grooming y thigmotaxis: indicadores NEGATIVOS — más tiempo = más ansiedad = rojo
+    .background_gradient(
+        subset=["T. Cerrados (s)", "T. Centro (s)", "Grooming (s)", "Tigmotaxis (s)"],
+        cmap="RdYlGn_r",
+        axis=0,
+    )
+    .format(
+        {
+            "T. Abiertos (s)": "{:.1f}",
+            "T. Cerrados (s)": "{:.1f}",
+            "T. Centro (s)": "{:.1f}",
+            "Grooming (s)": "{:.1f}",
+            "Tigmotaxis (s)": "{:.1f}",
+        }
+    )
 )
+st.dataframe(_styler, use_container_width=True, hide_index=True)
 
 # ================= 7. ESTADÍSTICAS DESCRIPTIVAS POR GRUPO =================
 st.markdown("---")
-st.markdown("#### Estadísticas Descriptivas por Grupo")
+st.markdown("#### Estadísticas descriptivas por grupo")
 st.markdown("Tabla consolidada para análisis estadístico (ANOVA, prueba t)")
 
 # Variables de interés
@@ -415,15 +433,15 @@ st.dataframe(
 
 # ================= 8. COMPARACIÓN VISUAL =================
 st.markdown("---")
-st.markdown("#### Comparación Visual de Grupos")
+st.markdown("#### Comparación visual de grupos")
 
 tab1, tab2 = st.tabs([
-    "Barras con Error",
-    "Comparación Métrica Individual"
+    "Barras con error",
+    "Comparación métrica individual"
 ])
 
 with tab1:
-    st.markdown("##### Comparación de Medias con Barras de Error")
+    st.markdown("##### Comparación de medias con barras de error")
 
     # Selector de métrica
     selected_metric_name = st.selectbox(
@@ -484,7 +502,7 @@ with tab1:
         st.metric("N Grupo 2", n2)
 
 with tab2:
-    st.markdown("##### Comparación Detallada")
+    st.markdown("##### Comparación detallada")
 
     # Tabla comparativa lado a lado
     comparison_table = []
@@ -533,7 +551,7 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
         styles = getSampleStyleSheet()
         
         # Título
-        elements.append(Paragraph("Sistema de Analisis EPM - Comparacion de Grupos", styles['Title']))
+        elements.append(Paragraph("Prototipo de análisis EPM - Comparación de grupos", styles['Title']))
         elements.append(Spacer(1, 12))
         elements.append(Paragraph("Instituto Politecnico Nacional - ESCOM", styles['Normal']))
         elements.append(Spacer(1, 12))
@@ -541,13 +559,13 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
         elements.append(Spacer(1, 20))
         
         # Información de grupos
-        elements.append(Paragraph(f"<b>Comparacion: {group1_treatment} vs {group2_treatment}</b>", styles['Heading2']))
+        elements.append(Paragraph(f"<b>Comparación: {group1_treatment} vs {group2_treatment}</b>", styles['Heading2']))
         elements.append(Spacer(1, 8))
         elements.append(Paragraph(f"N Grupo 1: {n_group1} | N Grupo 2: {n_group2}", styles['Normal']))
         elements.append(Spacer(1, 20))
         
         # Tabla de comparación
-        elements.append(Paragraph("Comparacion Detallada", styles['Heading3']))
+        elements.append(Paragraph("Comparación detallada", styles['Heading3']))
         elements.append(Spacer(1, 10))
         
         # Preparar datos de la tabla
@@ -579,7 +597,7 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
         elements.append(Spacer(1, 20))
         
         # Estadísticas por grupo
-        elements.append(Paragraph("Estadisticas Descriptivas", styles['Heading3']))
+        elements.append(Paragraph("Estadísticas descriptivas", styles['Heading3']))
         elements.append(Spacer(1, 10))
         
         stats_data = [['Variable', 'Grupo', 'Media', 'DE', 'N']]
@@ -608,7 +626,7 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
         elements.append(Spacer(1, 20))
         
         # Footer
-        elements.append(Paragraph("Sistema EPM - TT 2026", styles['Normal']))
+        elements.append(Paragraph("Prototipo EPM - TT 2026", styles['Normal']))
         
         # Construir PDF
         doc.build(elements)
@@ -627,7 +645,7 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
 
 # ================= 9. EXPORTAR CONSOLIDADO PARA ANÁLISIS ESTADÍSTICO =================
 st.markdown("---")
-st.markdown("#### Exportar Consolidado para Análisis Estadístico")
+st.markdown("#### Exportar consolidado para análisis estadístico")
 
 st.info("""
 **Formato de Exportación:**
@@ -701,7 +719,7 @@ with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
     # Hoja 4: Metadata
     metadata = pd.DataFrame({
         'Campo': ['Fecha_Exportacion', 'Grupo_1', 'Grupo_2', 'N_Grupo_1', 'N_Grupo_2',
-                  'Usuario', 'Sistema'],
+                  'Usuario', 'Prototipo'],
         'Valor': [
             pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
             group1_treatment,
@@ -709,7 +727,7 @@ with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
             len(df_group1),
             len(df_group2),
             st.session_state.get('user_name', 'Desconocido'),
-            'EPM Sistema TT2026 IPN-ESCOM'
+            'EPM Prototipo TT2026 IPN-ESCOM'
         ]
     })
     metadata.to_excel(writer, index=False, sheet_name='Metadata')
@@ -758,7 +776,7 @@ with col_exp2:
         mime="text/csv",
         use_container_width=True
     )
-    st.caption("Estadisticas descriptivas")
+    st.caption("Estadísticas descriptivas")
 
 with col_exp3:
     try:
@@ -778,7 +796,7 @@ with col_exp3:
                 mime="application/pdf",
                 use_container_width=True
             )
-            st.caption("Reporte de comparacion")
+            st.caption("Reporte de comparación")
         else:
             st.error("Error al generar PDF")
     except Exception as e:
@@ -786,13 +804,13 @@ with col_exp3:
 
 # ================= 10. RECOMENDACIONES PARA ANÁLISIS =================
 st.markdown("---")
-st.markdown("#### Guía para Análisis Estadístico")
+st.markdown("#### Guía para análisis estadístico")
 
-with st.expander(" Recomendaciones para Pruebas Estadísticas"):
+with st.expander(" Recomendaciones para pruebas estadísticas"):
     col_guide1, col_guide2 = st.columns(2)
 
     with col_guide1:
-        st.markdown("**Pruebas Paramétricas:**")
+        st.markdown("**Pruebas paramétricas:**")
         st.markdown("""
         - **Prueba t de Student** (2 grupos)
           - Verificar normalidad (Shapiro-Wilk)
@@ -805,7 +823,7 @@ with st.expander(" Recomendaciones para Pruebas Estadísticas"):
         """)
 
     with col_guide2:
-        st.markdown("**Pruebas No Paramétricas:**")
+        st.markdown("**Pruebas no paramétricas:**")
         st.markdown("""
         - **U de Mann-Whitney** (2 grupos)
           - Alternativa a t de Student
@@ -818,7 +836,7 @@ with st.expander(" Recomendaciones para Pruebas Estadísticas"):
         """)
 
     st.markdown("---")
-    st.markdown("**Interpretación del Tamaño del Efecto (Cohen's d):**")
+    st.markdown("**Interpretación del tamaño del efecto (d de Cohen):**")
     st.markdown("""
     - **|d| < 0.2:** Efecto trivial
     - **0.2 ≤ |d| < 0.5:** Efecto pequeño
@@ -827,7 +845,7 @@ with st.expander(" Recomendaciones para Pruebas Estadísticas"):
     """)
 
     st.markdown("---")
-    st.markdown("**Software Recomendado:**")
+    st.markdown("**Software recomendado:**")
     st.markdown("""
     - **SPSS:** Import Excel → Analyze → Compare Means → Independent Samples t-test
     - **R:** `t.test()`, `aov()`, `TukeyHSD()`
@@ -839,7 +857,7 @@ with st.expander(" Recomendaciones para Pruebas Estadísticas"):
 # ================= 11. NOTAS Y CONCLUSIONES =================
 # ================= 11. NOTAS Y CONCLUSIONES =================
 st.markdown("---")
-st.markdown("#### Observaciones y Conclusiones del Análisis")
+st.markdown("#### Observaciones y conclusiones del análisis")
 
 notes = st.text_area(
     "Registra observaciones, interpretaciones o hallazgos relevantes:",
@@ -847,7 +865,7 @@ notes = st.text_area(
     placeholder="Ej: Los sujetos del grupo Diazepam 5mg muestran un aumento significativo en tiempo de brazos abiertos (p < 0.05), sugiriendo efecto ansiolítico. Se recomienda prueba t de Student para confirmación estadística..."
 )
 
-if st.button(" Guardar Notas", type="primary"):
+if st.button("Guardar notas", type="primary"):
     if notes.strip():
         st.session_state[f'comparison_notes_{group1_treatment}_vs_{group2_treatment}'] = {
             'notes': notes,

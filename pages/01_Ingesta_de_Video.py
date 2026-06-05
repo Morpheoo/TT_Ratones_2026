@@ -51,7 +51,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -156,11 +156,11 @@ def stage_video_for_edit(video_file, rat_id, treatment, experiment_date, respons
 
 # ================= 2. CABECERA =================
 render_topbar()
-st.markdown("### Modulo 01: Ingesta de Video")
+st.markdown("### Módulo 01: Ingesta de video")
 st.markdown(
     """
-    Cargue el registro experimental en formato de video para iniciar el proceso de analisis conductual.
-    Defina los parametros basicos del especimen y el tratamiento administrado.
+    Cargue el registro experimental en formato de video para iniciar el proceso de análisis conductual.
+    Defina los parámetros básicos del espécimen y el tratamiento administrado.
     """
 )
 
@@ -181,11 +181,11 @@ user_role = st.session_state.get("role", "estudiante")
 
 # ================= 4. FORMULARIO DE CARGA =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Parametros del Registro")
+st.markdown("#### Parámetros del registro")
 c1, c2 = st.columns(2)
 with c1:
     id_raton = st.text_input(
-        "ID del Especimen",
+        "ID del espécimen",
         placeholder="Ej. MOUSE-001",
         key="ingesta_id_raton",
     ).strip()
@@ -204,7 +204,7 @@ with c1:
         options=treatment_names,
         index=0,
         key="ingesta_tratamiento_select",
-        help="Selecciona el tratamiento aplicado al especimen"
+        help="Selecciona el tratamiento aplicado al espécimen"
     )
     
     # UI adicional según el rol
@@ -212,7 +212,7 @@ with c1:
         st.markdown("<div style='margin-top: 0.5rem;'></div>", unsafe_allow_html=True)
         
         # Expander para añadir nuevo tratamiento
-        with st.expander("Añadir Nuevo Tratamiento"):
+        with st.expander("Añadir nuevo tratamiento"):
             nuevo_tratamiento = st.text_input(
                 "Nombre del tratamiento",
                 placeholder="Ej. Midazolam 2mg",
@@ -225,7 +225,7 @@ with c1:
                 height=80
             )
             
-            if st.button("Añadir Tratamiento", key="btn_add_treatment", type="primary", use_container_width=True):
+            if st.button("Añadir tratamiento", key="btn_add_treatment", type="primary", use_container_width=True):
                 if nuevo_tratamiento.strip():
                     success, msg = add_treatment(
                         name=nuevo_tratamiento.strip(),
@@ -242,7 +242,7 @@ with c1:
     
     # Solo admin puede eliminar tratamientos
     if user_role == "admin":
-        with st.expander("Gestionar Tratamientos (Admin)"):
+        with st.expander("Gestionar tratamientos"):
             tratamiento_a_eliminar = st.selectbox(
                 "Selecciona tratamiento a eliminar",
                 options=treatment_names,
@@ -268,7 +268,7 @@ with c1:
     tratamiento_input = tratamiento_seleccionado
     
 with c2:
-    fecha_exp = st.date_input("Fecha del Experimento", key="ingesta_fecha")
+    fecha_exp = st.date_input("Fecha del experimento", key="ingesta_fecha")
     responsable = st.text_input(
         "Responsable",
         value=st.session_state.get("user_name", "Investigador"),
@@ -276,7 +276,7 @@ with c2:
     ).strip()
 
 video_file = st.file_uploader(
-    "Cargar Video (MP4 / MOV / AVI)",
+    "Cargar video (MP4 / MOV / AVI)",
     type=["mp4", "mov", "avi"],
     key="ingesta_video_file",
 )
@@ -284,10 +284,10 @@ video_file = st.file_uploader(
 st.markdown("---")
 button_cols = st.columns([1, 2])
 with button_cols[0]:
-    preparar_video = st.button("PREPARAR VIDEO Y RECORTAR", type="primary", use_container_width=True)
+    preparar_video = st.button("Preparar video y recortar", type="primary", use_container_width=True)
 with button_cols[1]:
     if video_file is not None:
-        st.caption("Despues de preparar el video podras definir el minuto y segundo exactos a analizar.")
+        st.caption("Después de preparar el video podrás definir el minuto y segundo exactos a analizar.")
 st.markdown("</div>", unsafe_allow_html=True)
 
 # ================= 5. PROCESAMIENTO INICIAL =================
@@ -295,7 +295,7 @@ if preparar_video:
     if video_file is None:
         st.error("Carga un video antes de preparar el recorte.")
     elif not id_raton:
-        st.error("Ingrese un ID valido para el especimen.")
+        st.error("Ingrese un ID válido para el espécimen.")
     else:
         tratamiento = tratamiento_input or "Control"
         nombre_guardado = stage_video_for_edit(
@@ -305,7 +305,7 @@ if preparar_video:
             experiment_date=fecha_exp,
             responsible_name=responsable or st.session_state.get("user_name", "Investigador"),
         )
-        st.success(f"Video cargado para edicion como: `{nombre_guardado}`.")
+        st.success(f"Video cargado para edición como: `{nombre_guardado}`.")
         st.rerun()
 
 # ================= 6. RECORTE DE VIDEO =================
@@ -313,7 +313,7 @@ if "video_en_edicion" in st.session_state:
     ruta_actual = st.session_state["video_en_edicion"]
     if os.path.exists(ruta_actual):
         st.markdown('<div class="content-card" style="border-top: 4px solid #6F1D46;">', unsafe_allow_html=True)
-        st.markdown(f"#### Edicion de Registro: `{os.path.basename(ruta_actual)}`")
+        st.markdown(f"#### Edición de registro: `{os.path.basename(ruta_actual)}`")
         st.info("Selecciona el tramo exacto a analizar. Por ejemplo, de `00:00` a `05:00` aunque el video dure `05:11`.")
 
         try:
@@ -332,8 +332,8 @@ if "video_en_edicion" in st.session_state:
                 st.session_state["_trim_video_source"] = ruta_actual
 
             st.markdown(
-                f"**Duracion detectada:** `{format_mm_ss(duration_seconds)}`  \n"
-                f"**Archivo listo para analisis:** `{os.path.basename(ruta_actual)}`"
+                f"**Duración detectada:** `{format_mm_ss(duration_seconds)}`  \n"
+                f"**Archivo listo para análisis:** `{os.path.basename(ruta_actual)}`"
             )
 
             quick_cols = st.columns(3)
@@ -351,11 +351,11 @@ if "video_en_edicion" in st.session_state:
                     set_trim_widget_values(0, 300)
                     st.rerun()
             with quick_cols[2]:
-                st.caption("La previsualizacion empieza desde el punto inicial que selecciones.")
+                st.caption("La previsualización empieza desde el punto inicial que selecciones.")
 
             trim_cols = st.columns(2)
             with trim_cols[0]:
-                st.markdown("##### Inicio de interes")
+                st.markdown("##### Inicio de interés")
                 start_min = st.number_input(
                     "Minuto inicial",
                     min_value=0,
@@ -372,7 +372,7 @@ if "video_en_edicion" in st.session_state:
                 )
 
             with trim_cols[1]:
-                st.markdown("##### Fin de interes")
+                st.markdown("##### Fin de interés")
                 end_min = st.number_input(
                     "Minuto final",
                     min_value=0,
@@ -396,11 +396,11 @@ if "video_en_edicion" in st.session_state:
             with summary_col:
                 if valid_range:
                     st.success(
-                        f"Se analizara de `{format_mm_ss(start_seconds)}` a `{format_mm_ss(end_seconds)}` "
+                        f"Se analizará de `{format_mm_ss(start_seconds)}` a `{format_mm_ss(end_seconds)}` "
                         f"({format_mm_ss(end_seconds - start_seconds)} efectivos)."
                     )
                 else:
-                    st.error("El rango no es valido. El inicio debe ser menor que el fin y ambos deben quedar dentro de la duracion total.")
+                    st.error("El rango no es válido. El inicio debe ser menor que el fin y ambos deben quedar dentro de la duración total.")
 
                 active_start = st.session_state.get("inicio_recorte")
                 active_end = st.session_state.get("fin_recorte")
@@ -416,7 +416,7 @@ if "video_en_edicion" in st.session_state:
             action_cols = st.columns(2)
             with action_cols[0]:
                 guardar_recorte = st.button(
-                    "GUARDAR RECORTE Y ACTIVAR",
+                    "Guardar recorte y activar",
                     type="primary",
                     use_container_width=True,
                     disabled=not valid_range,
@@ -424,7 +424,7 @@ if "video_en_edicion" in st.session_state:
                 )
             with action_cols[1]:
                 guardar_y_keypoints = st.button(
-                    "GUARDAR Y PASAR A KEYPOINTS",
+                    "Guardar y pasar a keypoints",
                     use_container_width=True,
                     disabled=not valid_range,
                     key="guardar_recorte_keypoints",
@@ -438,7 +438,7 @@ if "video_en_edicion" in st.session_state:
                 if guardar_y_keypoints:
                     st.switch_page("pages/02_Keypoints.py")
                 else:
-                    st.success("Parametros de recorte guardados. Ya puedes continuar con Keypoints o Configuracion de Zonas.")
+                    st.success("Parámetros de recorte guardados. Ya puedes continuar con Keypoints o Configuración de zonas.")
         except Exception as error:
             st.warning(f"Error al preparar el editor de recorte: {error}")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -448,7 +448,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     f"""
     <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        IPN - Unidad de Investigacion de Comportamiento Animal 2026
+        IPN - Unidad de Investigación de Comportamiento Animal 2026
     </div>
     """,
     unsafe_allow_html=True,

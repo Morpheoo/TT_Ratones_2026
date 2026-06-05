@@ -1,0 +1,2258 @@
+{
+  "descripcion": "Matrices de confusion por frame de validacion Leave-One-Out (LOO blind) sobre 26 videos. Cada video fue removido del entrenamiento, el modelo reentrenado sin el, y evaluado sobre el video held-out. Unidad = frame de video (~30 fps).",
+  "fecha_corrida": "2026-05-25",
+  "n_videos": 26,
+  "fps": 30,
+  "modelos": {
+    "simba": "RF SimBA (modelo en PRODUCCION para ambos comportamientos)",
+    "dynamic": "SimBA + rescate LSTM/threshold dinamico (solo Grooming, experimental)",
+    "bsoid": "B-SOiD (experimental, no integrado)",
+    "ensemble": "OR logico SimBA + B-SOiD (experimental)",
+    "conditional": "Ensemble condicional SimBA/B-SOiD (experimental)"
+  },
+  "campos": {
+    "tp": "true positives",
+    "tn": "true negatives",
+    "fp": "false positives",
+    "fn": "false negatives",
+    "nota_tn": "tn = total_frames - tp - fp - fn"
+  },
+  "datos": {
+    "R5B20_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 8536,
+          "fp": 32,
+          "fn": 773,
+          "total_frames": 9341,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 61,
+          "tn": 8396,
+          "fp": 172,
+          "fn": 712,
+          "total_frames": 9341,
+          "precision": 0.262,
+          "recall": 0.079,
+          "f1": 0.121
+        },
+        "bsoid": {
+          "tp": 96,
+          "tn": 8326,
+          "fp": 242,
+          "fn": 677,
+          "total_frames": 9341,
+          "precision": 0.284,
+          "recall": 0.124,
+          "f1": 0.173
+        },
+        "ensemble": {
+          "tp": 96,
+          "tn": 8326,
+          "fp": 242,
+          "fn": 677,
+          "total_frames": 9341,
+          "precision": 0.284,
+          "recall": 0.124,
+          "f1": 0.173
+        },
+        "conditional": {
+          "tp": 96,
+          "tn": 8326,
+          "fp": 242,
+          "fn": 677,
+          "total_frames": 9341,
+          "precision": 0.284,
+          "recall": 0.124,
+          "f1": 0.173
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 162,
+          "tn": 8495,
+          "fp": 447,
+          "fn": 237,
+          "total_frames": 9341,
+          "precision": 0.266,
+          "recall": 0.406,
+          "f1": 0.321
+        },
+        "bsoid": {
+          "tp": 341,
+          "tn": 6742,
+          "fp": 2200,
+          "fn": 58,
+          "total_frames": 9341,
+          "precision": 0.134,
+          "recall": 0.855,
+          "f1": 0.232
+        },
+        "ensemble": {
+          "tp": 354,
+          "tn": 6714,
+          "fp": 2228,
+          "fn": 45,
+          "total_frames": 9341,
+          "precision": 0.137,
+          "recall": 0.887,
+          "f1": 0.238
+        }
+      }
+    },
+    "R5C__01mar24_full": {
+      "Grooming": {
+        "simba": {
+          "tp": 496,
+          "tn": 6483,
+          "fp": 0,
+          "fn": 2352,
+          "total_frames": 9331,
+          "precision": 1.0,
+          "recall": 0.174,
+          "f1": 0.297
+        },
+        "dynamic": {
+          "tp": 496,
+          "tn": 6483,
+          "fp": 0,
+          "fn": 2352,
+          "total_frames": 9331,
+          "precision": 1.0,
+          "recall": 0.174,
+          "f1": 0.297
+        },
+        "bsoid": {
+          "tp": 1114,
+          "tn": 6434,
+          "fp": 49,
+          "fn": 1734,
+          "total_frames": 9331,
+          "precision": 0.958,
+          "recall": 0.391,
+          "f1": 0.555
+        },
+        "ensemble": {
+          "tp": 1268,
+          "tn": 6434,
+          "fp": 49,
+          "fn": 1580,
+          "total_frames": 9331,
+          "precision": 0.963,
+          "recall": 0.445,
+          "f1": 0.609
+        },
+        "conditional": {
+          "tp": 496,
+          "tn": 6483,
+          "fp": 0,
+          "fn": 2352,
+          "total_frames": 9331,
+          "precision": 1.0,
+          "recall": 0.174,
+          "f1": 0.297
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 467,
+          "tn": 8445,
+          "fp": 226,
+          "fn": 193,
+          "total_frames": 9331,
+          "precision": 0.674,
+          "recall": 0.708,
+          "f1": 0.69
+        },
+        "bsoid": {
+          "tp": 602,
+          "tn": 7102,
+          "fp": 1569,
+          "fn": 58,
+          "total_frames": 9331,
+          "precision": 0.277,
+          "recall": 0.912,
+          "f1": 0.425
+        },
+        "ensemble": {
+          "tp": 613,
+          "tn": 7094,
+          "fp": 1577,
+          "fn": 47,
+          "total_frames": 9331,
+          "precision": 0.28,
+          "recall": 0.929,
+          "f1": 0.43
+        }
+      }
+    },
+    "R5DZ_01mar24_v2_trimmed_0_310": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 8965,
+          "fp": 132,
+          "fn": 203,
+          "total_frames": 9300,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 16,
+          "tn": 8834,
+          "fp": 263,
+          "fn": 187,
+          "total_frames": 9300,
+          "precision": 0.057,
+          "recall": 0.079,
+          "f1": 0.066
+        },
+        "bsoid": {
+          "tp": 180,
+          "tn": 8375,
+          "fp": 722,
+          "fn": 23,
+          "total_frames": 9300,
+          "precision": 0.2,
+          "recall": 0.887,
+          "f1": 0.326
+        },
+        "ensemble": {
+          "tp": 180,
+          "tn": 8354,
+          "fp": 743,
+          "fn": 23,
+          "total_frames": 9300,
+          "precision": 0.195,
+          "recall": 0.887,
+          "f1": 0.32
+        },
+        "conditional": {
+          "tp": 180,
+          "tn": 8354,
+          "fp": 743,
+          "fn": 23,
+          "total_frames": 9300,
+          "precision": 0.195,
+          "recall": 0.887,
+          "f1": 0.32
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 38,
+          "tn": 9194,
+          "fp": 0,
+          "fn": 68,
+          "total_frames": 9300,
+          "precision": 1.0,
+          "recall": 0.358,
+          "f1": 0.528
+        },
+        "bsoid": {
+          "tp": 74,
+          "tn": 8863,
+          "fp": 331,
+          "fn": 32,
+          "total_frames": 9300,
+          "precision": 0.183,
+          "recall": 0.698,
+          "f1": 0.29
+        },
+        "ensemble": {
+          "tp": 74,
+          "tn": 8863,
+          "fp": 331,
+          "fn": 32,
+          "total_frames": 9300,
+          "precision": 0.183,
+          "recall": 0.698,
+          "f1": 0.29
+        }
+      }
+    },
+    "R5Y20_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 277,
+          "tn": 9038,
+          "fp": 8,
+          "fn": 0,
+          "total_frames": 9323,
+          "precision": 0.972,
+          "recall": 1.0,
+          "f1": 0.986
+        },
+        "dynamic": {
+          "tp": 277,
+          "tn": 9038,
+          "fp": 8,
+          "fn": 0,
+          "total_frames": 9323,
+          "precision": 0.972,
+          "recall": 1.0,
+          "f1": 0.986
+        },
+        "bsoid": {
+          "tp": 31,
+          "tn": 8871,
+          "fp": 175,
+          "fn": 246,
+          "total_frames": 9323,
+          "precision": 0.15,
+          "recall": 0.112,
+          "f1": 0.128
+        },
+        "ensemble": {
+          "tp": 277,
+          "tn": 8863,
+          "fp": 183,
+          "fn": 0,
+          "total_frames": 9323,
+          "precision": 0.602,
+          "recall": 1.0,
+          "f1": 0.752
+        },
+        "conditional": {
+          "tp": 277,
+          "tn": 9038,
+          "fp": 8,
+          "fn": 0,
+          "total_frames": 9323,
+          "precision": 0.972,
+          "recall": 1.0,
+          "f1": 0.986
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 269,
+          "tn": 8957,
+          "fp": 96,
+          "fn": 1,
+          "total_frames": 9323,
+          "precision": 0.737,
+          "recall": 0.996,
+          "f1": 0.847
+        },
+        "bsoid": {
+          "tp": 202,
+          "tn": 7620,
+          "fp": 1433,
+          "fn": 68,
+          "total_frames": 9323,
+          "precision": 0.124,
+          "recall": 0.748,
+          "f1": 0.212
+        },
+        "ensemble": {
+          "tp": 269,
+          "tn": 7588,
+          "fp": 1465,
+          "fn": 1,
+          "total_frames": 9323,
+          "precision": 0.155,
+          "recall": 0.996,
+          "f1": 0.268
+        }
+      }
+    },
+    "R5YB20_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 277,
+          "tn": 9038,
+          "fp": 0,
+          "fn": 8,
+          "total_frames": 9323,
+          "precision": 1.0,
+          "recall": 0.972,
+          "f1": 0.986
+        },
+        "dynamic": {
+          "tp": 277,
+          "tn": 9038,
+          "fp": 0,
+          "fn": 8,
+          "total_frames": 9323,
+          "precision": 1.0,
+          "recall": 0.972,
+          "f1": 0.986
+        },
+        "bsoid": {
+          "tp": 31,
+          "tn": 8863,
+          "fp": 175,
+          "fn": 254,
+          "total_frames": 9323,
+          "precision": 0.15,
+          "recall": 0.109,
+          "f1": 0.126
+        },
+        "ensemble": {
+          "tp": 277,
+          "tn": 8863,
+          "fp": 175,
+          "fn": 8,
+          "total_frames": 9323,
+          "precision": 0.613,
+          "recall": 0.972,
+          "f1": 0.752
+        },
+        "conditional": {
+          "tp": 277,
+          "tn": 9038,
+          "fp": 0,
+          "fn": 8,
+          "total_frames": 9323,
+          "precision": 1.0,
+          "recall": 0.972,
+          "f1": 0.986
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 275,
+          "tn": 8999,
+          "fp": 33,
+          "fn": 16,
+          "total_frames": 9323,
+          "precision": 0.893,
+          "recall": 0.945,
+          "f1": 0.918
+        },
+        "bsoid": {
+          "tp": 218,
+          "tn": 7615,
+          "fp": 1417,
+          "fn": 73,
+          "total_frames": 9323,
+          "precision": 0.133,
+          "recall": 0.749,
+          "f1": 0.226
+        },
+        "ensemble": {
+          "tp": 282,
+          "tn": 7603,
+          "fp": 1429,
+          "fn": 9,
+          "total_frames": 9323,
+          "precision": 0.165,
+          "recall": 0.969,
+          "f1": 0.282
+        }
+      }
+    },
+    "R6B20_01mar24_trimmed_0_300": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 8362,
+          "fp": 19,
+          "fn": 619,
+          "total_frames": 9000,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 110,
+          "tn": 8239,
+          "fp": 142,
+          "fn": 509,
+          "total_frames": 9000,
+          "precision": 0.437,
+          "recall": 0.178,
+          "f1": 0.253
+        },
+        "bsoid": {
+          "tp": 167,
+          "tn": 8222,
+          "fp": 159,
+          "fn": 452,
+          "total_frames": 9000,
+          "precision": 0.512,
+          "recall": 0.27,
+          "f1": 0.353
+        },
+        "ensemble": {
+          "tp": 167,
+          "tn": 8203,
+          "fp": 178,
+          "fn": 452,
+          "total_frames": 9000,
+          "precision": 0.484,
+          "recall": 0.27,
+          "f1": 0.346
+        },
+        "conditional": {
+          "tp": 167,
+          "tn": 8203,
+          "fp": 178,
+          "fn": 452,
+          "total_frames": 9000,
+          "precision": 0.484,
+          "recall": 0.27,
+          "f1": 0.346
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 104,
+          "tn": 8827,
+          "fp": 20,
+          "fn": 49,
+          "total_frames": 9000,
+          "precision": 0.839,
+          "recall": 0.68,
+          "f1": 0.751
+        },
+        "bsoid": {
+          "tp": 131,
+          "tn": 8518,
+          "fp": 329,
+          "fn": 22,
+          "total_frames": 9000,
+          "precision": 0.285,
+          "recall": 0.856,
+          "f1": 0.427
+        },
+        "ensemble": {
+          "tp": 132,
+          "tn": 8517,
+          "fp": 330,
+          "fn": 21,
+          "total_frames": 9000,
+          "precision": 0.286,
+          "recall": 0.863,
+          "f1": 0.429
+        }
+      }
+    },
+    "R6BY5_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 647,
+          "tn": 8324,
+          "fp": 131,
+          "fn": 417,
+          "total_frames": 9519,
+          "precision": 0.832,
+          "recall": 0.608,
+          "f1": 0.702
+        },
+        "dynamic": {
+          "tp": 647,
+          "tn": 8324,
+          "fp": 131,
+          "fn": 417,
+          "total_frames": 9519,
+          "precision": 0.832,
+          "recall": 0.608,
+          "f1": 0.702
+        },
+        "bsoid": {
+          "tp": 0,
+          "tn": 8341,
+          "fp": 114,
+          "fn": 1064,
+          "total_frames": 9519,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "ensemble": {
+          "tp": 647,
+          "tn": 8210,
+          "fp": 245,
+          "fn": 417,
+          "total_frames": 9519,
+          "precision": 0.725,
+          "recall": 0.608,
+          "f1": 0.662
+        },
+        "conditional": {
+          "tp": 647,
+          "tn": 8324,
+          "fp": 131,
+          "fn": 417,
+          "total_frames": 9519,
+          "precision": 0.832,
+          "recall": 0.608,
+          "f1": 0.702
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 76,
+          "tn": 9385,
+          "fp": 20,
+          "fn": 38,
+          "total_frames": 9519,
+          "precision": 0.792,
+          "recall": 0.667,
+          "f1": 0.724
+        },
+        "bsoid": {
+          "tp": 112,
+          "tn": 8768,
+          "fp": 637,
+          "fn": 2,
+          "total_frames": 9519,
+          "precision": 0.15,
+          "recall": 0.982,
+          "f1": 0.26
+        },
+        "ensemble": {
+          "tp": 112,
+          "tn": 8768,
+          "fp": 637,
+          "fn": 2,
+          "total_frames": 9519,
+          "precision": 0.15,
+          "recall": 0.982,
+          "f1": 0.26
+        }
+      }
+    },
+    "R6C_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 439,
+          "tn": 8444,
+          "fp": 35,
+          "fn": 401,
+          "total_frames": 9319,
+          "precision": 0.926,
+          "recall": 0.523,
+          "f1": 0.668
+        },
+        "dynamic": {
+          "tp": 439,
+          "tn": 8444,
+          "fp": 35,
+          "fn": 401,
+          "total_frames": 9319,
+          "precision": 0.926,
+          "recall": 0.523,
+          "f1": 0.668
+        },
+        "bsoid": {
+          "tp": 796,
+          "tn": 7709,
+          "fp": 770,
+          "fn": 44,
+          "total_frames": 9319,
+          "precision": 0.508,
+          "recall": 0.948,
+          "f1": 0.662
+        },
+        "ensemble": {
+          "tp": 798,
+          "tn": 7674,
+          "fp": 805,
+          "fn": 42,
+          "total_frames": 9319,
+          "precision": 0.498,
+          "recall": 0.95,
+          "f1": 0.653
+        },
+        "conditional": {
+          "tp": 439,
+          "tn": 8444,
+          "fp": 35,
+          "fn": 401,
+          "total_frames": 9319,
+          "precision": 0.926,
+          "recall": 0.523,
+          "f1": 0.668
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 118,
+          "tn": 9067,
+          "fp": 79,
+          "fn": 55,
+          "total_frames": 9319,
+          "precision": 0.599,
+          "recall": 0.682,
+          "f1": 0.638
+        },
+        "bsoid": {
+          "tp": 156,
+          "tn": 5493,
+          "fp": 3653,
+          "fn": 17,
+          "total_frames": 9319,
+          "precision": 0.041,
+          "recall": 0.902,
+          "f1": 0.078
+        },
+        "ensemble": {
+          "tp": 156,
+          "tn": 5493,
+          "fp": 3653,
+          "fn": 17,
+          "total_frames": 9319,
+          "precision": 0.041,
+          "recall": 0.902,
+          "f1": 0.078
+        }
+      }
+    },
+    "R6DZ_01mar24_full": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 8603,
+          "fp": 0,
+          "fn": 698,
+          "total_frames": 9301,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 23,
+          "tn": 8552,
+          "fp": 51,
+          "fn": 675,
+          "total_frames": 9301,
+          "precision": 0.311,
+          "recall": 0.033,
+          "f1": 0.06
+        },
+        "bsoid": {
+          "tp": 324,
+          "tn": 8401,
+          "fp": 202,
+          "fn": 374,
+          "total_frames": 9301,
+          "precision": 0.616,
+          "recall": 0.464,
+          "f1": 0.529
+        },
+        "ensemble": {
+          "tp": 324,
+          "tn": 8401,
+          "fp": 202,
+          "fn": 374,
+          "total_frames": 9301,
+          "precision": 0.616,
+          "recall": 0.464,
+          "f1": 0.529
+        },
+        "conditional": {
+          "tp": 324,
+          "tn": 8401,
+          "fp": 202,
+          "fn": 374,
+          "total_frames": 9301,
+          "precision": 0.616,
+          "recall": 0.464,
+          "f1": 0.529
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 170,
+          "tn": 8992,
+          "fp": 2,
+          "fn": 137,
+          "total_frames": 9301,
+          "precision": 0.988,
+          "recall": 0.554,
+          "f1": 0.71
+        },
+        "bsoid": {
+          "tp": 284,
+          "tn": 6977,
+          "fp": 2017,
+          "fn": 23,
+          "total_frames": 9301,
+          "precision": 0.123,
+          "recall": 0.925,
+          "f1": 0.218
+        },
+        "ensemble": {
+          "tp": 289,
+          "tn": 6977,
+          "fp": 2017,
+          "fn": 18,
+          "total_frames": 9301,
+          "precision": 0.125,
+          "recall": 0.941,
+          "f1": 0.221
+        }
+      }
+    },
+    "R6Y20_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 93,
+          "tn": 9191,
+          "fp": 10,
+          "fn": 338,
+          "total_frames": 9632,
+          "precision": 0.903,
+          "recall": 0.216,
+          "f1": 0.348
+        },
+        "dynamic": {
+          "tp": 277,
+          "tn": 9189,
+          "fp": 12,
+          "fn": 154,
+          "total_frames": 9632,
+          "precision": 0.958,
+          "recall": 0.643,
+          "f1": 0.769
+        },
+        "bsoid": {
+          "tp": 358,
+          "tn": 8995,
+          "fp": 206,
+          "fn": 73,
+          "total_frames": 9632,
+          "precision": 0.635,
+          "recall": 0.831,
+          "f1": 0.72
+        },
+        "ensemble": {
+          "tp": 368,
+          "tn": 8995,
+          "fp": 206,
+          "fn": 63,
+          "total_frames": 9632,
+          "precision": 0.641,
+          "recall": 0.854,
+          "f1": 0.732
+        },
+        "conditional": {
+          "tp": 368,
+          "tn": 8995,
+          "fp": 206,
+          "fn": 63,
+          "total_frames": 9632,
+          "precision": 0.641,
+          "recall": 0.854,
+          "f1": 0.732
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 0,
+          "tn": 9586,
+          "fp": 46,
+          "fn": 0,
+          "total_frames": 9632,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "bsoid": {
+          "tp": 0,
+          "tn": 9178,
+          "fp": 454,
+          "fn": 0,
+          "total_frames": 9632,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "ensemble": {
+          "tp": 0,
+          "tn": 9144,
+          "fp": 488,
+          "fn": 0,
+          "total_frames": 9632,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "R6YB15_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 3,
+          "tn": 8721,
+          "fp": 38,
+          "fn": 569,
+          "total_frames": 9331,
+          "precision": 0.073,
+          "recall": 0.005,
+          "f1": 0.01
+        },
+        "dynamic": {
+          "tp": 59,
+          "tn": 8538,
+          "fp": 221,
+          "fn": 513,
+          "total_frames": 9331,
+          "precision": 0.211,
+          "recall": 0.103,
+          "f1": 0.138
+        },
+        "bsoid": {
+          "tp": 149,
+          "tn": 8630,
+          "fp": 129,
+          "fn": 423,
+          "total_frames": 9331,
+          "precision": 0.536,
+          "recall": 0.26,
+          "f1": 0.351
+        },
+        "ensemble": {
+          "tp": 152,
+          "tn": 8597,
+          "fp": 162,
+          "fn": 420,
+          "total_frames": 9331,
+          "precision": 0.484,
+          "recall": 0.266,
+          "f1": 0.343
+        },
+        "conditional": {
+          "tp": 152,
+          "tn": 8597,
+          "fp": 162,
+          "fn": 420,
+          "total_frames": 9331,
+          "precision": 0.484,
+          "recall": 0.266,
+          "f1": 0.343
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 146,
+          "tn": 9034,
+          "fp": 116,
+          "fn": 35,
+          "total_frames": 9331,
+          "precision": 0.557,
+          "recall": 0.807,
+          "f1": 0.659
+        },
+        "bsoid": {
+          "tp": 151,
+          "tn": 7883,
+          "fp": 1267,
+          "fn": 30,
+          "total_frames": 9331,
+          "precision": 0.106,
+          "recall": 0.834,
+          "f1": 0.189
+        },
+        "ensemble": {
+          "tp": 179,
+          "tn": 7874,
+          "fp": 1276,
+          "fn": 2,
+          "total_frames": 9331,
+          "precision": 0.123,
+          "recall": 0.989,
+          "f1": 0.219
+        }
+      }
+    },
+    "R6YB20_01mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 15,
+          "tn": 8884,
+          "fp": 50,
+          "fn": 382,
+          "total_frames": 9331,
+          "precision": 0.231,
+          "recall": 0.038,
+          "f1": 0.065
+        },
+        "dynamic": {
+          "tp": 136,
+          "tn": 8854,
+          "fp": 80,
+          "fn": 261,
+          "total_frames": 9331,
+          "precision": 0.63,
+          "recall": 0.343,
+          "f1": 0.444
+        },
+        "bsoid": {
+          "tp": 29,
+          "tn": 8887,
+          "fp": 47,
+          "fn": 368,
+          "total_frames": 9331,
+          "precision": 0.382,
+          "recall": 0.073,
+          "f1": 0.123
+        },
+        "ensemble": {
+          "tp": 44,
+          "tn": 8837,
+          "fp": 97,
+          "fn": 353,
+          "total_frames": 9331,
+          "precision": 0.312,
+          "recall": 0.111,
+          "f1": 0.164
+        },
+        "conditional": {
+          "tp": 44,
+          "tn": 8837,
+          "fp": 97,
+          "fn": 353,
+          "total_frames": 9331,
+          "precision": 0.312,
+          "recall": 0.111,
+          "f1": 0.164
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 327,
+          "tn": 8853,
+          "fp": 98,
+          "fn": 53,
+          "total_frames": 9331,
+          "precision": 0.769,
+          "recall": 0.861,
+          "f1": 0.812
+        },
+        "bsoid": {
+          "tp": 317,
+          "tn": 8106,
+          "fp": 845,
+          "fn": 63,
+          "total_frames": 9331,
+          "precision": 0.273,
+          "recall": 0.834,
+          "f1": 0.411
+        },
+        "ensemble": {
+          "tp": 351,
+          "tn": 8090,
+          "fp": 861,
+          "fn": 29,
+          "total_frames": 9331,
+          "precision": 0.29,
+          "recall": 0.924,
+          "f1": 0.441
+        }
+      }
+    },
+    "R7B20_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 844,
+          "tn": 8313,
+          "fp": 18,
+          "fn": 158,
+          "total_frames": 9333,
+          "precision": 0.979,
+          "recall": 0.842,
+          "f1": 0.906
+        },
+        "dynamic": {
+          "tp": 844,
+          "tn": 8313,
+          "fp": 18,
+          "fn": 158,
+          "total_frames": 9333,
+          "precision": 0.979,
+          "recall": 0.842,
+          "f1": 0.906
+        },
+        "bsoid": {
+          "tp": 535,
+          "tn": 7856,
+          "fp": 475,
+          "fn": 467,
+          "total_frames": 9333,
+          "precision": 0.53,
+          "recall": 0.534,
+          "f1": 0.532
+        },
+        "ensemble": {
+          "tp": 904,
+          "tn": 7850,
+          "fp": 481,
+          "fn": 98,
+          "total_frames": 9333,
+          "precision": 0.653,
+          "recall": 0.902,
+          "f1": 0.757
+        },
+        "conditional": {
+          "tp": 844,
+          "tn": 8313,
+          "fp": 18,
+          "fn": 158,
+          "total_frames": 9333,
+          "precision": 0.979,
+          "recall": 0.842,
+          "f1": 0.906
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 21,
+          "tn": 9083,
+          "fp": 229,
+          "fn": 0,
+          "total_frames": 9333,
+          "precision": 0.084,
+          "recall": 1.0,
+          "f1": 0.155
+        },
+        "bsoid": {
+          "tp": 20,
+          "tn": 8599,
+          "fp": 713,
+          "fn": 1,
+          "total_frames": 9333,
+          "precision": 0.027,
+          "recall": 0.952,
+          "f1": 0.053
+        },
+        "ensemble": {
+          "tp": 21,
+          "tn": 8502,
+          "fp": 810,
+          "fn": 0,
+          "total_frames": 9333,
+          "precision": 0.025,
+          "recall": 1.0,
+          "f1": 0.049
+        }
+      }
+    },
+    "R7C_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 1218,
+          "tn": 7682,
+          "fp": 0,
+          "fn": 412,
+          "total_frames": 9312,
+          "precision": 1.0,
+          "recall": 0.747,
+          "f1": 0.855
+        },
+        "dynamic": {
+          "tp": 1218,
+          "tn": 7682,
+          "fp": 0,
+          "fn": 412,
+          "total_frames": 9312,
+          "precision": 1.0,
+          "recall": 0.747,
+          "f1": 0.855
+        },
+        "bsoid": {
+          "tp": 937,
+          "tn": 7574,
+          "fp": 108,
+          "fn": 693,
+          "total_frames": 9312,
+          "precision": 0.897,
+          "recall": 0.575,
+          "f1": 0.701
+        },
+        "ensemble": {
+          "tp": 1314,
+          "tn": 7574,
+          "fp": 108,
+          "fn": 316,
+          "total_frames": 9312,
+          "precision": 0.924,
+          "recall": 0.806,
+          "f1": 0.861
+        },
+        "conditional": {
+          "tp": 1218,
+          "tn": 7682,
+          "fp": 0,
+          "fn": 412,
+          "total_frames": 9312,
+          "precision": 1.0,
+          "recall": 0.747,
+          "f1": 0.855
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 165,
+          "tn": 9005,
+          "fp": 21,
+          "fn": 121,
+          "total_frames": 9312,
+          "precision": 0.887,
+          "recall": 0.577,
+          "f1": 0.699
+        },
+        "bsoid": {
+          "tp": 265,
+          "tn": 8559,
+          "fp": 467,
+          "fn": 21,
+          "total_frames": 9312,
+          "precision": 0.362,
+          "recall": 0.927,
+          "f1": 0.521
+        },
+        "ensemble": {
+          "tp": 282,
+          "tn": 8555,
+          "fp": 471,
+          "fn": 4,
+          "total_frames": 9312,
+          "precision": 0.375,
+          "recall": 0.986,
+          "f1": 0.543
+        }
+      }
+    },
+    "R7DZ_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 66,
+          "tn": 7202,
+          "fp": 0,
+          "fn": 2052,
+          "total_frames": 9320,
+          "precision": 1.0,
+          "recall": 0.031,
+          "f1": 0.06
+        },
+        "dynamic": {
+          "tp": 278,
+          "tn": 7200,
+          "fp": 2,
+          "fn": 1840,
+          "total_frames": 9320,
+          "precision": 0.993,
+          "recall": 0.131,
+          "f1": 0.232
+        },
+        "bsoid": {
+          "tp": 43,
+          "tn": 7191,
+          "fp": 11,
+          "fn": 2075,
+          "total_frames": 9320,
+          "precision": 0.796,
+          "recall": 0.02,
+          "f1": 0.04
+        },
+        "ensemble": {
+          "tp": 109,
+          "tn": 7191,
+          "fp": 11,
+          "fn": 2009,
+          "total_frames": 9320,
+          "precision": 0.908,
+          "recall": 0.051,
+          "f1": 0.097
+        },
+        "conditional": {
+          "tp": 109,
+          "tn": 7191,
+          "fp": 11,
+          "fn": 2009,
+          "total_frames": 9320,
+          "precision": 0.908,
+          "recall": 0.051,
+          "f1": 0.097
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 0,
+          "tn": 9320,
+          "fp": 0,
+          "fn": 0,
+          "total_frames": 9320,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "bsoid": {
+          "tp": 0,
+          "tn": 9315,
+          "fp": 5,
+          "fn": 0,
+          "total_frames": 9320,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "ensemble": {
+          "tp": 0,
+          "tn": 9315,
+          "fp": 5,
+          "fn": 0,
+          "total_frames": 9320,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "R7Y20_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 28,
+          "tn": 8309,
+          "fp": 71,
+          "fn": 1013,
+          "total_frames": 9421,
+          "precision": 0.283,
+          "recall": 0.027,
+          "f1": 0.049
+        },
+        "dynamic": {
+          "tp": 135,
+          "tn": 8232,
+          "fp": 148,
+          "fn": 906,
+          "total_frames": 9421,
+          "precision": 0.477,
+          "recall": 0.13,
+          "f1": 0.204
+        },
+        "bsoid": {
+          "tp": 31,
+          "tn": 8256,
+          "fp": 124,
+          "fn": 1010,
+          "total_frames": 9421,
+          "precision": 0.2,
+          "recall": 0.03,
+          "f1": 0.052
+        },
+        "ensemble": {
+          "tp": 45,
+          "tn": 8202,
+          "fp": 178,
+          "fn": 996,
+          "total_frames": 9421,
+          "precision": 0.202,
+          "recall": 0.043,
+          "f1": 0.071
+        },
+        "conditional": {
+          "tp": 45,
+          "tn": 8202,
+          "fp": 178,
+          "fn": 996,
+          "total_frames": 9421,
+          "precision": 0.202,
+          "recall": 0.043,
+          "f1": 0.071
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 745,
+          "tn": 8274,
+          "fp": 181,
+          "fn": 221,
+          "total_frames": 9421,
+          "precision": 0.805,
+          "recall": 0.771,
+          "f1": 0.788
+        },
+        "bsoid": {
+          "tp": 859,
+          "tn": 6893,
+          "fp": 1562,
+          "fn": 107,
+          "total_frames": 9421,
+          "precision": 0.355,
+          "recall": 0.889,
+          "f1": 0.507
+        },
+        "ensemble": {
+          "tp": 926,
+          "tn": 6888,
+          "fp": 1567,
+          "fn": 40,
+          "total_frames": 9421,
+          "precision": 0.371,
+          "recall": 0.959,
+          "f1": 0.535
+        }
+      }
+    },
+    "R7YB15_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 422,
+          "tn": 8668,
+          "fp": 0,
+          "fn": 242,
+          "total_frames": 9332,
+          "precision": 1.0,
+          "recall": 0.636,
+          "f1": 0.777
+        },
+        "dynamic": {
+          "tp": 422,
+          "tn": 8668,
+          "fp": 0,
+          "fn": 242,
+          "total_frames": 9332,
+          "precision": 1.0,
+          "recall": 0.636,
+          "f1": 0.777
+        },
+        "bsoid": {
+          "tp": 249,
+          "tn": 8586,
+          "fp": 82,
+          "fn": 415,
+          "total_frames": 9332,
+          "precision": 0.752,
+          "recall": 0.375,
+          "f1": 0.501
+        },
+        "ensemble": {
+          "tp": 453,
+          "tn": 8586,
+          "fp": 82,
+          "fn": 211,
+          "total_frames": 9332,
+          "precision": 0.847,
+          "recall": 0.682,
+          "f1": 0.756
+        },
+        "conditional": {
+          "tp": 422,
+          "tn": 8668,
+          "fp": 0,
+          "fn": 242,
+          "total_frames": 9332,
+          "precision": 1.0,
+          "recall": 0.636,
+          "f1": 0.777
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 389,
+          "tn": 8721,
+          "fp": 57,
+          "fn": 165,
+          "total_frames": 9332,
+          "precision": 0.872,
+          "recall": 0.702,
+          "f1": 0.778
+        },
+        "bsoid": {
+          "tp": 514,
+          "tn": 7784,
+          "fp": 994,
+          "fn": 40,
+          "total_frames": 9332,
+          "precision": 0.341,
+          "recall": 0.928,
+          "f1": 0.499
+        },
+        "ensemble": {
+          "tp": 524,
+          "tn": 7784,
+          "fp": 994,
+          "fn": 30,
+          "total_frames": 9332,
+          "precision": 0.345,
+          "recall": 0.946,
+          "f1": 0.506
+        }
+      }
+    },
+    "R7YB20_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 8398,
+          "fp": 30,
+          "fn": 903,
+          "total_frames": 9331,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 75,
+          "tn": 8273,
+          "fp": 155,
+          "fn": 828,
+          "total_frames": 9331,
+          "precision": 0.326,
+          "recall": 0.083,
+          "f1": 0.132
+        },
+        "bsoid": {
+          "tp": 126,
+          "tn": 8420,
+          "fp": 8,
+          "fn": 777,
+          "total_frames": 9331,
+          "precision": 0.94,
+          "recall": 0.14,
+          "f1": 0.243
+        },
+        "ensemble": {
+          "tp": 126,
+          "tn": 8390,
+          "fp": 38,
+          "fn": 777,
+          "total_frames": 9331,
+          "precision": 0.768,
+          "recall": 0.14,
+          "f1": 0.236
+        },
+        "conditional": {
+          "tp": 126,
+          "tn": 8390,
+          "fp": 38,
+          "fn": 777,
+          "total_frames": 9331,
+          "precision": 0.768,
+          "recall": 0.14,
+          "f1": 0.236
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 279,
+          "tn": 8553,
+          "fp": 5,
+          "fn": 494,
+          "total_frames": 9331,
+          "precision": 0.982,
+          "recall": 0.361,
+          "f1": 0.528
+        },
+        "bsoid": {
+          "tp": 648,
+          "tn": 7755,
+          "fp": 803,
+          "fn": 125,
+          "total_frames": 9331,
+          "precision": 0.447,
+          "recall": 0.838,
+          "f1": 0.583
+        },
+        "ensemble": {
+          "tp": 674,
+          "tn": 7753,
+          "fp": 805,
+          "fn": 99,
+          "total_frames": 9331,
+          "precision": 0.456,
+          "recall": 0.872,
+          "f1": 0.599
+        }
+      }
+    },
+    "R7YB5_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 1086,
+          "tn": 7428,
+          "fp": 170,
+          "fn": 844,
+          "total_frames": 9528,
+          "precision": 0.865,
+          "recall": 0.563,
+          "f1": 0.682
+        },
+        "dynamic": {
+          "tp": 1086,
+          "tn": 7428,
+          "fp": 170,
+          "fn": 844,
+          "total_frames": 9528,
+          "precision": 0.865,
+          "recall": 0.563,
+          "f1": 0.682
+        },
+        "bsoid": {
+          "tp": 808,
+          "tn": 7375,
+          "fp": 223,
+          "fn": 1122,
+          "total_frames": 9528,
+          "precision": 0.784,
+          "recall": 0.419,
+          "f1": 0.546
+        },
+        "ensemble": {
+          "tp": 1141,
+          "tn": 7369,
+          "fp": 229,
+          "fn": 789,
+          "total_frames": 9528,
+          "precision": 0.833,
+          "recall": 0.591,
+          "f1": 0.692
+        },
+        "conditional": {
+          "tp": 1086,
+          "tn": 7428,
+          "fp": 170,
+          "fn": 844,
+          "total_frames": 9528,
+          "precision": 0.865,
+          "recall": 0.563,
+          "f1": 0.682
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 21,
+          "tn": 9130,
+          "fp": 98,
+          "fn": 279,
+          "total_frames": 9528,
+          "precision": 0.176,
+          "recall": 0.07,
+          "f1": 0.1
+        },
+        "bsoid": {
+          "tp": 137,
+          "tn": 8506,
+          "fp": 722,
+          "fn": 163,
+          "total_frames": 9528,
+          "precision": 0.159,
+          "recall": 0.457,
+          "f1": 0.236
+        },
+        "ensemble": {
+          "tp": 137,
+          "tn": 8500,
+          "fp": 728,
+          "fn": 163,
+          "total_frames": 9528,
+          "precision": 0.158,
+          "recall": 0.457,
+          "f1": 0.235
+        }
+      }
+    },
+    "R8B20_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 259,
+          "tn": 8996,
+          "fp": 0,
+          "fn": 72,
+          "total_frames": 9327,
+          "precision": 1.0,
+          "recall": 0.782,
+          "f1": 0.878
+        },
+        "dynamic": {
+          "tp": 259,
+          "tn": 8996,
+          "fp": 0,
+          "fn": 72,
+          "total_frames": 9327,
+          "precision": 1.0,
+          "recall": 0.782,
+          "f1": 0.878
+        },
+        "bsoid": {
+          "tp": 277,
+          "tn": 8788,
+          "fp": 208,
+          "fn": 54,
+          "total_frames": 9327,
+          "precision": 0.571,
+          "recall": 0.837,
+          "f1": 0.679
+        },
+        "ensemble": {
+          "tp": 317,
+          "tn": 8788,
+          "fp": 208,
+          "fn": 14,
+          "total_frames": 9327,
+          "precision": 0.604,
+          "recall": 0.958,
+          "f1": 0.741
+        },
+        "conditional": {
+          "tp": 259,
+          "tn": 8996,
+          "fp": 0,
+          "fn": 72,
+          "total_frames": 9327,
+          "precision": 1.0,
+          "recall": 0.782,
+          "f1": 0.878
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 11,
+          "tn": 9304,
+          "fp": 0,
+          "fn": 12,
+          "total_frames": 9327,
+          "precision": 1.0,
+          "recall": 0.478,
+          "f1": 0.647
+        },
+        "bsoid": {
+          "tp": 23,
+          "tn": 9072,
+          "fp": 232,
+          "fn": 0,
+          "total_frames": 9327,
+          "precision": 0.09,
+          "recall": 1.0,
+          "f1": 0.165
+        },
+        "ensemble": {
+          "tp": 23,
+          "tn": 9072,
+          "fp": 232,
+          "fn": 0,
+          "total_frames": 9327,
+          "precision": 0.09,
+          "recall": 1.0,
+          "f1": 0.165
+        }
+      }
+    },
+    "R8C_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 158,
+          "tn": 7960,
+          "fp": 0,
+          "fn": 1168,
+          "total_frames": 9286,
+          "precision": 1.0,
+          "recall": 0.119,
+          "f1": 0.213
+        },
+        "dynamic": {
+          "tp": 279,
+          "tn": 7960,
+          "fp": 0,
+          "fn": 1047,
+          "total_frames": 9286,
+          "precision": 1.0,
+          "recall": 0.21,
+          "f1": 0.348
+        },
+        "bsoid": {
+          "tp": 458,
+          "tn": 7780,
+          "fp": 180,
+          "fn": 868,
+          "total_frames": 9286,
+          "precision": 0.718,
+          "recall": 0.345,
+          "f1": 0.466
+        },
+        "ensemble": {
+          "tp": 498,
+          "tn": 7780,
+          "fp": 180,
+          "fn": 828,
+          "total_frames": 9286,
+          "precision": 0.735,
+          "recall": 0.376,
+          "f1": 0.497
+        },
+        "conditional": {
+          "tp": 498,
+          "tn": 7780,
+          "fp": 180,
+          "fn": 828,
+          "total_frames": 9286,
+          "precision": 0.735,
+          "recall": 0.376,
+          "f1": 0.497
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 40,
+          "tn": 9221,
+          "fp": 0,
+          "fn": 25,
+          "total_frames": 9286,
+          "precision": 1.0,
+          "recall": 0.615,
+          "f1": 0.762
+        },
+        "bsoid": {
+          "tp": 59,
+          "tn": 8980,
+          "fp": 241,
+          "fn": 6,
+          "total_frames": 9286,
+          "precision": 0.197,
+          "recall": 0.908,
+          "f1": 0.323
+        },
+        "ensemble": {
+          "tp": 59,
+          "tn": 8980,
+          "fp": 241,
+          "fn": 6,
+          "total_frames": 9286,
+          "precision": 0.197,
+          "recall": 0.908,
+          "f1": 0.323
+        }
+      }
+    },
+    "R8DZ_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 8955,
+          "fp": 0,
+          "fn": 373,
+          "total_frames": 9328,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 154,
+          "tn": 8829,
+          "fp": 126,
+          "fn": 219,
+          "total_frames": 9328,
+          "precision": 0.55,
+          "recall": 0.413,
+          "f1": 0.472
+        },
+        "bsoid": {
+          "tp": 77,
+          "tn": 8644,
+          "fp": 311,
+          "fn": 296,
+          "total_frames": 9328,
+          "precision": 0.198,
+          "recall": 0.206,
+          "f1": 0.202
+        },
+        "ensemble": {
+          "tp": 77,
+          "tn": 8644,
+          "fp": 311,
+          "fn": 296,
+          "total_frames": 9328,
+          "precision": 0.198,
+          "recall": 0.206,
+          "f1": 0.202
+        },
+        "conditional": {
+          "tp": 77,
+          "tn": 8644,
+          "fp": 311,
+          "fn": 296,
+          "total_frames": 9328,
+          "precision": 0.198,
+          "recall": 0.206,
+          "f1": 0.202
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 0,
+          "tn": 9328,
+          "fp": 0,
+          "fn": 0,
+          "total_frames": 9328,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "bsoid": {
+          "tp": 0,
+          "tn": 9138,
+          "fp": 190,
+          "fn": 0,
+          "total_frames": 9328,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "ensemble": {
+          "tp": 0,
+          "tn": 9138,
+          "fp": 190,
+          "fn": 0,
+          "total_frames": 9328,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "R8Y20_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 116,
+          "tn": 9179,
+          "fp": 73,
+          "fn": 206,
+          "total_frames": 9574,
+          "precision": 0.614,
+          "recall": 0.36,
+          "f1": 0.454
+        },
+        "dynamic": {
+          "tp": 199,
+          "tn": 9163,
+          "fp": 89,
+          "fn": 123,
+          "total_frames": 9574,
+          "precision": 0.691,
+          "recall": 0.618,
+          "f1": 0.652
+        },
+        "bsoid": {
+          "tp": 169,
+          "tn": 9064,
+          "fp": 188,
+          "fn": 153,
+          "total_frames": 9574,
+          "precision": 0.473,
+          "recall": 0.525,
+          "f1": 0.498
+        },
+        "ensemble": {
+          "tp": 212,
+          "tn": 8999,
+          "fp": 253,
+          "fn": 110,
+          "total_frames": 9574,
+          "precision": 0.456,
+          "recall": 0.658,
+          "f1": 0.539
+        },
+        "conditional": {
+          "tp": 212,
+          "tn": 8999,
+          "fp": 253,
+          "fn": 110,
+          "total_frames": 9574,
+          "precision": 0.456,
+          "recall": 0.658,
+          "f1": 0.539
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 267,
+          "tn": 8959,
+          "fp": 156,
+          "fn": 192,
+          "total_frames": 9574,
+          "precision": 0.631,
+          "recall": 0.582,
+          "f1": 0.605
+        },
+        "bsoid": {
+          "tp": 448,
+          "tn": 4882,
+          "fp": 4233,
+          "fn": 11,
+          "total_frames": 9574,
+          "precision": 0.096,
+          "recall": 0.976,
+          "f1": 0.174
+        },
+        "ensemble": {
+          "tp": 448,
+          "tn": 4882,
+          "fp": 4233,
+          "fn": 11,
+          "total_frames": 9574,
+          "precision": 0.096,
+          "recall": 0.976,
+          "f1": 0.174
+        }
+      }
+    },
+    "R8YB15_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 59,
+          "tn": 9336,
+          "fp": 6,
+          "fn": 51,
+          "total_frames": 9452,
+          "precision": 0.908,
+          "recall": 0.536,
+          "f1": 0.674
+        },
+        "dynamic": {
+          "tp": 107,
+          "tn": 9165,
+          "fp": 177,
+          "fn": 3,
+          "total_frames": 9452,
+          "precision": 0.377,
+          "recall": 0.973,
+          "f1": 0.543
+        },
+        "bsoid": {
+          "tp": 6,
+          "tn": 9288,
+          "fp": 54,
+          "fn": 104,
+          "total_frames": 9452,
+          "precision": 0.1,
+          "recall": 0.055,
+          "f1": 0.071
+        },
+        "ensemble": {
+          "tp": 65,
+          "tn": 9288,
+          "fp": 54,
+          "fn": 45,
+          "total_frames": 9452,
+          "precision": 0.546,
+          "recall": 0.591,
+          "f1": 0.568
+        },
+        "conditional": {
+          "tp": 65,
+          "tn": 9288,
+          "fp": 54,
+          "fn": 45,
+          "total_frames": 9452,
+          "precision": 0.546,
+          "recall": 0.591,
+          "f1": 0.568
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 0,
+          "tn": 9452,
+          "fp": 0,
+          "fn": 0,
+          "total_frames": 9452,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "bsoid": {
+          "tp": 0,
+          "tn": 9452,
+          "fp": 0,
+          "fn": 0,
+          "total_frames": 9452,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "ensemble": {
+          "tp": 0,
+          "tn": 9452,
+          "fp": 0,
+          "fn": 0,
+          "total_frames": 9452,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "R8YB20_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 9185,
+          "fp": 148,
+          "fn": 0,
+          "total_frames": 9333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 0,
+          "tn": 9053,
+          "fp": 280,
+          "fn": 0,
+          "total_frames": 9333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "bsoid": {
+          "tp": 0,
+          "tn": 8662,
+          "fp": 671,
+          "fn": 0,
+          "total_frames": 9333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "ensemble": {
+          "tp": 0,
+          "tn": 8571,
+          "fp": 762,
+          "fn": 0,
+          "total_frames": 9333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "conditional": {
+          "tp": 0,
+          "tn": 8571,
+          "fp": 762,
+          "fn": 0,
+          "total_frames": 9333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 292,
+          "tn": 8834,
+          "fp": 96,
+          "fn": 111,
+          "total_frames": 9333,
+          "precision": 0.753,
+          "recall": 0.725,
+          "f1": 0.738
+        },
+        "bsoid": {
+          "tp": 311,
+          "tn": 8602,
+          "fp": 328,
+          "fn": 92,
+          "total_frames": 9333,
+          "precision": 0.487,
+          "recall": 0.772,
+          "f1": 0.597
+        },
+        "ensemble": {
+          "tp": 356,
+          "tn": 8582,
+          "fp": 348,
+          "fn": 47,
+          "total_frames": 9333,
+          "precision": 0.506,
+          "recall": 0.883,
+          "f1": 0.643
+        }
+      }
+    },
+    "R8YB5_02mar24": {
+      "Grooming": {
+        "simba": {
+          "tp": 0,
+          "tn": 9282,
+          "fp": 43,
+          "fn": 0,
+          "total_frames": 9325,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "dynamic": {
+          "tp": 0,
+          "tn": 9045,
+          "fp": 280,
+          "fn": 0,
+          "total_frames": 9325,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "bsoid": {
+          "tp": 0,
+          "tn": 8931,
+          "fp": 394,
+          "fn": 0,
+          "total_frames": 9325,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "ensemble": {
+          "tp": 0,
+          "tn": 8905,
+          "fp": 420,
+          "fn": 0,
+          "total_frames": 9325,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "conditional": {
+          "tp": 0,
+          "tn": 8905,
+          "fp": 420,
+          "fn": 0,
+          "total_frames": 9325,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      },
+      "Thigmotaxis": {
+        "simba": {
+          "tp": 268,
+          "tn": 8676,
+          "fp": 55,
+          "fn": 326,
+          "total_frames": 9325,
+          "precision": 0.83,
+          "recall": 0.451,
+          "f1": 0.585
+        },
+        "bsoid": {
+          "tp": 581,
+          "tn": 6858,
+          "fp": 1873,
+          "fn": 13,
+          "total_frames": 9325,
+          "precision": 0.237,
+          "recall": 0.978,
+          "f1": 0.381
+        },
+        "ensemble": {
+          "tp": 582,
+          "tn": 6858,
+          "fp": 1873,
+          "fn": 12,
+          "total_frames": 9325,
+          "precision": 0.237,
+          "recall": 0.98,
+          "f1": 0.382
+        }
+      }
+    }
+  }
+}

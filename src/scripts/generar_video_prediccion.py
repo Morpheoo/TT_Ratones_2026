@@ -10,6 +10,7 @@ import argparse
 import math
 import numpy as np
 import json
+from typing import Any
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 YOLO_MODEL_PATH = os.path.join(PROJECT_DIR, "yolo_tracker.pt")
@@ -232,7 +233,7 @@ def _resolve_tracking_columns(df: pd.DataFrame) -> tuple[str, str, str | None, s
     return None
 
 
-def build_pose_tracking(df_master: pd.DataFrame) -> dict[str, object] | None:
+def build_pose_tracking(df_master: pd.DataFrame) -> dict[str, Any] | None:
     """
     Construye una trayectoria desde la pose ya calculada.
     Para YOLO Pose, el bridge mapea `torso` -> `Center`, por eso este punto
@@ -259,7 +260,9 @@ def build_pose_tracking(df_master: pd.DataFrame) -> dict[str, object] | None:
         return None
 
     tracking_df = pd.DataFrame({"x": x_values.where(valid), "y": y_values.where(valid)})
-    tracking_df = tracking_df.interpolate(method="linear", limit=15, limit_direction="both")
+    # limit=150 → hasta 5 s a 30 fps sin detección antes de dejar el punto en blanco.
+    # (Antes era 15 frames ≈ 0.5 s; se subió porque YOLO pierde la rata en secciones estáticas.)
+    tracking_df = tracking_df.interpolate(method="linear", limit=150, limit_direction="both")
     interpolated_valid = np.isfinite(tracking_df["x"]) & np.isfinite(tracking_df["y"])
 
     print(

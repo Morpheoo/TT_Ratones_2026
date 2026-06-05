@@ -102,7 +102,7 @@ def record_behavior_edit(engine, *, experiment_id, before, after,
                 },
             )
             conn.commit()
-        return True, "Edicion registrada en historial."
+        return True, "Edición registrada en historial."
     except Exception as exc:
         return False, f"No se pudo registrar la edicion: {exc}"
 

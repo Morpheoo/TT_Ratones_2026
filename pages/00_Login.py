@@ -15,7 +15,7 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import use_theme
 
-st.set_page_config(page_title="Login | Sistema EPM", page_icon="assets/logos/logo_ria.png", layout="centered")
+st.set_page_config(page_title="Login | Prototipo EPM", page_icon="assets/logos/logo_ria.png", layout="centered")
 
 load_session()
 colors = use_theme()
@@ -139,7 +139,7 @@ st.markdown(f"""
 
 # ================= 3. LÓGICA DE NAVEGACIÓN =================
 if st.session_state.auth_mode == "login":
-    st.markdown('<div class="login-title">Inicia Sesión</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-title">Inicia sesión</div>', unsafe_allow_html=True)
     st.markdown('<div class="login-subtitle">Ingresa tus credenciales para continuar</div>', unsafe_allow_html=True)
     
     with st.form("login_form"):
@@ -197,7 +197,7 @@ if st.session_state.auth_mode == "login":
         st.rerun()
 
 elif st.session_state.auth_mode == "register":
-    st.markdown('<div class="login-title">Crear Cuenta</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-title">Crear cuenta</div>', unsafe_allow_html=True)
     st.markdown('<div class="login-subtitle">Acceso exclusivo para comunidad IPN</div>', unsafe_allow_html=True)
     
     # Inicializar tipo de registro si no existe
@@ -228,7 +228,7 @@ elif st.session_state.auth_mode == "register":
     # Formulario según el tipo seleccionado
     if st.session_state.register_type == "estudiante":
         with st.form("reg_form_estudiante"):
-            st.markdown(f"<div style='text-align: center; font-weight: 600; color: {colors['primary']}; margin-bottom: 1rem;'>REGISTRO DE ESTUDIANTE</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align: center; font-weight: 600; color: {colors['primary']}; margin-bottom: 1rem;'>Registro de estudiante</div>", unsafe_allow_html=True)
             
             col1, col2 = st.columns(2)
             with col1:
@@ -243,7 +243,7 @@ elif st.session_state.auth_mode == "register":
                 escuela = st.text_input("Escuela (ej. ESCOM)")
             
             st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
-            new_email = st.text_input("Correo Institucional (@alumno.ipn.mx) *")
+            new_email = st.text_input("Correo institucional (@alumno.ipn.mx) *")
             new_pass = st.text_input(
                 "Contraseña segura *",
                 type="password",
@@ -252,7 +252,7 @@ elif st.session_state.auth_mode == "register":
             
             st.markdown("""
                 <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
-                    <strong>Términos y Condiciones:</strong> Al registrarte en el Sistema EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
+                    <strong>Términos y condiciones:</strong> Al registrarte en el Prototipo EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
                 </div>
             """, unsafe_allow_html=True)
             accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
@@ -294,7 +294,7 @@ elif st.session_state.auth_mode == "register":
     
     else:  # investigador
         with st.form("reg_form_investigador"):
-            st.markdown(f"<div style='text-align: center; font-weight: 600; color: {colors['primary']}; margin-bottom: 1rem;'>REGISTRO DE INVESTIGADOR / DOCENTE</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align: center; font-weight: 600; color: {colors['primary']}; margin-bottom: 1rem;'>Registro de investigador / docente</div>", unsafe_allow_html=True)
             
             col1, col2 = st.columns(2)
             with col1:
@@ -309,7 +309,7 @@ elif st.session_state.auth_mode == "register":
                 centro = st.text_input("Centro / Unidad (ej. ESCOM)")
             
             st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.1;'>", unsafe_allow_html=True)
-            new_email = st.text_input("Correo Institucional (@ipn.mx) *")
+            new_email = st.text_input("Correo institucional (@ipn.mx) *")
             new_pass = st.text_input(
                 "Contraseña segura *",
                 type="password",
@@ -318,7 +318,7 @@ elif st.session_state.auth_mode == "register":
             
             st.markdown("""
                 <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
-                    <strong>Términos y Condiciones:</strong> Al registrarte en el Sistema EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
+                    <strong>Términos y condiciones:</strong> Al registrarte en el Prototipo EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
                 </div>
             """, unsafe_allow_html=True)
             accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
@@ -359,12 +359,12 @@ elif st.session_state.auth_mode == "register":
                     st.error(msg)
             
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("Volver al Inicio de Sesión", use_container_width=True):
+    if st.button("Volver al inicio de sesión", use_container_width=True):
         st.session_state.auth_mode = "login"
         st.rerun()
 
 elif st.session_state.auth_mode == "verify":
-    st.markdown('<div class="login-title">Verificar Cuenta</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-title">Verificar cuenta</div>', unsafe_allow_html=True)
     st.markdown('<div class="login-subtitle">Ingresa el código que enviamos a tu correo</div>', unsafe_allow_html=True)
     
     # Mostrar el email pendiente de verificación
@@ -378,7 +378,7 @@ elif st.session_state.auth_mode == "verify":
     
     with st.form("verify_form"):
         otp_code = st.text_input("Código de Verificación (6 dígitos)", placeholder="123456", max_chars=6)
-        verify_submit = st.form_submit_button("Verificar Cuenta", type="primary", use_container_width=True)
+        verify_submit = st.form_submit_button("Verificar cuenta", type="primary", use_container_width=True)
     
     if verify_submit:
         if not otp_code:
@@ -408,7 +408,7 @@ elif st.session_state.auth_mode == "verify":
     # Opción para reenviar código
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Reenviar Código", use_container_width=True):
+        if st.button("Reenviar código", use_container_width=True):
             # Importar función para reenviar código
             from auth import request_password_reset
             # Generar nuevo código y enviarlo
@@ -441,7 +441,7 @@ elif st.session_state.auth_mode == "verify":
                 st.error(f"Error al generar nuevo código: {e}")
     
     with col2:
-        if st.button("Volver al Login", use_container_width=True):
+        if st.button("Volver al inicio de sesión", use_container_width=True):
             if "pending_verification_email" in st.session_state:
                 del st.session_state.pending_verification_email
             st.session_state.auth_mode = "login"
@@ -450,7 +450,7 @@ elif st.session_state.auth_mode == "verify":
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(f"""
     <div style="text-align:center; color: {text_sub_c}; font-size: 0.75rem;">
-        Sistema Técnico para Análisis Automatizado de Comportamiento &copy; 2026<br>
+        Prototipo técnico para análisis automatizado de comportamiento &copy; 2026<br>
         Laboratorio de Proyectos Profesionales — IPN ESCOM
     </div>
 """, unsafe_allow_html=True)

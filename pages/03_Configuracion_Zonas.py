@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 
 # ================= 0. SETUP & PERSISTENCE =================
-st.set_page_config(page_title="Configuración de Zonas | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Configuración de zonas | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 if os.path.join(os.getcwd(), "src") not in sys.path:
     sys.path.append(os.path.join(os.getcwd(), "src"))
@@ -39,7 +39,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -53,12 +53,12 @@ with st.sidebar:
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesión antes de usar el sistema.")
+    st.warning("Debes iniciar sesión antes de usar el prototipo.")
     st.stop()
 
 # ================= 2. VIDEO CHECK & LOGIC =================
 if "ruta_video_actual" not in st.session_state:
-    st.warning("No hay un video activo en sesión. Regresa a 'Ingesta de Video'.")
+    st.warning("No hay un video activo en sesión. Regresa a 'Ingesta de video'.")
     st.stop()
 
 OPEN_FILL = "rgba(111,29,70,0.4)"
@@ -353,7 +353,7 @@ if not cache: st.stop()
 
 # ================= 3. CABECERA =================
 render_topbar()
-st.markdown("### Módulo 03: Configuración de Zonas (ROI)")
+st.markdown("### Módulo 03: Configuración de zonas")
 st.markdown("""
     Defina los límites anatómicos del laberinto sobre el video experimental. 
     Las coordenadas se escalarán automáticamente a la resolución original del video.
@@ -374,23 +374,32 @@ col_sidebar, col_main = st.columns([1, 1.8])
 
 with col_sidebar:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("#### Herramientas de Dibujo")
-    tipo_zona = st.radio("Clasificación de ROI:", ["Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"])
-    operacion = st.radio("Modo de Interacción:", ["Dibujar rectángulos", "Mover / Editar"])
+    st.markdown("#### Herramientas de dibujo")
+    tipo_zona = st.radio(
+        "Clasificación de ROI:",
+        ["Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"],
+        format_func=lambda x: {
+            "Brazo Abierto": "Brazo abierto",
+            "Brazo Cerrado": "Brazo cerrado",
+            "Centro": "Centro",
+            "Muro / Pared": "Muro / pared"
+        }.get(x, x)
+    )
+    operacion = st.radio("Modo de interacción:", ["Dibujar rectángulos", "Mover / editar"])
     
     st.divider()
     
-    if st.button("CARGAR PLANTILLA (EPM)", use_container_width=True):
+    if st.button("Cargar plantilla (EPM)", use_container_width=True):
         st.info("Plantilla de laberinto cargada.")
     
-    if st.button("LIMPIAR LIENZO", type="secondary", use_container_width=True):
+    if st.button("Limpiar lienzo", type="secondary", use_container_width=True):
         st.session_state["canvas_key"] = f"canvas_{os.urandom(4).hex()}"
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_main:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("#### 📐 Lienzo de Configuración")
+    st.markdown("#### 📐 Lienzo de configuración")
     st.caption("*(Dibuja rectángulos de interés sobre el fotograma del video).*")
     
     drawing_mode = "transform" if "Mover" in operacion else ("line" if "Muro" in tipo_zona else "rect")
@@ -423,7 +432,7 @@ if canvas_result.json_data:
         st.caption("Las coordenadas mostradas abajo ya quedaron convertidas a la resolucion real del video.")
         st.dataframe(_zones_dataframe(normalized_zones), use_container_width=True, hide_index=True)
         
-        if st.button("GUARDAR CONFIGURACIÓN EXPERIMENTAL", type="primary", use_container_width=True):
+        if st.button("Guardar configuración experimental", type="primary", use_container_width=True):
             st.session_state["zonas_configuradas"] = normalized_zones
             save_session()
             db_sync = _persist_zones_to_db(normalized_zones, factor_escala)
@@ -432,7 +441,7 @@ if canvas_result.json_data:
 
             if roi_sync["ok"]:
                 st.balloons()
-                st.success("Configuración de zonas guardada exitosamente en el sistema.")
+                st.success("Configuración de zonas guardada exitosamente en el prototipo.")
                 if db_sync["ok"]:
                     st.success(f"{db_sync['message']}")
                 else:

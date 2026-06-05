@@ -43,7 +43,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -242,7 +242,7 @@ def delete_owned_experiments(engine, experiment_ids, username):
     if not experiment_ids:
         return 0, [], "No hay experimentos validos seleccionados para borrar."
     if not username:
-        return 0, experiment_ids, "No se encontro el usuario activo en sesion."
+        return 0, experiment_ids, "No se encontró el usuario activo en sesión."
 
     select_query = text(
         """
@@ -580,7 +580,7 @@ def build_distribution_dataframe(metrics):
 def coalesce_metric(record, summary, key):
     # El DB (analysis_results) es la fuente de verdad: refleja el output
     # del pipeline Y cualquier edicion manual posterior. El bundle del CSV
-    # de trayectoria solo se usa como fallback cuando el DB todavia no tiene
+    # de trayectoria solo se usa como fallback cuando el DB todavía no tiene
     # valor (registros legacy o sin procesar).
     db_value = record.get(key)
     if db_value is not None and str(db_value) != "":
@@ -666,7 +666,7 @@ def render_global_kpis(df_hist):
         st.metric("Total experimentos", len(df_hist))
     with m2:
         latest_date = str(df_hist["experiment_date"].max()) if not df_hist.empty and "experiment_date" in df_hist.columns else "N/A"
-        st.metric("Ultimo registro", latest_date)
+        st.metric("Último registro", latest_date)
     with m3:
         st.metric("Prom. abiertos", format_seconds(open_mean))
     with m4:
@@ -674,7 +674,7 @@ def render_global_kpis(df_hist):
 
 
 def render_global_chart(df_view):
-    st.markdown("#### Comparativa rapida")
+    st.markdown("#### Comparativa rápida")
     chart_df = df_view.copy()
     chart_df["Registro"] = chart_df.apply(
         lambda row: f"#{row['id']} | {row['rat_id']}",
@@ -738,7 +738,7 @@ def generate_experiments_json(df_experiments):
         "metadata": {
             "exported_at": datetime.now().isoformat(),
             "total_experiments": len(df_experiments),
-            "system": "Sistema EPM - Análisis de Comportamiento Animal",
+            "system": "Prototipo EPM - Análisis de Comportamiento Animal",
             "institution": "IPN - ESCOM - TT 2026"
         },
         "experiments": []
@@ -795,7 +795,7 @@ def generate_experiments_pdf(df_experiments):
         styles = getSampleStyleSheet()
         
         # Título simple
-        elements.append(Paragraph("Sistema de Analisis EPM", styles['Title']))
+        elements.append(Paragraph("Prototipo de Análisis EPM", styles['Title']))
         elements.append(Spacer(1, 12))
         elements.append(Paragraph("Instituto Politecnico Nacional - ESCOM", styles['Normal']))
         elements.append(Spacer(1, 12))
@@ -833,7 +833,7 @@ def generate_experiments_pdf(df_experiments):
         elements.append(Spacer(1, 20))
         
         # Estadísticas
-        elements.append(Paragraph("Estadisticas Resumidas", styles['Heading2']))
+        elements.append(Paragraph("Estadísticas resumidas", styles['Heading2']))
         elements.append(Spacer(1, 12))
         
         stats_data = [
@@ -943,7 +943,7 @@ def generate_experiments_html_as_pdf(df_experiments):
     </head>
     <body>
         <div class="header">
-            <h1>Sistema de Análisis EPM</h1>
+            <h1>Prototipo de Análisis EPM</h1>
             <p>Instituto Politécnico Nacional - ESCOM</p>
             <p>Reporte de Experimentos - {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
         </div>
@@ -1023,7 +1023,7 @@ def generate_experiments_html_as_pdf(df_experiments):
         </div>
         
         <div class="footer">
-            Sistema EPM - TT 2026 | Generado automáticamente<br>
+            Prototipo EPM - TT 2026 | Generado automáticamente<br>
             Para guardar como PDF: Ctrl+P → Guardar como PDF
         </div>
     </body>
@@ -1164,11 +1164,11 @@ def render_inline_time_editor_form(engine, record_id, current_values,
         )
     with info_col:
         if not has_changes:
-            st.caption("Edita un valor para activar el boton de guardado.")
+            st.caption("Edita un valor para activar el botón de guardado.")
         elif not has_note:
-            st.caption("Escribi un motivo para poder guardar (queda en el historial).")
+            st.caption("Escribe un motivo para poder guardar (queda en el historial).")
         else:
-            st.caption("Listo para guardar. Los cambios fluyen al modulo de Comparacion.")
+            st.caption("Listo para guardar. Los cambios fluyen al módulo de Comparación.")
 
     if save_clicked:
         ok, msg = update_experiment_times(
@@ -1203,7 +1203,7 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
     metric_thigmo = coalesce_metric(record, trajectory_bundle, "thigmo_t")
 
     st.markdown('<div class="content-card" style="border-top: 4px solid #6F1D46;">', unsafe_allow_html=True)
-    st.markdown(f"#### Analisis del registro #{record['id']}")
+    st.markdown(f"#### Análisis del registro #{record['id']}")
 
     if engine and record_id > 0:
         render_edit_badge(engine, record_id)
@@ -1268,7 +1268,7 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
 
     chart_left, chart_right = st.columns(2)
     with chart_left:
-        st.markdown("##### Distribucion espacial")
+        st.markdown("##### Distribución espacial")
         distribution_df = build_distribution_dataframe(
             {
                 "open_t": metric_open,
@@ -1309,7 +1309,7 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
         st.plotly_chart(fig_behavior, use_container_width=True, key=f"detail_behavior_{record_id}")
 
     if not trajectory_bundle:
-        st.info("No se encontro el archivo de trayectoria final para generar mapas y series temporales.")
+        st.info("No se encontró el archivo de trayectoria final para generar mapas y series temporales.")
         st.markdown("</div>", unsafe_allow_html=True)
         return
 
@@ -1356,7 +1356,7 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
         video_path=record.get("video_path"),
     )
     if heatmap_image is None:
-        st.info("La trayectoria no trae suficientes coordenadas validas para construir el mapa de calor.")
+        st.info("La trayectoria no trae suficientes coordenadas válidas para construir el mapa de calor.")
     else:
         st.image(
             heatmap_image,
@@ -1365,7 +1365,7 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
         )
 
         # Recuadro separado con la leyenda de la escala de colores.
-        st.markdown("**Como leer este mapa**")
+        st.markdown("**Cómo leer este mapa**")
         st.image(
             build_plasma_colorbar(),
             use_container_width=True,
@@ -1397,7 +1397,7 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesion antes de usar el sistema.")
+    st.warning("Debes iniciar sesión antes de usar el prototipo.")
     st.stop()
 
 # ================= 2. DATABASE CONNECTION =================
@@ -1411,7 +1411,7 @@ engine = load_resource_with_splash(
 
 # ================= 3. CABECERA =================
 render_topbar()
-st.markdown("### Modulo 05: Resultados y Estadisticas")
+st.markdown("### Módulo 05: Resultados y estadísticas")
 st.markdown(
     """
     Dashboard para revisar metrica conductual real del experimento:
@@ -1430,7 +1430,7 @@ try:
         df_hist = build_session_fallback_dataframe()
 
     if df_hist.empty:
-        st.info("No hay experimentos analizados ni trayectorias disponibles todavia.")
+        st.info("No hay experimentos analizados ni trayectorias disponibles todavía.")
     else:
         numeric_cols = ["open_t", "closed_t", "center_t", "grooming_t", "thigmo_t"]
         for column in numeric_cols:
@@ -1455,7 +1455,7 @@ try:
 
         render_global_kpis(df_scope if not df_scope.empty else df_hist.iloc[0:0].copy())
         st.markdown("<br>", unsafe_allow_html=True)
-        st.info("Filtra registros y luego selecciona uno para ver detalles y graficas.")
+        st.info("Filtra registros y luego selecciona uno para ver detalles y gráficas.")
 
         filter_col1, filter_col2, filter_col3 = st.columns(3)
         with filter_col1:
@@ -1527,6 +1527,24 @@ try:
             for exp_id in st.session_state.get("results_selected_ids", [])
             if str(exp_id).isdigit()
         }
+
+        # Fusionar cambios pendientes del editor (edited_rows) para que un rerun
+        # intermedio no borre checkboxes que el usuario acaba de marcar/desmarcar.
+        _editor_state = st.session_state.get("results_selection_editor", {})
+        _edited_rows = (_editor_state or {}).get("edited_rows", {})
+        _id_list = display_df["ID"].astype(int).tolist()
+        for _row_idx_str, _row_changes in _edited_rows.items():
+            try:
+                _row_idx = int(_row_idx_str)
+                _exp_id = _id_list[_row_idx]
+                if "Seleccionar" in _row_changes:
+                    if _row_changes["Seleccionar"]:
+                        selected_before.add(_exp_id)
+                    else:
+                        selected_before.discard(_exp_id)
+            except (IndexError, KeyError, ValueError, TypeError):
+                pass
+
         visible_ids = {int(exp_id) for exp_id in display_df["ID"].tolist()}
         selected_before = selected_before.intersection(visible_ids)
         if not selected_before and len(visible_ids) == 1:
@@ -1700,9 +1718,9 @@ try:
             
             # Mostrar botón para guardar cambios si se detectaron modificaciones autorizadas
             if changes_detected:
-                st.warning(f"Se detectaron {len(changes_detected)} cambio(s) autorizados en los tiempos. Presiona 'Guardar Cambios' para aplicarlos a la base de datos.")
+                st.warning(f"Se detectaron {len(changes_detected)} cambio(s) autorizados en los tiempos. Presiona 'Guardar cambios' para aplicarlos a la base de datos.")
                 
-                if st.button("Guardar Cambios", type="primary", key="save_time_changes"):
+                if st.button("Guardar cambios", type="primary", key="save_time_changes"):
                     success_count = 0
                     error_count = 0
                     
@@ -1755,7 +1773,7 @@ try:
             st.caption(f"Seleccionados para visualizar: {len(selected_ids)}")
             
             # Botones de descarga de reportes
-            st.markdown("##### Descargar Reportes")
+            st.markdown("##### Descargar reportes")
             col_csv, col_json, col_pdf = st.columns(3)
             
             with col_csv:
@@ -1818,7 +1836,7 @@ try:
                     key="results_delete_confirm",
                 )
                 if st.button(
-                    "BORRAR MIS EXPERIMENTOS SELECCIONADOS",
+                    "Borrar mis experimentos seleccionados",
                     type="secondary",
                     use_container_width=True,
                     disabled=not owned_selected_ids or not delete_confirmed,
@@ -1864,7 +1882,7 @@ try:
                     )
                     st.markdown("<br>", unsafe_allow_html=True)
             else:
-                st.info("Selecciona al menos un experimento en la tabla para ver sus graficas y detalles.")
+                st.info("Selecciona al menos un experimento en la tabla para ver sus gráficas y detalles.")
         else:
             st.warning("No hay registros que coincidan con los filtros actuales.")
 except Exception as error:

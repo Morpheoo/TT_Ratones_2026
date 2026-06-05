@@ -1,0 +1,252 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Arquitectura del prototipo TT Ratones 2026</title>
+  <desc id="desc">Diagrama de arquitectura en tres capas: presentación, lógica de negocio y datos, con flujo de trabajo direccional de izquierda a derecha.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #fffdf8; }
+      .panel { fill: #fffefa; stroke: #c49a3a; stroke-width: 1.5; rx: 16; }
+      .service-panel { fill: #ffffff; stroke: #8d8d8d; stroke-width: 1.5; rx: 14; }
+      .header { fill: #8a1538; rx: 8; }
+      .box { fill: #fffdf8; stroke: #c49a3a; stroke-width: 1.6; rx: 10; }
+      .db-box { fill: #f8fff8; stroke: #2f7d32; stroke-width: 1.5; rx: 10; }
+      .input-box { fill: #ffffff; stroke: #c49a3a; stroke-width: 1.8; rx: 12; }
+      .icon-circle { fill: #8a1538; }
+      .num-circle { fill: #c49a3a; stroke: #8a1538; stroke-width: 1; }
+      .title-text { fill: #ffffff; font-family: Arial, sans-serif; font-size: 24px; font-weight: 700; }
+      .section-text { fill: #8a1538; font-family: Arial, sans-serif; font-size: 20px; font-weight: 700; }
+      .label { fill: #2b2b2b; font-family: Arial, sans-serif; font-size: 14px; }
+      .small { fill: #6f5316; font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; }
+      .white { fill: #ffffff; font-family: Arial, sans-serif; font-size: 16px; font-weight: 700; }
+      .module-title { fill: #ffffff; font-family: Arial, sans-serif; font-size: 14px; font-weight: 700; }
+      .module-body { fill: #7a5a13; font-family: Arial, sans-serif; font-size: 14px; font-weight: 700; }
+      .arrow { stroke: #c49a3a; stroke-width: 4; fill: none; marker-end: url(#arrowhead); }
+      .thin-arrow { stroke: #c49a3a; stroke-width: 2.5; fill: none; marker-end: url(#arrowheadSmall); }
+      .data-arrow { stroke: #2f7d32; stroke-width: 2.5; fill: none; marker-end: url(#arrowheadData); }
+      .legend-line { stroke: #c49a3a; stroke-width: 4; fill: none; marker-end: url(#arrowhead); }
+    </style>
+
+    <marker id="arrowhead" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto">
+      <path d="M0,0 L14,5 L0,10 Z" fill="#c49a3a" />
+    </marker>
+    <marker id="arrowheadSmall" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#c49a3a" />
+    </marker>
+    <marker id="arrowheadData" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#2f7d32" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="900"/>
+
+  <!-- CAPA DE PRESENTACION -->
+  <rect class="panel" x="220" y="18" width="1360" height="165"/>
+  <circle class="icon-circle" cx="265" cy="82" r="34"/>
+  <text class="white" x="265" y="78" text-anchor="middle">UI</text>
+  <text class="section-text" x="312" y="76">PRESENTACION</text>
+  <text class="section-text" x="312" y="102">(CAPA UI)</text>
+
+  <rect class="header" x="488" y="28" width="988" height="44"/>
+  <text class="title-text" x="982" y="57" text-anchor="middle">Interfaz de Usuario Multipagina (Streamlit)</text>
+
+  <rect class="box" x="488" y="72" width="988" height="96"/>
+  <line x1="675" y1="88" x2="675" y2="151" stroke="#d2c2a5"/>
+  <line x1="860" y1="88" x2="860" y2="151" stroke="#d2c2a5"/>
+  <line x1="1045" y1="88" x2="1045" y2="151" stroke="#d2c2a5"/>
+  <line x1="1230" y1="88" x2="1230" y2="151" stroke="#d2c2a5"/>
+  <text class="label" x="580" y="111" text-anchor="middle">Dashboard</text>
+  <text class="label" x="580" y="132" text-anchor="middle">interactivo</text>
+  <text class="label" x="767" y="111" text-anchor="middle">Trayectorias</text>
+  <text class="label" x="767" y="132" text-anchor="middle">y heatmaps</text>
+  <text class="label" x="952" y="111" text-anchor="middle">Gestion de</text>
+  <text class="label" x="952" y="132" text-anchor="middle">experimentos</text>
+  <text class="label" x="1137" y="111" text-anchor="middle">Edicion manual</text>
+  <text class="label" x="1137" y="132" text-anchor="middle">de eventos</text>
+  <text class="label" x="1353" y="111" text-anchor="middle">Reportes y</text>
+  <text class="label" x="1353" y="132" text-anchor="middle">exportaciones</text>
+
+  <!-- ENTRADA -->
+  <rect class="input-box" x="16" y="252" width="145" height="250"/>
+  <rect class="header" x="16" y="252" width="145" height="35"/>
+  <text class="white" x="88" y="275" text-anchor="middle">ENTRADA</text>
+  <text class="label" x="88" y="364" text-anchor="middle" font-size="56">MP4</text>
+  <text class="label" x="88" y="432" text-anchor="middle" font-size="18">Video MP4</text>
+  <text class="label" x="88" y="456" text-anchor="middle" font-size="18">(EPM cenital)</text>
+
+  <!-- CAPA DE LOGICA -->
+  <rect class="service-panel" x="206" y="230" width="1378" height="330"/>
+  <circle class="icon-circle" cx="244" cy="313" r="32"/>
+  <text class="white" x="244" y="319" text-anchor="middle">⚙</text>
+  <text class="section-text" x="220" y="370">LOGICA DE</text>
+  <text class="section-text" x="220" y="397">NEGOCIO</text>
+  <text class="section-text" x="220" y="424">(FLUJO DE</text>
+  <text class="section-text" x="220" y="451">TRABAJO)</text>
+
+  <!-- Modulos -->
+  <g id="modules">
+    <g transform="translate(362,252)">
+      <rect class="box" width="166" height="290"/>
+      <rect class="header" width="166" height="64"/>
+      <circle class="num-circle" cx="24" cy="26" r="15"/>
+      <text class="white" x="24" y="32" text-anchor="middle">1</text>
+      <text class="module-title" x="92" y="24" text-anchor="middle">Ingesta y</text>
+      <text class="module-title" x="92" y="43" text-anchor="middle">preprocesamiento</text>
+      <text class="module-body" x="83" y="205" text-anchor="middle">Python</text>
+      <text class="module-body" x="83" y="227" text-anchor="middle">OpenCV</text>
+      <text class="module-body" x="83" y="249" text-anchor="middle">FFmpeg</text>
+    </g>
+    <g transform="translate(550,252)">
+      <rect class="box" width="166" height="290"/>
+      <rect class="header" width="166" height="64"/>
+      <circle class="num-circle" cx="24" cy="26" r="15"/>
+      <text class="white" x="24" y="32" text-anchor="middle">2</text>
+      <text class="module-title" x="94" y="24" text-anchor="middle">Pose estimation</text>
+      <text class="module-title" x="94" y="43" text-anchor="middle">YOLO Pose v4</text>
+      <text class="module-body" x="83" y="205" text-anchor="middle">8 keypoints</text>
+      <text class="module-body" x="83" y="227" text-anchor="middle">anatomicos</text>
+      <text class="module-body" x="83" y="249" text-anchor="middle">por frame</text>
+    </g>
+    <g transform="translate(738,252)">
+      <rect class="box" width="166" height="290"/>
+      <rect class="header" width="166" height="64"/>
+      <circle class="num-circle" cx="24" cy="26" r="15"/>
+      <text class="white" x="24" y="32" text-anchor="middle">3</text>
+      <text class="module-title" x="94" y="24" text-anchor="middle">Puente</text>
+      <text class="module-title" x="94" y="43" text-anchor="middle">YOLO a SimBA</text>
+      <text class="module-body" x="83" y="205" text-anchor="middle">Bridge CSV</text>
+      <text class="module-body" x="83" y="227" text-anchor="middle">alineacion de</text>
+      <text class="module-body" x="83" y="249" text-anchor="middle">formato</text>
+    </g>
+    <g transform="translate(926,252)">
+      <rect class="box" width="166" height="290"/>
+      <rect class="header" width="166" height="64"/>
+      <circle class="num-circle" cx="24" cy="26" r="15"/>
+      <text class="white" x="24" y="32" text-anchor="middle">4</text>
+      <text class="module-title" x="94" y="24" text-anchor="middle">Extraccion de</text>
+      <text class="module-title" x="94" y="43" text-anchor="middle">caracteristicas</text>
+      <text class="module-body" x="83" y="190" text-anchor="middle">242 features</text>
+      <text class="module-body" x="83" y="212" text-anchor="middle">espaciales y</text>
+      <text class="module-body" x="83" y="234" text-anchor="middle">de zona</text>
+      <text class="module-body" x="83" y="256" text-anchor="middle">en SimBA</text>
+    </g>
+    <g transform="translate(1114,252)">
+      <rect class="box" width="248" height="290"/>
+      <rect class="header" width="248" height="64"/>
+      <circle class="num-circle" cx="24" cy="26" r="15"/>
+      <text class="white" x="24" y="32" text-anchor="middle">5</text>
+      <text class="module-title" x="132" y="22" text-anchor="middle">Clasificacion de</text>
+      <text class="module-title" x="132" y="41" text-anchor="middle">conducta</text>
+      <rect x="24" y="92" width="200" height="45" fill="#ffffff" stroke="#d2c2a5" rx="8"/>
+      <text class="label" x="124" y="120" text-anchor="middle">RF SimBA Grooming</text>
+      <rect x="24" y="149" width="200" height="45" fill="#ffffff" stroke="#d2c2a5" rx="8"/>
+      <text class="label" x="124" y="177" text-anchor="middle">RF SimBA Thigmotaxis</text>
+      <rect x="24" y="206" width="200" height="45" fill="#ffffff" stroke="#d2c2a5" rx="8"/>
+      <text class="label" x="124" y="234" text-anchor="middle">LSTM Rescue</text>
+    </g>
+    <g transform="translate(1384,252)">
+      <rect class="box" width="166" height="290"/>
+      <rect class="header" width="166" height="64"/>
+      <circle class="num-circle" cx="24" cy="26" r="15"/>
+      <text class="white" x="24" y="32" text-anchor="middle">6</text>
+      <text class="module-title" x="94" y="24" text-anchor="middle">Renderizado</text>
+      <text class="module-title" x="94" y="43" text-anchor="middle">multimodal</text>
+      <text class="module-body" x="83" y="190" text-anchor="middle">Video anotado</text>
+      <text class="module-body" x="83" y="214" text-anchor="middle">CSV trayectoria</text>
+      <text class="module-body" x="83" y="238" text-anchor="middle">Timelogs</text>
+      <text class="module-body" x="83" y="262" text-anchor="middle">de eventos</text>
+    </g>
+  </g>
+
+  <!-- Flechas principales -->
+  <path class="arrow" d="M161 377 H350"/>
+  <path class="arrow" d="M528 397 H540"/>
+  <path class="arrow" d="M716 397 H728"/>
+  <path class="arrow" d="M904 397 H916"/>
+  <path class="arrow" d="M1092 397 H1104"/>
+  <path class="arrow" d="M1362 397 H1374"/>
+
+  <!-- CAPA DE DATOS -->
+  <rect class="panel" x="204" y="606" width="1290" height="190"/>
+  <circle class="icon-circle" cx="244" cy="660" r="32"/>
+  <text class="white" x="244" y="666" text-anchor="middle">DB</text>
+  <text class="section-text" x="288" y="654">DATOS Y</text>
+  <text class="section-text" x="288" y="681">PERSISTENCIA</text>
+  <text class="section-text" x="288" y="708">(CAPA DE DATOS)</text>
+
+  <rect class="header" x="458" y="620" width="795" height="44"/>
+  <text class="title-text" x="855" y="649" text-anchor="middle">Base de Datos Relacional (PostgreSQL + SQLAlchemy)</text>
+  <text class="section-text" x="1280" y="650">PostgreSQL</text>
+
+  <rect class="box" x="458" y="664" width="795" height="112"/>
+  <line x1="656" y1="682" x2="656" y2="757" stroke="#d2c2a5"/>
+  <line x1="855" y1="682" x2="855" y2="757" stroke="#d2c2a5"/>
+  <line x1="1054" y1="682" x2="1054" y2="757" stroke="#d2c2a5"/>
+  <text class="label" x="557" y="705" text-anchor="middle">Metadatos de</text>
+  <text class="label" x="557" y="726" text-anchor="middle">experimentos</text>
+  <text class="label" x="557" y="747" text-anchor="middle">usuarios/tratamientos</text>
+  <text class="label" x="755" y="705" text-anchor="middle">Configuracion</text>
+  <text class="label" x="755" y="726" text-anchor="middle">de ROIs</text>
+  <text class="label" x="755" y="747" text-anchor="middle">JSONB</text>
+  <text class="label" x="955" y="705" text-anchor="middle">Metricas agregadas</text>
+  <text class="label" x="955" y="726" text-anchor="middle">y resultados</text>
+  <text class="label" x="955" y="747" text-anchor="middle">de analisis</text>
+  <text class="label" x="1154" y="705" text-anchor="middle">Historial auditado</text>
+  <text class="label" x="1154" y="726" text-anchor="middle">de ediciones</text>
+  <text class="label" x="1154" y="747" text-anchor="middle">behavior_edits</text>
+
+  <rect class="db-box" x="1278" y="674" width="165" height="90"/>
+  <text class="label" x="1360" y="708" text-anchor="middle">Artefactos locales</text>
+  <text class="label" x="1360" y="730" text-anchor="middle">keypoints, modelos,</text>
+  <text class="label" x="1360" y="752" text-anchor="middle">videos y CSV</text>
+
+  <!-- Flechas entre capas: solo direccionales y con impacto claro -->
+  <path class="thin-arrow" d="M952 168 V242"/>
+  <text class="small" x="964" y="209">registra/ejecuta</text>
+
+  <path class="thin-arrow" d="M1137 168 V594 H1154 V674"/>
+  <text class="small" x="1164" y="590">audita ediciones</text>
+
+  <path class="thin-arrow" d="M1435 168 V242"/>
+  <text class="small" x="1447" y="209">solicita exportacion</text>
+
+  <path class="data-arrow" d="M445 542 V674 H557"/>
+  <text class="small" x="470" y="604">guarda metadatos</text>
+
+  <path class="data-arrow" d="M755 674 V575 H1009 V542"/>
+  <text class="small" x="787" y="604">provee ROIs</text>
+
+  <path class="data-arrow" d="M633 542 V820 H1360 V764"/>
+  <text class="small" x="667" y="817">guarda keypoints</text>
+
+  <path class="data-arrow" d="M821 542 V820 H1360"/>
+  <text class="small" x="856" y="817">guarda bridge CSV</text>
+
+  <path class="data-arrow" d="M1009 542 V820 H1360"/>
+  <text class="small" x="1042" y="817">guarda features</text>
+
+  <path class="data-arrow" d="M1360 674 V586 H1238 V542"/>
+  <text class="small" x="1260" y="604">features/modelos</text>
+
+  <path class="data-arrow" d="M1467 542 V674 H1360"/>
+  <text class="small" x="1390" y="604">guarda video y CSV</text>
+
+  <path class="data-arrow" d="M1467 542 V674 H955"/>
+  <text class="small" x="1025" y="604">guarda metricas</text>
+
+  <path class="thin-arrow" d="M955 664 V595 H580 V168"/>
+  <text class="small" x="585" y="594">publica resultados</text>
+
+  <path class="thin-arrow" d="M1360 674 V590 H767 V168"/>
+  <text class="small" x="775" y="590">genera visualizaciones</text>
+
+  <path class="thin-arrow" d="M955 664 V585 H1353 V168"/>
+  <text class="small" x="1190" y="584">alimenta reportes</text>
+
+  <!-- Leyenda -->
+  <rect x="16" y="770" width="265" height="88" fill="#ffffff" stroke="#d8c28a" stroke-dasharray="5 4" rx="10"/>
+  <text class="label" x="34" y="795" font-weight="700">Leyenda</text>
+  <path class="legend-line" d="M38 820 H86"/>
+  <text class="label" x="100" y="825">Flujo de datos/procesamiento</text>
+  <path class="data-arrow" d="M38 845 H86"/>
+  <text class="label" x="100" y="850">Persistencia o consulta de datos</text>
+</svg>

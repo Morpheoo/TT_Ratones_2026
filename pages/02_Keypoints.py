@@ -46,7 +46,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -60,7 +60,7 @@ with st.sidebar:
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesion antes de usar el sistema.")
+    st.warning("Debes iniciar sesión antes de usar el prototipo.")
     st.stop()
 
 run_page_splash(
@@ -70,7 +70,7 @@ run_page_splash(
         "Validando contexto de video...",
         "Preparando panel de inferencia...",
     ],
-    subtitle="TT 2026 - Cargando extraccion de keypoints...",
+    subtitle="TT 2026 - Cargando extracción de keypoints...",
 )
 
 
@@ -114,7 +114,7 @@ def read_log_lines(log_path):
 
 def trim_log_text(lines, max_lines=120):
     if not lines:
-        return "[INFO] Aun no hay logs de ejecucion."
+        return "[INFO] Aún no hay logs de ejecución."
     return "\n".join(lines[-max_lines:])
 
 
@@ -190,7 +190,7 @@ def infer_extract_outcome(lines):
 
 def parse_extract_progress(lines, current_progress):
     progress = max(current_progress, 0.02)
-    status = "Preparando extraccion y postproceso..."
+    status = "Preparando extracción y posproceso..."
 
     is_yolo = any("[STEP] YOLO_POSE" in line for line in lines)
 
@@ -203,7 +203,7 @@ def parse_extract_progress(lines, current_progress):
             status = "Preparando entorno DLC..."
         elif "[STEP] BOOT" in line:
             progress = max(progress, 0.08)
-            status = "Preparando entorno DLC..." if not is_yolo else "Iniciando pipeline YOLO Pose..."
+            status = "Preparando entorno DLC..." if not is_yolo else "Iniciando flujo YOLO Pose..."
         elif "[STEP] TRIM" in line:
             progress = max(progress, 0.12)
             status = "Aplicando recorte seleccionado..."
@@ -220,7 +220,7 @@ def parse_extract_progress(lines, current_progress):
             progress = max(progress, 0.65 if is_yolo else 0.82)
             status = "Sincronizando pose y features en SimBA..."
         elif "[STEP] ERROR" in line or line.startswith("[ERROR]"):
-            status = "La extraccion termino con error."
+            status = "La extracción terminó con error."
 
     for line in reversed(lines):
         trim_match = re.search(r"\[TRIM\]\s+(\d+)/(\d+)", line)
@@ -261,7 +261,7 @@ def parse_extract_progress(lines, current_progress):
             total = max(int(bbox_render_match.group(2)), 1)
             ratio = current / total
             progress = max(progress, 0.74 + (0.08 * ratio))
-            status = f"Renderizando validacion bbox... {int(ratio * 100)}%"
+            status = f"Renderizando validación bbox... {int(ratio * 100)}%"
             break
 
         if "[ENGINE] EXITO: metricas generadas" in line or "[OUTPUT] FEATURE_CSV=" in line:
@@ -432,7 +432,7 @@ def launch_background_extract(command):
     wrapper_script = os.path.abspath(os.path.join("src", "scripts", "run_with_live_log.py"))
 
     with open(log_path, "w", encoding="utf-8") as file_handle:
-        file_handle.write("[INFO] Lanzando extraccion de keypoints en segundo plano...\n")
+        file_handle.write("[INFO] Lanzando extracción de keypoints en segundo plano...\n")
 
     wrapper_command = [
         sys.executable,
@@ -462,7 +462,7 @@ def launch_background_extract(command):
     }
     save_process_meta(meta)
     st.session_state["keypoints_show_completion_toast"] = False
-    st.session_state["keypoints_last_status"] = "Extraccion y preparacion bbox/SimBA lanzadas en segundo plano."
+    st.session_state["keypoints_last_status"] = "Extracción y preparación bbox/SimBA lanzadas en segundo plano."
     st.session_state["keypoints_last_progress"] = 0.03
     st.session_state["keypoints_last_logs"] = trim_log_text(read_log_lines(log_path))
     st.session_state["ultimo_overlay_path"] = None
@@ -490,7 +490,7 @@ def cancel_background_extract(meta):
     meta["completed_at"] = time.time()
     meta["completion_handled"] = False
     save_process_meta(meta)
-    st.session_state["keypoints_last_status"] = "Extraccion cancelada por el usuario."
+    st.session_state["keypoints_last_status"] = "Extracción cancelada por el usuario."
     st.session_state["keypoints_last_progress"] = 0.12
     st.session_state["keypoints_last_logs"] = trim_log_text(read_log_lines(log_path), max_lines=160)
     save_session()
@@ -529,10 +529,10 @@ def get_extract_snapshot():
                     st.session_state["keypoints_show_completion_toast"] = True
             elif outcome == "cancelled":
                 progress = min(max(progress, 0.1), 0.95)
-                status = "Extraccion cancelada por el usuario."
+                status = "Extracción cancelada por el usuario."
             else:
                 progress = min(max(progress, 0.1), 0.95)
-                status = "La extraccion de keypoints termino con error."
+                status = "La extracción de keypoints terminó con error."
 
             meta["last_progress"] = progress
             meta["last_status"] = status
@@ -549,10 +549,10 @@ def get_extract_snapshot():
                 status = "Keypoints, filtro bbox y bridge SimBA listos."
             elif inferred_outcome == "cancelled":
                 progress = min(max(progress, 0.1), 0.95)
-                status = "Extraccion cancelada por el usuario."
+                status = "Extracción cancelada por el usuario."
             elif inferred_outcome in {"error", "stopped"}:
                 progress = min(max(progress, 0.1), 0.95)
-                status = "La extraccion de keypoints termino con error."
+                status = "La extracción de keypoints terminó con error."
 
     st.session_state["keypoints_last_logs"] = trim_log_text(lines, max_lines=160)
     st.session_state["keypoints_last_status"] = status
@@ -635,7 +635,7 @@ def build_keypoints_main_outputs():
         ("Pose DLC cruda (H5)", st.session_state.get("ultimo_pose_crudo_file")),
         ("Pose filtrada bbox (H5)", st.session_state.get("ultimo_pose_filtrado")),
         ("CSV filtrado bbox", st.session_state.get("ultimo_pose_filtrado_csv")),
-        ("Video de validacion bbox", st.session_state.get("ultimo_bbox_video")),
+        ("Video de validación bbox", st.session_state.get("ultimo_bbox_video")),
         ("Features SimBA (CSV)", st.session_state.get("ultimo_feature_file")),
         ("Vista previa HUD", st.session_state.get("ultimo_overlay_path")),
     ]
@@ -671,17 +671,17 @@ def render_output_panel(snapshot=None):
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     st.markdown("#### Resumen de salida")
     st.caption(
-        "Este modulo deja lista la pose cruda, aplica el filtro bbox y sincroniza el bridge hacia SimBA. "
+        "Este módulo deja lista la pose cruda, aplica el filtro bbox y sincroniza el bridge hacia SimBA. "
         "La vista previa HUD es un overlay de control de calidad y prioriza la pose filtrada si ya existe. "
-        "El video multimodal final sigue viviendo en el Modulo 04."
+        "El video multimodal final se encuentra en el Módulo 04."
     )
 
     if is_extract_completed(snapshot) and main_outputs:
         st.success(
-            "Proceso completado correctamente. Los keypoints, el filtro bbox y la sincronizacion hacia SimBA ya estan listos."
+            "Proceso completado correctamente. Los keypoints, el filtro bbox y la sincronización hacia SimBA ya están listos."
         )
         st.markdown("##### Archivos principales")
-        st.caption("Estas son las rutas utiles para encontrar rapidamente los resultados del proceso.")
+        st.caption("Estas son las rutas útiles para encontrar rápidamente los resultados del proceso.")
         for label, file_path in main_outputs:
             st.markdown(f"**{label}**")
             st.code(file_path, language=None)
@@ -690,7 +690,7 @@ def render_output_panel(snapshot=None):
         for file_path in generated_files:
             st.write(f"- `{os.path.basename(file_path)}`")
     else:
-        st.info("Todavia no hay archivos de keypoints generados para este video.")
+        st.info("Todavía no hay archivos de keypoints generados para este video.")
 
     if generated_files:
         with st.expander("Ver todos los archivos detectados", expanded=False):
@@ -714,7 +714,7 @@ def render_output_panel(snapshot=None):
     st.markdown("---")
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        if st.button("ABRIR CARPETA KEYPOINTS YOLO", use_container_width=True, key="btn_open_kp_folder"):
+        if st.button("Abrir carpeta de keypoints YOLO", use_container_width=True, key="btn_open_kp_folder"):
             os.makedirs(keypoints_yolo_dir, exist_ok=True)
             subprocess.Popen(["explorer", keypoints_yolo_dir])
             st.toast(f"Abriendo: {keypoints_yolo_dir}")
@@ -783,7 +783,7 @@ def render_loading_animation(message):
 def inject_close_warning():
     """
     Registra un listener `beforeunload` en la pestaña del navegador para
-    advertir antes de cerrar/recargar mientras corre la extraccion.
+    advertir antes de cerrar/recargar mientras corre la extracción.
 
     El listener vive en window.top (no en el iframe del componente) y se
     registra una sola vez via flag global. Asi sobrevive a reruns de
@@ -799,7 +799,7 @@ def inject_close_warning():
                     return;  // ya esta registrado
                 }
                 function handleBeforeUnload(e) {
-                    var msg = 'Hay un proceso de extraccion de keypoints en ejecucion. Si cierra o recarga la pagina, el proceso se detendra y perdera el progreso.';
+                    var msg = 'Hay un proceso de extracción de keypoints en ejecución. Si cierra o recarga la página, el proceso se detendrá y perderá el progreso.';
                     e.preventDefault();
                     e.returnValue = msg;
                     return msg;
@@ -839,16 +839,16 @@ def remove_close_warning():
 
 
 def render_log_panel(snapshot=None):
-    st.markdown("#### Estado y Logs")
+    st.markdown("#### Estado y logs")
     if snapshot:
         last_progress = float(snapshot.get("progress", 0.0) or 0.0)
-        last_status = snapshot.get("status", "Aun no se inicia una ejecucion real de keypoints.")
+        last_status = snapshot.get("status", "Aún no se inicia una ejecución real de keypoints.")
         last_logs = trim_log_text(snapshot.get("lines", []), max_lines=160)
         is_running = snapshot.get("is_running", False)
     else:
         last_progress = float(st.session_state.get("keypoints_last_progress", 0.0) or 0.0)
-        last_status = st.session_state.get("keypoints_last_status", "Aun no se inicia una ejecucion real de keypoints.")
-        last_logs = st.session_state.get("keypoints_last_logs", "[INFO] Aun no hay logs de ejecucion.")
+        last_status = st.session_state.get("keypoints_last_status", "Aún no se inicia una ejecución real de keypoints.")
+        last_logs = st.session_state.get("keypoints_last_logs", "[INFO] Aún no hay logs de ejecución.")
         is_running = False
     
     # Mostrar animación si el proceso está corriendo
@@ -897,10 +897,10 @@ def build_extract_command(batch_size, device_option, yolo_mode=False):
     if yolo_mode:
         command.extend(["--backend", "yolo"])
     else:
-        if end_seconds is not None:
-            command.extend(["--end-seconds", str(int(end_seconds))])
-        if device_option == "CPU (Forzar)":
+        if device_option == "CPU (forzar)":
             command.append("--force-cpu")
+    if end_seconds is not None:
+        command.extend(["--end-seconds", str(int(end_seconds))])
     if zones:
         zones_path = os.path.join(ensure_logs_dir(), "keypoints_zonas_activas.json")
         with open(zones_path, "w", encoding="utf-8") as file_handle:
@@ -914,7 +914,7 @@ def build_render_command():
         st.session_state.get("ultimo_video_analizado") or st.session_state.get("ruta_video_actual")
     )
     if not pose_path:
-        raise FileNotFoundError("No se encontro un archivo de pose DLC para renderizar.")
+        raise FileNotFoundError("No se encontró un archivo de pose DLC para renderizar.")
 
     analysis_video = st.session_state.get("ultimo_video_analizado") or st.session_state.get("ruta_video_actual")
     output_path = os.path.splitext(os.path.abspath(analysis_video))[0] + "_dlc_overlay.mp4"
@@ -934,11 +934,11 @@ def build_render_command():
 
 # ================= 2. CABECERA =================
 render_topbar()
-st.markdown("### Modulo 02: Extraccion de Keypoints")
+st.markdown("### Módulo 02: Extracción de keypoints")
 st.markdown(
     """
-    Proceso de vision computacional para la extraccion de coordenadas anatomicas.
-    Utilice DeepLabCut SuperAnimal para procesar el video y generar una vista previa del overlay.
+    Proceso de visión computacional para la extracción de coordenadas anatómicas.
+    Utilice YOLO Pose para procesar el video y generar una vista previa del overlay.
     """
 )
 
@@ -955,12 +955,12 @@ if len(_available_projects) > 1:
         _current_choice = PRODUCTIVO_KEY
     _idx = _available_projects.index(_current_choice)
     _new_choice = st.selectbox(
-        "Proyecto SimBA destino",
+        "Proyecto SimBA de destino",
         options=_available_projects,
         index=_idx,
         format_func=format_project_label,
         help=(
-            "Elegi a que proyecto SimBA escribir las features, ROIs y "
+            "Elige a qué proyecto SimBA escribir las features, ROIs y "
             "video_info de este video. Usa 'Sandbox: ...' para no "
             "contaminar el proyecto productivo con escenarios "
             "experimentales."
@@ -975,17 +975,17 @@ if len(_available_projects) > 1:
         st.session_state["simba_project_choice"] = _new_choice
         if _new_choice != PRODUCTIVO_KEY:
             st.caption(
-                f"Las features, ROIs y video_info iran a: "
+                f"Las features, ROIs y video_info irán a: "
                 f"`data/simba_projects/{_new_choice}/`. El proyecto "
-                f"productivo no sera modificado."
+                f"productivo no será modificado."
             )
 
 st.divider()
 
 # ================= 3. VIDEO CHECK =================
-video_ok = render_video_banner("Sesion de Keypoints Activa")
+video_ok = render_video_banner("Sesión de keypoints activa")
 if not video_ok:
-    st.error("No hay video activo. Seleccionalo primero en Ingesta de Video.")
+    st.error("No hay video activo. Selecciónalo primero en Ingesta de video.")
     st.stop()
 
 active_video = st.session_state.get("ruta_video_actual")
@@ -1002,18 +1002,18 @@ extract_snapshot = get_extract_snapshot()
 if extract_snapshot["needs_rerun"]:
     st.rerun()
 if st.session_state.pop("keypoints_show_completion_toast", False):
-    st.toast("Extraccion completada. Revisa el panel de salida para ubicar los archivos generados.")
+    st.toast("Extracción completada. Revisa el panel de salida para ubicar los archivos generados.")
 
 # ================= 4. MAIN LAYOUT =================
 action = None
 batch_size = int(st.session_state.get("dlc_batch_size", 16) or 16)
-device_option = st.session_state.get("dlc_device_opt", "Auto (Recomendado)")
+device_option = st.session_state.get("dlc_device_opt", "Auto (recomendado)")
 
 col_left, col_right = st.columns([1, 1.35])
 
 with col_left:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("#### Configuracion del Motor")
+    st.markdown("#### Configuración del motor")
     # Motor fijo en YOLO — DLC disponible en código para versiones futuras
     motor = "YOLO Pose (Experimental)"
     st.info("Motor activo: **YOLO Pose v4** — 3,953 imágenes | mAP50: 99.5%")
@@ -1021,46 +1021,46 @@ with col_left:
     st.markdown("---")
     st.caption(f"Rango activo a analizar: `{get_trim_summary()}`")
 
-    with st.expander("Parametros de Analisis", expanded=True):
+    with st.expander("Parámetros de análisis", expanded=True):
         batch_size = st.slider(
-            "Batch Size",
+            "Tamaño de lote",
             min_value=4,
             max_value=32,
             value=int(st.session_state.get("dlc_batch_size", 16) or 16),
             step=4,
-            help="Capado a 32 para no castigar demasiado la GPU. En laptop, 16 suele ser el punto mas estable.",
+            help="Limitado a 32 para no exigir demasiado la GPU. En laptop, 16 suele ser el punto más estable.",
         )
         device_option = st.selectbox(
-            "Dispositivo Hardware",
-            ["Auto (Recomendado)", "CPU (Forzar)"],
-            index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
+            "Dispositivo de hardware",
+            ["Auto (recomendado)", "CPU (forzar)"],
+            index=0 if st.session_state.get("dlc_device_opt", "Auto (recomendado)") == "Auto (recomendado)" else 1,
         )
-        st.caption("Mi recomendacion: deja 32 como tope, pero usa 16 por default y sube a 24/32 solo si la GPU se mantiene estable.")
-        st.caption("Al terminar DLC, este flujo aplica bbox y deja sincronizado el bridge hacia SimBA en automatico.")
+        st.caption("Recomendación: deja 32 como tope, usa 16 por defecto y sube a 24/32 solo si la GPU se mantiene estable.")
+        st.caption("Al terminar, este flujo aplica bbox y deja sincronizado el bridge hacia SimBA en automático.")
 
     extraction_running = extract_snapshot["is_running"]
     yolo_mode = motor == "YOLO Pose (Experimental)"
     extraction_disabled = (not yolo_mode and not dlc_available) or extraction_running
     if not dlc_available and not yolo_mode:
-        st.error(f"No se encontro el interprete GPU esperado en `{dlc_python}`.")
+        st.error(f"No se encontró el intérprete GPU esperado en `{dlc_python}`.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     if extraction_running:
         st.info(
-            "La preparacion completa sigue corriendo en segundo plano. Puedes moverte entre modulos y volver; "
-            "esta pagina reconstruye el progreso leyendo el log del proceso."
+            "La preparación completa sigue corriendo en segundo plano. Puedes moverte entre módulos y volver; "
+            "esta página reconstruye el progreso leyendo el log del proceso."
         )
         c_action_1, c_action_2 = st.columns(2)
         with c_action_1:
             if st.button(
-                "DETENER EXTRACCION",
+                "Detener extracción",
                 use_container_width=True,
                 key="btn_stop_keypoints",
             ):
                 action = "cancel_extract"
         with c_action_2:
             if st.button(
-                "ABRIR CONSOLA DE LOGS",
+                "Abrir consola de logs",
                 use_container_width=True,
                 key="btn_open_keypoints_console",
             ):
@@ -1069,7 +1069,7 @@ with col_left:
             st.caption(f"PID activo: `{extract_snapshot['meta'].get('pid')}`")
     else:
         if st.button(
-            "INICIAR EXTRACCION",
+            "Iniciar extracción",
             type="primary",
             use_container_width=True,
             disabled=extraction_disabled,
@@ -1078,7 +1078,7 @@ with col_left:
             action = "extract"
         if os.path.exists(extract_snapshot["log_path"]):
             if st.button(
-                "ABRIR ULTIMA CONSOLA DE LOGS",
+                "Abrir última consola de logs",
                 use_container_width=True,
                 key="btn_open_keypoints_console_idle",
             ):
@@ -1089,14 +1089,14 @@ with col_right:
     render_output_panel(extract_snapshot)
     hud_disabled = pose_candidate is None or extract_snapshot["is_running"]
     if st.button(
-        "RENDERIZAR VISTA PREVIA (HUD)",
+        "Renderizar vista previa HUD",
         use_container_width=True,
         disabled=hud_disabled,
         key="btn_render_hud",
     ):
         action = "render"
     if hud_disabled:
-        st.caption("Primero extrae los keypoints para poder generar el overlay de inspeccion.")
+        st.caption("Primero extrae los keypoints para poder generar el overlay de inspección.")
 
 # ================= 5. ESTADO Y LOGS =================
 st.markdown("<br>", unsafe_allow_html=True)
@@ -1115,7 +1115,7 @@ elif action == "cancel_extract":
 
 elif action == "open_console":
     launch_log_viewer_console(extract_snapshot["log_path"], "TT 2026 - Logs Keypoints")
-    st.toast("Se abrio una consola adicional para monitorear los logs.")
+    st.toast("Se abrió una consola adicional para monitorear los logs.")
 
 elif action == "render":
     try:

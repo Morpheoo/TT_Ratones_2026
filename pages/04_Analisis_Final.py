@@ -32,14 +32,14 @@ from config import (
 )
 from sandbox_utils import get_active_simba_project_dir
 
-st.set_page_config(page_title="Analisis Final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Análisis final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesion antes de usar el sistema.")
+    st.warning("Debes iniciar sesión antes de usar el prototipo.")
     st.stop()
 
 run_page_splash(
@@ -49,7 +49,7 @@ run_page_splash(
         "Verificando modelos y recursos activos...",
         "Preparando ejecucion conductual...",
     ],
-    subtitle="TT 2026 - Cargando analisis final...",
+    subtitle="TT 2026 - Cargando análisis final...",
 )
 
 # ================= SIDEBAR =================
@@ -66,7 +66,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -99,7 +99,7 @@ def read_log_lines(log_path):
 
 def trim_log_text(lines, max_lines=180):
     if not lines:
-        return "[INFO] Aun no hay logs del pipeline."
+        return "[INFO] Aún no hay logs del pipeline."
     return "\n".join(lines[-max_lines:])
 
 
@@ -244,7 +244,7 @@ def launch_background_analysis(command, log_path):
     wrapper_command = [
         sys.executable, wrapper_script,
         "--log", log_path,
-        "--label", "TT 2026 - Analisis Final YOLO",
+        "--label", "TT 2026 - Análisis final YOLO",
         "--",
     ] + command
 
@@ -525,7 +525,7 @@ def load_previous_experiment_context(record):
 
     engine = get_db_engine()
     if not engine:
-        return False, "No se encontro conexion a PostgreSQL para recuperar zonas historicas."
+        return False, "No se encontró conexión a PostgreSQL para recuperar zonas históricas."
 
     experiment_id = int(record["id"])
     zones = load_experiment_zones(engine, experiment_id)
@@ -543,7 +543,7 @@ def load_previous_experiment_context(record):
     save_session()
 
     return True, (
-        f"Se cargo el registro previo #{experiment_id} para reprocesarlo con el pipeline actual. "
+        f"Se cargó el registro previo #{experiment_id} para reprocesarlo con el pipeline actual. "
         f"Recorte inferido: {format_mm_ss(start_seconds)} -> "
         f"{format_mm_ss(end_seconds) if end_seconds is not None else 'fin del video'}."
     )
@@ -683,7 +683,7 @@ def persist_summary_to_db(summary):
 
         engine = get_db_engine()
         if not engine:
-            return "No se encontro una conexion activa a PostgreSQL."
+            return "No se encontró una conexión activa a PostgreSQL."
 
         video_path = st.session_state.get("ruta_video_actual")
         if not video_path:
@@ -843,10 +843,10 @@ def persist_summary_to_db(summary):
 
 
 def render_status_panel():
-    st.markdown("#### Estado y Logs")
+    st.markdown("#### Estado y logs")
     last_progress = float(st.session_state.get("analysis_last_progress", 0.0) or 0.0)
-    last_status = st.session_state.get("analysis_last_status", "Aun no se ejecuta el pipeline final.")
-    last_logs = st.session_state.get("analysis_last_logs", "[INFO] Aun no hay logs del pipeline.")
+    last_status = st.session_state.get("analysis_last_status", "Aún no se ejecuta el pipeline final.")
+    last_logs = st.session_state.get("analysis_last_logs", "[INFO] Aún no hay logs del pipeline.")
 
     st.progress(min(max(last_progress, 0.0), 1.0), text=last_status)
     st.code(last_logs, language="bash")
@@ -974,7 +974,7 @@ def render_output_panel():
     if final_video and os.path.exists(final_video):
         st.video(final_video)
     else:
-        st.info("Aun no existe un video multimodal final para este registro.")
+        st.info("Aún no existe un video multimodal final para este registro.")
 
     # Carpeta de resultados YOLO
     active_video = st.session_state.get("ruta_video_actual")
@@ -984,7 +984,7 @@ def render_output_panel():
         st.markdown("---")
         col_btn, col_path = st.columns([1, 1.5])
         with col_btn:
-            if st.button("ABRIR CARPETA RESULTADOS", use_container_width=True, key="btn_open_resultados"):
+            if st.button("Abrir carpeta de resultados", use_container_width=True, key="btn_open_resultados"):
                 os.makedirs(resultados_dir, exist_ok=True)
                 subprocess.Popen(["explorer", resultados_dir])
                 st.toast(f"Abriendo: {resultados_dir}")
@@ -1012,7 +1012,7 @@ def render_output_panel():
             save_session()
 
         st.markdown("---")
-        st.markdown("##### Resumen rapido")
+        st.markdown("##### Resumen rápido")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Abiertos", f"{summary['time_open_arms']:.1f}s")
         m2.metric("Cerrados", f"{summary['time_closed_arms']:.1f}s")
@@ -1044,7 +1044,7 @@ def resolve_status_flags():
 
 # ================= 2. CABECERA =================
 render_topbar()
-st.markdown("### Modulo 04: Analisis Final Conductual")
+st.markdown("### Módulo 04: Análisis final conductual")
 st.markdown(
     """
     Ejecuta el flujo operativo completo del proyecto activo:
@@ -1052,14 +1052,14 @@ st.markdown(
     """
 )
 st.caption(
-    "Recomendacion operativa: primero agrega y etiqueta videos nuevos en SimBA, luego reentrena los modelos, "
-    "y por ultimo vuelve a correr aqui los videos historicos que quieras reprocesar con el modelo mejorado."
+    "Recomendación operativa: primero agrega y etiqueta videos nuevos en SimBA, luego reentrena los modelos, "
+    "y por último vuelve a correr aqui los videos históricos que quieras reprocesar con el modelo mejorado."
 )
 
 st.divider()
 
 # ================= 3. VIDEO CHECK =================
-video_ok = render_video_banner("Video de Analisis Activo")
+video_ok = render_video_banner("Video de análisis activo")
 
 history_records = fetch_reprocessable_experiments()
 selected_history_record = None
@@ -1091,7 +1091,7 @@ if history_records:
             f"`{format_mm_ss(inferred_end) if inferred_end is not None else 'fin del video'}`"
         )
     with history_cols[1]:
-        if st.button("CARGAR REGISTRO PREVIO", use_container_width=True, key="btn_load_previous_analysis_record"):
+        if st.button("Cargar registro previo", use_container_width=True, key="btn_load_previous_analysis_record"):
             ok, message = load_previous_experiment_context(selected_history_record)
             if ok:
                 st.success(message)
@@ -1099,11 +1099,11 @@ if history_records:
             else:
                 st.error(message)
 else:
-    st.info("Aun no hay experimentos previos disponibles con video recuperable desde la BD.")
+    st.info("Aún no hay experimentos previos disponibles con video recuperable desde la BD.")
 st.markdown("</div>", unsafe_allow_html=True)
 
 if not video_ok:
-    st.warning("No hay video activo en esta sesion. Puedes cargar uno desde Ingesta o usar el selector de registros previos de arriba.")
+    st.warning("No hay video activo en esta sesión. Puedes cargar uno desde Ingesta o usar el selector de registros previos de arriba.")
 
 status_flags = resolve_status_flags()
 device_option = st.session_state.get("dlc_device_opt", "Auto (Recomendado)")
@@ -1112,20 +1112,20 @@ zones_ready = bool(st.session_state.get("zonas_configuradas"))
 
 # ================= 4. PREREQUISITES PANEL =================
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-st.markdown("#### Validacion de Prerrequisitos")
+st.markdown("#### Validación de prerrequisitos")
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
     st.markdown(
         f'<div style="text-align:center;"><div style="color: {"#1E8E3E" if status_flags["has_video"] else "#D93025"}; font-weight: 700;">'
-        f'{"OK Video Activo" if status_flags["has_video"] else "Sin Video Activo"}</div>'
+        f'{"Video activo OK" if status_flags["has_video"] else "Sin video activo"}</div>'
         f'<div style="font-size:0.8rem; margin-top:8px;">Registro experimental</div></div>',
         unsafe_allow_html=True,
     )
 with c2:
     st.markdown(
         f'<div style="text-align:center;"><div style="color: {"#1E8E3E" if status_flags["has_zonas"] else "#D93025"}; font-weight: 700;">'
-        f'{"ROIs Configuradas" if status_flags["has_zonas"] else "Faltan ROIs"}</div>'
+        f'{"ROIs configuradas" if status_flags["has_zonas"] else "Faltan ROIs"}</div>'
         f'<div style="font-size:0.8rem; margin-top:8px;">Zonas normalizadas</div></div>',
         unsafe_allow_html=True,
     )
@@ -1137,7 +1137,7 @@ with c3:
         unsafe_allow_html=True,
     )
 with c4:
-    state_label = "Pose DLC lista" if status_flags["has_pose"] else "Se generara pose nueva"
+    state_label = "Pose DLC lista" if status_flags["has_pose"] else "Se generará pose nueva"
     state_color = "#1E8E3E" if status_flags["has_pose"] else "#B26A00"
     st.markdown(
         f'<div style="text-align:center;"><div style="color: {state_color}; font-weight: 700;">{state_label}</div>'
@@ -1152,23 +1152,23 @@ left_col, right_col = st.columns([1, 1.35])
 
 with left_col:
     st.markdown('<div class="content-card" style="border-top: 4px solid #6F1D46;">', unsafe_allow_html=True)
-    st.markdown("#### Ejecucion del Pipeline")
+    st.markdown("#### Ejecución del flujo de trabajo")
     st.caption(
         f"Rango activo: `{format_mm_ss(st.session_state.get('inicio_recorte', 0))}` -> "
         f"`{format_mm_ss(st.session_state.get('fin_recorte')) if st.session_state.get('fin_recorte') is not None else 'fin del video'}`"
     )
 
-    with st.expander("Parametros de Ejecucion", expanded=True):
+    with st.expander("Parámetros de ejecución", expanded=True):
         batch_size = st.slider(
             "Batch Size DLC",
             min_value=4,
             max_value=32,
             value=int(st.session_state.get("dlc_batch_size", 16) or 16),
             step=4,
-            help="Se mantiene capado a 32 para no castigar la GPU. 16 suele ser el punto mas estable.",
+            help="Se mantiene capado a 32 para no castigar la GPU. 16 suele ser el punto más estable.",
         )
         device_option = st.selectbox(
-            "Dispositivo Hardware",
+            "Dispositivo de hardware",
             ["Auto (Recomendado)", "CPU (Forzar)"],
             index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
         )
@@ -1177,7 +1177,7 @@ with left_col:
 
     can_run = status_flags["has_video"] and status_flags["has_zonas"] and status_flags["has_models"]
     if not status_flags["has_zonas"]:
-        st.error("Necesitas guardar primero las ROIs en el Modulo 03.")
+        st.error("Necesitas guardar primero las ROIs en el Módulo 03.")
     if not status_flags["has_models"]:
         st.error("No se encontraron los modelos activos de SimBA en generated_models.")
 
@@ -1193,16 +1193,16 @@ with left_col:
         st.info("El pipeline corre en segundo plano. Puedes moverte entre módulos y volver.")
         col_stop, col_log = st.columns(2)
         with col_stop:
-            if st.button("DETENER PIPELINE", use_container_width=True, key="btn_stop_analysis"):
+            if st.button("Detener pipeline", use_container_width=True, key="btn_stop_analysis"):
                 action = "cancel"
         with col_log:
-            if st.button("ABRIR CONSOLA DE LOGS", use_container_width=True, key="btn_log_analysis"):
+            if st.button("Abrir consola de logs", use_container_width=True, key="btn_log_analysis"):
                 action = "open_console"
         if analysis_snapshot["meta"]:
             st.caption(f"PID activo: `{analysis_snapshot['meta'].get('pid')}`")
     else:
         if st.button(
-            "INICIAR PIPELINE MULTIMODAL",
+            "Iniciar pipeline multimodal",
             type="primary",
             use_container_width=True,
             disabled=not can_run,
@@ -1241,7 +1241,7 @@ elif action == "open_console":
     safe_path = os.path.abspath(log_path).replace("'", "''")
     subprocess.Popen(
         [powershell, "-NoExit", "-Command",
-         f"$host.UI.RawUI.WindowTitle='TT 2026 - Analisis Final'; Get-Content -Path '{safe_path}' -Wait -Tail 40"],
+         f"$host.UI.RawUI.WindowTitle='TT 2026 - Análisis final'; Get-Content -Path '{safe_path}' -Wait -Tail 40"],
         cwd=os.getcwd(),
         creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
     )

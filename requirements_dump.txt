@@ -706,8 +706,8 @@ trayectorias, mapas de calor, tiempos de permanencia y gráficos comparativos de
 función de los tratamientos ansiolíticos. 
  
 5. Desarrollar el módulo de validación experimental, que evalúe la precisión de los resultados 
-mediante validación cruzada (k-fold) y el coeficiente Kappa de Cohen (κ ≥ 0.8), contrastando 
-las detecciones del prototipo con las anotaciones de expertos. 
+mediante validación Leave-One-Out (LOO), reportando métricas de desempeño como precisión, 
+recall y F1-score, con el fin de contrastar las detecciones del prototipo con las anotaciones de expertos. 
  
 6. Desarrollar el módulo de almacenamiento y gestión de resultados , que organice los datos 
 procesados, informes y visualizaciones en una base estructurada para consulta y análisis 

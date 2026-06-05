@@ -7,7 +7,7 @@ from session_utils import load_session, save_session
 from ui_components import run_page_splash
 
 st.set_page_config(
-    page_title="Perfil | Sistema EPM",
+    page_title="Perfil | Prototipo EPM",
     page_icon="assets/logos/logo_ria.png",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -50,7 +50,7 @@ with st.sidebar:
     </div>
 </div>
 """, unsafe_allow_html=True)
-    if st.button("Cerrar Sesión", key="logout_btn", use_container_width=True):
+    if st.button("Cerrar sesión", key="logout_btn", use_container_width=True):
         from session_utils import clear_session
         clear_session()
         for key in list(st.session_state.keys()):
@@ -84,7 +84,7 @@ initials   = "".join(w[0].upper() for w in display.split()[:2])
 # ─── Layout ───────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <div style="margin-bottom: 2rem;">
-    <h1 style="font-size:1.9rem; margin:0; color:{colors['text_main']}; letter-spacing:-0.02em;">Perfil del Investigador</h1>
+    <h1 style="font-size:1.9rem; margin:0; color:{colors['text_main']}; letter-spacing:-0.02em;">Perfil del investigador</h1>
     <p style="color:{colors['text_sub']}; font-size:0.9rem; margin-top:0.4rem;">
         Gestiona tus datos, preferencias y seguridad de acceso.
     </p>
@@ -112,7 +112,7 @@ with col_card:
     </div>
     <div style="margin-top:1.5rem; border-top:1px solid {colors['border']}; padding-top:1rem;
                 font-size:0.75rem; color:{colors['text_sub']}; line-height:1.8;">
-        <div>Sistema EPM v3.1 – 2026</div>
+        <div>Prototipo EPM v3.1 – 2026</div>
         <div>IPN / ESCOM</div>
         <div>TT 2026-A155</div>
     </div>
@@ -121,7 +121,7 @@ with col_card:
 
 # ─── Formulario ───────────────────────────────────────────────────────────────
 with col_form:
-    tab_info, tab_pwd = st.tabs(["Información General", "Cambiar Contraseña"])
+    tab_info, tab_pwd = st.tabs(["Información general", "Cambiar contraseña"])
 
     # TAB 1: Info
     with tab_info:
@@ -129,19 +129,19 @@ with col_form:
 <div style="background:{colors['bg_card']}; border:1px solid {colors['border']}; border-radius:12px;
             padding:1.8rem; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom:1rem;">
     <h3 style="margin:0 0 1.2rem 0; font-size:1rem; font-weight:700; color:{colors['text_main']};">
-        Datos del Investigador
+        Datos del investigador
     </h3>
 """, unsafe_allow_html=True)
 
         preferred_name = st.text_input(
-            "Nombre de Usuario (Cómo te llamamos)",
+            "Nombre de usuario",
             value=display,
             placeholder="Ej. Morpheoo",
-            help="Este es tu nombre público en el sistema. Puedes cambiarlo."
+            help="Este es tu nombre público en el prototipo. Puedes cambiarlo."
         )
-        st.text_input("Correo Institucional", value=user_raw, disabled=True,
+        st.text_input("Correo institucional", value=user_raw, disabled=True,
                       help="El correo no puede modificarse desde aquí.")
-        st.text_input("Rol en el sistema", value=role, disabled=True,
+        st.text_input("Rol en el prototipo", value=role, disabled=True,
                       help="El rol es asignado por el administrador.")
 
         st.markdown("</div>", unsafe_allow_html=True)
@@ -169,7 +169,7 @@ with col_form:
 <div style="background:{colors['bg_card']}; border:1px solid {colors['border']}; border-radius:12px;
             padding:1.8rem; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom:1rem;">
     <h3 style="margin:0 0 1.2rem 0; font-size:1rem; font-weight:700; color:{colors['text_main']};">
-        Cambiar Contraseña
+        Cambiar contraseña
     </h3>
 """, unsafe_allow_html=True)
 

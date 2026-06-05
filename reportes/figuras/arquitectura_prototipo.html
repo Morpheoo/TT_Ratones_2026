@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arquitectura del prototipo · TT Ratones 2026</title>
+  <style>
+    :root {
+      --guinda:       #691b32;
+      --guinda-dark:  #4c1224;
+      --guinda-tint:  #f6edf0;
+      --guinda-line:  #d8bcc4;
+      --black:        #161616;
+      --ink:          #1f1f1f;
+      --muted:        #62595c;
+      --line:         #d9d4d6;
+      --gray-soft:    #f3f1f2;
+      --white:        #ffffff;
+      --shadow:       0 18px 40px rgba(20, 12, 14, 0.16);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #e6e2e3;
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    }
+    .stage { min-height: 100vh; display: grid; place-items: center; padding: 22px; }
+
+    .slide {
+      width: min(1540px, 100%);
+      aspect-ratio: 16 / 9;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 20px 28px 14px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      row-gap: 8px;
+    }
+
+    /* ---------- Encabezado ---------- */
+    .head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      border-bottom: 2px solid var(--guinda); padding-bottom: 6px;
+    }
+    .head h1 { margin: 0; font-size: 18px; font-weight: 800; color: var(--guinda); }
+    .head .sub { font-size: 11.5px; color: var(--black); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
+
+    /* ---------- Rejilla unificada (tab + 7 columnas) ---------- */
+    .bands {
+      position: relative;
+      display: grid;
+      grid-template-columns: 150px repeat(7, 1fr);
+      grid-template-rows: 1fr 50px 1.4fr 50px 1fr;
+      column-gap: 14px;
+      min-height: 0;
+    }
+
+    /* fondos de banda */
+    .bg { border-radius: 12px; z-index: 0; }
+    .bg.pres { grid-row: 1; grid-column: 2 / 9; background: var(--guinda-tint); border: 1.4px solid var(--guinda-line); }
+    .bg.biz  { grid-row: 3; grid-column: 2 / 9; background: var(--guinda-tint); border: 1.4px solid var(--guinda-line); }
+    .bg.data { grid-row: 5; grid-column: 2 / 9; background: var(--gray-soft);   border: 1.4px solid #c9c4c6; }
+
+    /* etiquetas laterales */
+    .tab {
+      z-index: 2; border-radius: 12px; padding: 12px 12px;
+      display: flex; flex-direction: column; justify-content: center; gap: 5px;
+      color: var(--white); background: var(--guinda);
+    }
+    .tab.t1 { grid-row: 1; grid-column: 1; }
+    .tab.t2 { grid-row: 3; grid-column: 1; }
+    .tab.t3 { grid-row: 5; grid-column: 1; background: var(--black); }
+    .tab .n { font-size: 10px; letter-spacing: 0.12em; font-weight: 700; opacity: 0.85; }
+    .tab .t { font-size: 15px; font-weight: 800; line-height: 1.12; }
+    .tab .d { font-size: 10.5px; font-weight: 500; line-height: 1.3; opacity: 0.92; }
+
+    /* ---------- Capa 1 · tarjetas de página ---------- */
+    .card {
+      z-index: 2; grid-row: 1;
+      margin: 8px 0;
+      border-radius: 9px; border: 1.6px solid var(--guinda);
+      background: var(--white);
+      padding: 8px 7px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; gap: 5px; min-width: 0;
+    }
+    .card .pg { font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: var(--guinda); opacity: 0.75; }
+    .card .name { font-size: 12px; font-weight: 700; line-height: 1.22; color: var(--ink); }
+    .bd {
+      font-family: "Consolas", monospace; font-size: 8.7px; font-weight: 700;
+      padding: 1px 6px; border-radius: 8px; border: 1px solid; white-space: nowrap;
+    }
+    .bd.write { border-color: var(--guinda); color: var(--guinda); background: var(--guinda-tint); }
+    .bd.read  { border-color: var(--black);  color: var(--black);  background: #efefef; }
+    .bd.local { border-color: #c2bcbe; color: var(--muted); background: #f4f1f2; }
+
+    /* ghost: paso automático sin interfaz */
+    .ghost {
+      z-index: 2; grid-row: 1; margin: 8px 0;
+      border: 1.4px dashed #c7c0c2; border-radius: 9px;
+      background: repeating-linear-gradient(45deg, #faf8f9, #faf8f9 6px, #f2eef0 6px, #f2eef0 12px);
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      color: var(--muted); font-size: 10px; font-weight: 600; line-height: 1.25; padding: 6px;
+    }
+
+    /* consumidores 05 + 06 */
+    .consumers {
+      z-index: 2; grid-row: 1; grid-column: 8; margin: 8px 0;
+      display: flex; flex-direction: column; gap: 6px; min-width: 0;
+    }
+    .cons {
+      flex: 1; border-radius: 9px; border: 1.6px solid var(--black);
+      background: var(--white); padding: 6px 7px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; gap: 3px;
+    }
+    .cons .pg { font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: var(--black); opacity: 0.7; }
+    .cons .name { font-size: 11.5px; font-weight: 700; line-height: 1.18; color: var(--ink); }
+
+    /* ---------- Capa 2 · módulos ---------- */
+    .mod {
+      z-index: 2; grid-row: 3; margin: 10px 0;
+      position: relative;
+      border: 1.8px solid var(--guinda); border-radius: 10px; background: var(--white);
+      display: grid; grid-template-rows: auto 1fr; min-width: 0; overflow: visible;
+    }
+    .mod .mhead {
+      position: relative; background: var(--guinda); color: var(--white); text-align: center;
+      padding: 6px 6px 6px 26px; font-size: 11.5px; font-weight: 800; line-height: 1.15;
+      border-radius: 8px 8px 0 0; min-height: 40px; display: grid; place-items: center;
+    }
+    .mod .num {
+      position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; border-radius: 50%; background: var(--white); color: var(--guinda);
+      font-size: 11px; font-weight: 900; display: grid; place-items: center;
+    }
+    .mod .mbody {
+      padding: 7px 6px; display: grid; place-items: center; text-align: center;
+      font-size: 11px; line-height: 1.34; color: var(--ink); font-weight: 600;
+    }
+    .mod .pill {
+      display: block; width: 100%; border: 1px solid var(--guinda-line);
+      background: var(--guinda-tint); border-radius: 6px; padding: 3px 4px; margin: 2px 0;
+      font-size: 10px; font-weight: 700; color: var(--guinda);
+    }
+    .mod .pill.lstm { background: var(--white); border-style: dashed; }
+    .mod .next {
+      position: absolute; right: -13px; top: 50%; transform: translateY(-50%);
+      width: 0; height: 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+      border-left: 12px solid var(--guinda); z-index: 3;
+    }
+
+    /* ---------- Conectores verticales en filas de enlace ---------- */
+    .ac { z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+    .ac .lbl {
+      font-size: 9.3px; font-weight: 800; line-height: 1.05; text-align: center;
+      padding: 1px 6px; border-radius: 9px; background: var(--white); border: 1px solid var(--guinda-line);
+      color: var(--guinda); white-space: nowrap;
+    }
+    .ac.data .lbl { border-color: #c2c2c2; color: var(--black); }
+    .ac .stem { width: 2.5px; height: 11px; background: var(--guinda); }
+    .ac.data .stem { background: var(--black); }
+    .ac .tri { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; }
+    .ac .tri.down { border-top: 10px solid var(--guinda); }
+    .ac .tri.up   { border-bottom: 10px solid var(--guinda); }
+    .ac.data .tri.down { border-top-color: var(--black); }
+    .ac.data .tri.up   { border-bottom-color: var(--black); }
+
+    /* flecha alta: Datos -> Consumidores (carril derecho, col 8) */
+    .tall {
+      z-index: 2; grid-row: 2 / 5; grid-column: 8;
+      position: relative; display: flex; flex-direction: column; align-items: center; justify-content: stretch;
+    }
+    .tall .tri-up { width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 11px solid var(--black); }
+    .tall .line { width: 2.6px; flex: 1; background: var(--black); }
+    .tall .lbl {
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      font-size: 9.3px; font-weight: 800; color: var(--black); white-space: nowrap;
+      background: var(--white); border: 1px solid #c2c2c2; border-radius: 9px; padding: 1px 7px;
+    }
+
+    /* ---------- Capa 3 · datos ---------- */
+    .store {
+      z-index: 2; grid-row: 5; margin: 9px 0;
+      border-radius: 10px; border: 1.4px solid #bdbdbd; background: var(--white);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .store.s1 { grid-column: 2 / 5; }
+    .store.s2 { grid-column: 5 / 9; }
+    .store .shead {
+      background: var(--black); color: var(--white); font-size: 11.5px; font-weight: 800;
+      padding: 5px 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .store .shead small { font-weight: 600; opacity: 0.85; font-size: 10px; }
+    .store .tags { flex: 1; display: flex; flex-wrap: wrap; align-content: center; gap: 5px; padding: 7px 11px; }
+    .tag {
+      border: 1px solid var(--line); background: var(--gray-soft); border-radius: 6px;
+      padding: 3px 8px; font-size: 10.5px; font-weight: 600; color: var(--ink);
+    }
+    .tag.code { font-family: "Consolas", monospace; font-size: 10px; }
+
+    /* ---------- Pie / leyenda ---------- */
+    .foot { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: var(--muted); padding-top: 2px; }
+    .legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+    .swatch { width: 22px; height: 4px; border-radius: 2px; display: inline-block; position: relative; }
+    .swatch::after { content: ""; position: absolute; right: -2px; top: -4px; border-left: 8px solid currentColor; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+    .swatch.guinda { background: var(--guinda); color: var(--guinda); }
+    .swatch.black  { background: var(--black);  color: var(--black); }
+    .foot .meta { font-style: italic; }
+
+    @media print {
+      @page { size: 1540px 866px; margin: 0; }
+      body { background: white; }
+      .stage { padding: 0; min-height: 0; }
+      .slide { box-shadow: none; border: 0; width: 1540px; height: 866px; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="slide" aria-label="Diagrama de arquitectura del prototipo">
+
+      <header class="head">
+        <h1>Arquitectura del prototipo · Análisis conductual en laberinto elevado en cruz</h1>
+        <div class="sub">TT Ratones 2026</div>
+      </header>
+
+      <div class="bands">
+
+        <!-- ===== fondos de banda ===== -->
+        <div class="bg pres"></div>
+        <div class="bg biz"></div>
+        <div class="bg data"></div>
+
+        <!-- ===== etiquetas laterales ===== -->
+        <div class="tab t1">
+          <div class="n">CAPA 1</div>
+          <div class="t">Presentación</div>
+          <div class="d">Páginas Streamlit del prototipo</div>
+        </div>
+        <div class="tab t2">
+          <div class="n">CAPA 2</div>
+          <div class="t">Lógica de negocio</div>
+          <div class="d">Flujo de trabajo de izquierda a derecha</div>
+        </div>
+        <div class="tab t3">
+          <div class="n">CAPA 3</div>
+          <div class="t">Datos</div>
+        </div>
+
+        <!-- ===== CAPA 1 · páginas (fila 1) ===== -->
+        <div class="card" style="grid-column:2">
+          <span class="pg">PÁGINA 01</span>
+          <span class="name">Ingesta de Video</span>
+          <span class="bd write">escribe BD</span>
+        </div>
+        <div class="card" style="grid-column:3">
+          <span class="pg">PÁGINA 02</span>
+          <span class="name">Keypoints</span>
+          <span class="bd local">artefactos</span>
+        </div>
+        <div class="ghost" style="grid-column:4">Paso automático<br>sin interfaz</div>
+        <div class="card" style="grid-column:5">
+          <span class="pg">PÁGINA 03</span>
+          <span class="name">Configuración de Zonas</span>
+          <span class="bd write">escribe BD</span>
+        </div>
+        <div class="card" style="grid-column:6">
+          <span class="pg">PÁGINA 04</span>
+          <span class="name">Análisis Final</span>
+          <span class="bd write">escribe BD</span>
+        </div>
+        <div class="ghost" style="grid-column:7">Paso automático<br>sin interfaz</div>
+
+        <div class="consumers">
+          <div class="cons">
+            <span class="pg">PÁGINA 05 · lee y edita BD</span>
+            <span class="name">Resultados y Estadísticas</span>
+          </div>
+          <div class="cons">
+            <span class="pg">PÁGINA 06 · lee BD</span>
+            <span class="name">Comparación</span>
+          </div>
+        </div>
+
+        <!-- ===== ENLACE 1 · acciones del usuario (fila 2, guinda) ===== -->
+        <div class="ac" style="grid-row:2; grid-column:2"><span class="lbl">video MP4</span><span class="stem"></span><span class="tri down"></span></div>
+        <div class="ac" style="grid-row:2; grid-column:3"><span class="lbl">ejecuta YOLO</span><span class="stem"></span><span class="tri down"></span></div>
+        <div class="ac" style="grid-row:2; grid-column:5"><span class="lbl">zonas ROI</span><span class="stem"></span><span class="tri down"></span></div>
+        <div class="ac" style="grid-row:2; grid-column:6"><span class="lbl">ejecuta análisis</span><span class="stem"></span><span class="tri down"></span></div>
+
+        <!-- ===== CAPA 2 · módulos (fila 3) ===== -->
+        <section class="mod" style="grid-column:2">
+          <header class="mhead"><span class="num">1</span>Ingesta y<br>preprocesamiento</header>
+          <div class="mbody">Python · OpenCV<br>FFmpeg</div>
+          <span class="next"></span>
+        </section>
+        <section class="mod" style="grid-column:3">
+          <header class="mhead"><span class="num">2</span>Estimación<br>de pose</header>
+          <div class="mbody">YOLO Pose v4<br>8 keypoints</div>
+          <span class="next"></span>
+        </section>
+        <section class="mod" style="grid-column:4">
+          <header class="mhead"><span class="num">3</span>Puente<br>YOLO a SimBA</header>
+          <div class="mbody">Genera<br>bridge CSV</div>
+          <span class="next"></span>
+        </section>
+        <section class="mod" style="grid-column:5">
+          <header class="mhead"><span class="num">4</span>Extracción de<br>características</header>
+          <div class="mbody">SimBA<br>242 features</div>
+          <span class="next"></span>
+        </section>
+        <section class="mod" style="grid-column:6">
+          <header class="mhead"><span class="num">5</span>Clasificación<br>de conducta</header>
+          <div class="mbody" style="padding:5px 6px;">
+            <span class="pill">RF Grooming</span>
+            <span class="pill">RF Thigmotaxis</span>
+            <span class="pill lstm">LSTM Rescue</span>
+          </div>
+          <span class="next"></span>
+        </section>
+        <section class="mod" style="grid-column:7">
+          <header class="mhead"><span class="num">6</span>Renderizado<br>multimodal</header>
+          <div class="mbody">Video anotado<br>Trayectoria<br>Timelogs</div>
+        </section>
+
+        <!-- ===== ENLACE 2 · entrada y salida de datos (fila 4, negro) ===== -->
+        <div class="ac data" style="grid-row:4; grid-column:3"><span class="tri down"></span><span class="stem"></span><span class="lbl">guarda keypoints</span></div>
+        <div class="ac data" style="grid-row:4; grid-column:5"><span class="tri down"></span><span class="stem"></span><span class="lbl">guarda features</span></div>
+        <div class="ac data" style="grid-row:4; grid-column:6"><span class="tri up"></span><span class="stem"></span><span class="lbl">modelos RF y LSTM</span></div>
+        <div class="ac data" style="grid-row:4; grid-column:7"><span class="tri down"></span><span class="stem"></span><span class="lbl">guarda video y resultados</span></div>
+
+        <!-- ===== flecha alta · Datos -> Consumidores (col 8) ===== -->
+        <div class="tall">
+          <span class="tri-up"></span>
+          <span class="lbl">lee resultados y video</span>
+          <span class="line"></span>
+        </div>
+
+        <!-- ===== CAPA 3 · datos (fila 5) ===== -->
+        <div class="store s1">
+          <div class="shead">PostgreSQL <small>· SQLAlchemy</small></div>
+          <div class="tags">
+            <span class="tag code">users</span>
+            <span class="tag code">treatments</span>
+            <span class="tag code">experiments</span>
+            <span class="tag code">roi_configurations</span>
+            <span class="tag code">analysis_results</span>
+            <span class="tag code">security_audit_log</span>
+            <span class="tag code">behavior_edits</span>
+          </div>
+        </div>
+        <div class="store s2">
+          <div class="shead">Artefactos locales <small>· flujo de trabajo</small></div>
+          <div class="tags">
+            <span class="tag code">videos_data</span>
+            <span class="tag code">keypoints_yolo</span>
+            <span class="tag code">simba_projects</span>
+            <span class="tag">Modelos YOLO · RF · LSTM</span>
+            <span class="tag code">zonas_activas.json</span>
+            <span class="tag code">resultados_yolo</span>
+            <span class="tag code">reportes</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===== PIE ===== -->
+      <footer class="foot">
+        <div class="legend">
+          <span><i class="swatch guinda"></i> Acción del usuario y flujo de trabajo</span>
+          <span><i class="swatch black"></i> Entrada y salida de datos</span>
+          <span>Soporte: Login · Perfil · Panel de administración</span>
+        </div>
+        <div class="meta">Orquestador: run_behavior_pipeline · backend YOLO</div>
+      </footer>
+
+    </section>
+  </main>
+</body>
+</html>

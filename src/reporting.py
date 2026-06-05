@@ -47,7 +47,7 @@ def generate_pdf_report(user_name, role, kpis, plots=None, filename="reporte_epm
 
     # Metadata
     pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, 'Informacion de la Sesion', 0, 1)
+    pdf.cell(0, 10, 'Información de la sesión', 0, 1)
     pdf.set_font('Arial', '', 11)
     pdf.cell(0, 10, f'Investigador: {user_name} ({role})', 0, 1)
     pdf.cell(0, 10, f'Fecha: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1)

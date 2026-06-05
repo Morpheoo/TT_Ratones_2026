@@ -117,7 +117,7 @@ def render_video_banner(module_label: str = "Video en análisis") -> bool:
                 <div>
                     <div class="vid-banner-label">Sin video cargado</div>
                     <div class="vid-banner-name">Ningún video seleccionado</div>
-                    <div class="vid-banner-path">Ve a 01 · Ingesta de Video para cargar un video</div>
+                    <div class="vid-banner-path">Ve a 01 · Ingesta de video para cargar un video</div>
                 </div>
             </div>
             """,

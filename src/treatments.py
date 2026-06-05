@@ -1,5 +1,5 @@
 """
-Módulo para gestión de tratamientos en el sistema EPM
+Módulo para gestión de tratamientos en el prototipo EPM
 """
 from sqlalchemy import text
 from src.db.connection import get_db_engine

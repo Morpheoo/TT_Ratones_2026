@@ -83,7 +83,7 @@ def _load_pose_dataframe(input_csv: str) -> pd.DataFrame:
         df_in = pd.read_csv(input_csv, header=[0, 1, 2], index_col=0)
         flat_columns = []
         for _, bodypart, coord in df_in.columns:
-            coord_name = "likelihood" if str(coord) in {"p", "likelihood"} else str(coord)
+            coord_name = "likelihood" if coord in {"p", "likelihood"} else coord
             flat_columns.append(f"{bodypart}_{coord_name}")
         df_in.columns = flat_columns
         df_in = df_in.reset_index().rename(columns={"index": "Unnamed: 0"})
@@ -92,11 +92,11 @@ def _load_pose_dataframe(input_csv: str) -> pd.DataFrame:
     print("[ENGINE] Formato detectado: CSV tabular")
     df_in = pd.read_csv(input_csv)
     if "Unnamed: 0" not in df_in.columns:
-        unnamed_cols = [column for column in df_in.columns if str(column).startswith("Unnamed")]
+        unnamed_cols = [column for column in df_in.columns if column.startswith("Unnamed")]
         if unnamed_cols:
             df_in = df_in.rename(columns={unnamed_cols[0]: "Unnamed: 0"})
         else:
-            df_in.insert(0, "Unnamed: 0", np.arange(len(df_in)))
+            df_in.insert(0, "Unnamed: 0", list(range(len(df_in))))
     return df_in
 
 
@@ -120,7 +120,7 @@ def _resolve_pose_column(columns, bodypart_names, suffix: str) -> str | None:
     for candidate in candidates:
         if candidate in columns:
             return candidate
-        normalized = column_lookup.get(str(candidate).lower())
+        normalized = column_lookup.get(candidate.lower())
         if normalized:
             return normalized
     return None
@@ -149,7 +149,8 @@ def _collect_rectangular_zones(zonas_list: list[dict]) -> list[dict]:
         y = zone.get("y", zone.get("top"))
         width = zone.get("w", zone.get("width"))
         height = zone.get("h", zone.get("height"))
-        if None in (x, y, width, height):
+        # Checks separados para que pyright pueda estrechar los tipos a no-None
+        if x is None or y is None or width is None or height is None:
             continue
         rectangles.append(
             {
@@ -197,14 +198,17 @@ def _infer_project_calibration(video_info_df: pd.DataFrame) -> tuple[float, floa
     if video_info_df.empty:
         return 400.0, 2.5
 
-    pixels_series = pd.to_numeric(video_info_df.get("pixels/mm"), errors="coerce").dropna()
-    distance_series = pd.to_numeric(video_info_df.get("Distance_in_mm"), errors="coerce").dropna()
+    # .get() puede retornar None si la columna no existe → guard explícito antes de dropna()
+    _px_col = video_info_df.get("pixels/mm")
+    pixels_series = pd.to_numeric(_px_col, errors="coerce").dropna() if _px_col is not None else pd.Series(dtype=float)
+    _dist_col = video_info_df.get("Distance_in_mm")
+    distance_series = pd.to_numeric(_dist_col, errors="coerce").dropna() if _dist_col is not None else pd.Series(dtype=float)
 
     stable_pixels = pixels_series[pixels_series > 1.05]
     stable_distance = distance_series[distance_series > 0]
 
-    pixels_per_mm = float(stable_pixels.median()) if not stable_pixels.empty else 2.5
-    distance_in_mm = float(stable_distance.median()) if not stable_distance.empty else 400.0
+    pixels_per_mm = stable_pixels.median() if not stable_pixels.empty else 2.5
+    distance_in_mm = stable_distance.median() if not stable_distance.empty else 400.0
     return distance_in_mm, pixels_per_mm
 
 
@@ -216,7 +220,7 @@ def _read_video_metadata(video_path: str | None) -> tuple[float, int, int, str]:
     if not capture.isOpened():
         return 30.0, 1280, 720, os.path.splitext(video_path)[1] or ".mp4"
 
-    fps = float(capture.get(cv2.CAP_PROP_FPS) or 30.0)
+    fps = capture.get(cv2.CAP_PROP_FPS) or 30.0
     width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 1280)
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 720)
     capture.release()
@@ -304,11 +308,11 @@ def _load_existing_roi_frames(roi_path: str) -> tuple[pd.DataFrame, pd.DataFrame
         with pd.HDFStore(roi_path, mode="r") as store:
             keys = set(store.keys())
         if "/rectangles" in keys:
-            rectangles_df = pd.read_hdf(roi_path, key="rectangles")
+            rectangles_df = pd.DataFrame(pd.read_hdf(roi_path, key="rectangles"))
         if "/circleDf" in keys:
-            circles_df = pd.read_hdf(roi_path, key="circleDf")
+            circles_df = pd.DataFrame(pd.read_hdf(roi_path, key="circleDf"))
         if "/polygons" in keys:
-            polygon_df = pd.read_hdf(roi_path, key="polygons")
+            polygon_df = pd.DataFrame(pd.read_hdf(roi_path, key="polygons"))
     except Exception as error:
         invalid_store = True
         print(f"[ENGINE] ROI store invalido detectado: {error}")
@@ -469,7 +473,7 @@ def _build_pose_bridge(input_csv: str, output_dir: str, video_name: str) -> str:
         for suffix in ("_x", "_y", "_likelihood"):
             new_col = f"{simba_name}{'_p' if suffix == '_likelihood' else suffix}"
             old_col = _resolve_pose_column(df_in.columns, dlc_candidates, suffix)
-            if old_col in df_in.columns:
+            if old_col is not None and old_col in df_in.columns:
                 cols_to_keep.append(old_col)
                 rename_dict[old_col] = new_col
                 matched_columns += 1
