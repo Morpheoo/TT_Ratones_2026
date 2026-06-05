@@ -11,7 +11,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Build tools: SimBA usa pkg_resources / setuptools internamente y rompe
-# si setuptools queda con la version bundled vieja del venv (~58-65).
+# si setuptools queda con la versión bundled vieja del venv (~58-65).
 # Pineado explicitamente para forzar que pip lo upgradee.
 setuptools>=65.5.0
 wheel
@@ -28,7 +28,7 @@ torchvision==0.22.1+cpu
 
 # TensorFlow/Keras 2 (LSTM Grooming inferencia + entrenamiento)
 # Pinear a 2.10.0 porque la LSTM productiva (grooming_lstm.keras) se
-# entreno con esa version y no garantizamos compatibilidad cross-minor.
+# entreno con esa versión y no garantizamos compatibilidad cross-minor.
 tensorflow==2.10.0
 keras==2.10.0
 
@@ -48,5 +48,5 @@ tqdm
 imageio
 imageio-ffmpeg
 
-# Configuracion (este venv no toca Postgres; psycopg2/SQLAlchemy van en venv_311)
+# configuración (este venv no toca Postgres; psycopg2/SQLAlchemy van en venv_311)
 python-dotenv

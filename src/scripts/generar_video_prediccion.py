@@ -65,7 +65,7 @@ def get_yolo_class():
         return YOLO
     except ModuleNotFoundError as exc:
         suggested_python = os.path.join(PROJECT_DIR, "venv_311", "Scripts", "python.exe")
-        print("[ENV] ERROR: No se encontro el modulo 'ultralytics' en este interprete.")
+        print("[ENV] ERROR: No se encontro el módulo 'ultralytics' en este interprete.")
         print(f"[ENV] Python actual: {sys.executable}")
         if os.path.exists(suggested_python):
             print(f"[ENV] Sugerencia: ejecuta este script con: {suggested_python}")
@@ -112,7 +112,7 @@ def select_maze_rois(video_path: str):
     cap.release()
     if not ret: return None
 
-    # Configuración de categorías
+    # configuración de categorías
     categorias = [
         {"id": "Norte (Abierto)", "color": (120, 120, 240)}, # Coral
         {"id": "Sur (Abierto)",   "color": (120, 120, 240)},
@@ -170,7 +170,7 @@ def load_simba_model(model_path: str):
     """Carga el modelo de Machine Learning entrenado por SimBA."""
     print(f"Cargando modelo clasificador desde: {model_path}")
     import warnings
-    # Filtrar warnings de version de sklearn que interfieren con la consola
+    # Filtrar warnings de versión de sklearn que interfieren con la consola
     warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
     with open(model_path, 'rb') as f:
         clf = pickle.load(f)
@@ -256,7 +256,7 @@ def build_pose_tracking(df_master: pd.DataFrame) -> dict[str, Any] | None:
     valid_count = int(valid.sum())
     total_count = int(len(df_master))
     if valid_count == 0:
-        print(f"[TRACKING] Columnas {x_col}/{y_col} encontradas, pero sin frames validos. Se usara fallback bbox YOLO.")
+        print(f"[TRACKING] Columnas {x_col}/{y_col} encontradas, pero sin frames válidos. Se usara fallback bbox YOLO.")
         return None
 
     tracking_df = pd.DataFrame({"x": x_values.where(valid), "y": y_values.where(valid)})
@@ -267,7 +267,7 @@ def build_pose_tracking(df_master: pd.DataFrame) -> dict[str, Any] | None:
 
     print(
         f"[TRACKING] Usando pose para tracking: {label} ({x_col}, {y_col}) | "
-        f"{valid_count}/{total_count} frames validos"
+        f"{valid_count}/{total_count} frames válidos"
     )
     if p_col:
         print(f"[TRACKING] Umbral de confianza {p_col}: >= {TRACKING_CONFIDENCE_MIN}")
@@ -812,10 +812,10 @@ if __name__ == "__main__":
     parser.add_argument("--zonas_file", type=str, required=False, default="", help="Ruta a un JSON de zonas para evitar pasar el payload completo por CLI.")
     parser.add_argument("--thigmo-confirm-threshold", type=float, default=THIGMO_CONFIRM_THRESHOLD, help="Umbral para confirmar Thigmotaxis.")
     parser.add_argument("--thigmo-possible-threshold", type=float, default=THIGMO_POSSIBLE_THRESHOLD, help="Umbral para marcar Thigmotaxis posible.")
-    parser.add_argument("--thigmo-min-event-seconds", type=float, default=THIGMO_MIN_EVENT_SECONDS, help="Duracion minima de un evento Thigmotaxis.")
+    parser.add_argument("--thigmo-min-event-seconds", type=float, default=THIGMO_MIN_EVENT_SECONDS, help="Duración minima de un evento Thigmotaxis.")
     parser.add_argument("--grooming-confirm-threshold", type=float, default=GROOMING_CONFIRM_THRESHOLD, help="Umbral para confirmar Grooming.")
     parser.add_argument("--grooming-possible-threshold", type=float, default=GROOMING_POSSIBLE_THRESHOLD, help="Umbral para marcar Grooming posible.")
-    parser.add_argument("--grooming-min-event-seconds", type=float, default=GROOMING_MIN_EVENT_SECONDS, help="Duracion minima de un evento Grooming.")
+    parser.add_argument("--grooming-min-event-seconds", type=float, default=GROOMING_MIN_EVENT_SECONDS, help="Duración minima de un evento Grooming.")
     parser.add_argument("--behavior-smoothing-frames", type=int, default=BEHAVIOR_SMOOTHING_FRAMES, help="Ventana de suavizado para probabilidades.")
     parser.add_argument("--lstm-grooming-csv", type=str, default="", help="CSV generado por infer_grooming_lstm.py.")
     parser.add_argument("--grooming-source", choices=["rf", "lstm", "ensemble", "rescue"], default="rf", help="Fuente de probabilidad para Grooming.")

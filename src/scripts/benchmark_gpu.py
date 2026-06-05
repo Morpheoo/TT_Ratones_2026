@@ -5,7 +5,7 @@ from ultralytics import YOLO
 import sys
 
 def benchmark_gpu(video_path, model_path, num_frames=100):
-    print(f"python: {sys.version}")
+    print(f"python: {sys.versión}")
     print(f"torch: {torch.__version__}")
     print(f"cuda available: {torch.cuda.is_available()}")
     if torch.cuda.is_available():

@@ -23,7 +23,7 @@ def save_session():
         "ingesta_video_source",
         # Eleccion de proyecto SimBA activo (productivo o sandbox). Lo lee
         # sandbox_utils.get_active_simba_project_name() y lo escriben las
-        # paginas Keypoints/Zonas/Analisis Final.
+        # paginas Keypoints/Zonas/Análisis Final.
         "simba_project_choice",
     ]
     

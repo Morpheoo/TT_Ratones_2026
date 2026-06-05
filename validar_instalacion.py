@@ -1,6 +1,6 @@
 """
 validar_instalacion.py
-Verifica que la instalacion del proyecto TT_Ratones_2026 este completa.
+Verifica que la instalación del proyecto TT_Ratones_2026 este completa.
 Se ejecuta desde install.bat al final, o manualmente con:
     venv_311\Scripts\python.exe validar_instalacion.py
 
@@ -65,7 +65,7 @@ def warn(msg: str) -> None:
 # ============================================================
 def check_python() -> None:
     header("1. Python y entornos virtuales")
-    print(f"  Python actual: {sys.version.split()[0]} ({sys.executable})")
+    print(f"  Python actual: {sys.versión.split()[0]} ({sys.executable})")
 
     venv_310 = ROOT / "venv_310" / "Scripts" / "python.exe"
     venv_311 = ROOT / "venv_311" / "Scripts" / "python.exe"
@@ -73,7 +73,7 @@ def check_python() -> None:
     if venv_310.exists():
         try:
             ver = subprocess.check_output(
-                [str(venv_310), "--version"], text=True, stderr=subprocess.STDOUT
+                [str(venv_310), "--versión"], text=True, stderr=subprocess.STDOUT
             ).strip()
             ok(f"venv_310 -> {ver}")
         except Exception as exc:
@@ -84,7 +84,7 @@ def check_python() -> None:
     if venv_311.exists():
         try:
             ver = subprocess.check_output(
-                [str(venv_311), "--version"], text=True, stderr=subprocess.STDOUT
+                [str(venv_311), "--versión"], text=True, stderr=subprocess.STDOUT
             ).strip()
             ok(f"venv_311 -> {ver}")
         except Exception as exc:
@@ -169,12 +169,12 @@ def check_imports_en_venv(venv_python: Path, paquetes: list[tuple[str, str]], la
     if not venv_python.exists():
         warn(f"{label}: venv no existe, salteando imports")
         return
-    for modulo, nombre in paquetes:
+    for módulo, nombre in paquetes:
         try:
             cmd = [
                 str(venv_python),
                 "-c",
-                f"import {modulo}; v = getattr({modulo}, '__version__', '?'); print('VER=' + str(v))",
+                f"import {módulo}; v = getattr({módulo}, '__version__', '?'); print('VER=' + str(v))",
             ]
             result = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=120
@@ -227,7 +227,7 @@ def check_cuda() -> None:
             "-c",
             "import torch; print(torch.__version__); "
             "print('cuda_available=' + str(torch.cuda.is_available())); "
-            "print('cuda_version=' + str(torch.version.cuda)); "
+            "print('cuda_version=' + str(torch.versión.cuda)); "
             "print('gpu=' + (torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'))",
         ]
         out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=60)
@@ -243,7 +243,7 @@ def check_cuda() -> None:
 # 5. Docker (opcional, para historial Postgres)
 # ============================================================
 def check_docker() -> None:
-    header("5. Docker Desktop (opcional, historial de analisis)")
+    header("5. Docker Desktop (opcional, historial de análisis)")
     if not shutil.which("docker"):
         warn("docker no esta en PATH (la UI funciona, pero sin historial Postgres)")
         return
@@ -275,7 +275,7 @@ def parse_env_file(path: Path) -> dict[str, str]:
 
 
 def check_auth_env(values: dict[str, str]) -> None:
-    """Valida lo necesario para no arrancar con BD vacia y registro bloqueado."""
+    """Válida lo necesario para no arrancar con BD vacia y registro bloqueado."""
     required_db = ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "DB_HOST", "DB_PORT"]
     missing_db = [key for key in required_db if not values.get(key)]
     if missing_db:
@@ -310,7 +310,7 @@ def check_auth_env(values: dict[str, str]) -> None:
 
 
 def check_config() -> None:
-    header("6. Archivos de configuracion")
+    header("6. Archivos de configuración")
     env_file = ROOT / ".env"
     env_example = ROOT / ".env.example"
     if env_file.exists():
@@ -438,9 +438,9 @@ def main() -> int:
         print("  [RESULTADO] Hay fallas criticas. Resolverlas antes de usar la app.")
         return EXIT_FAIL
     if warnings:
-        print("  [RESULTADO] Instalacion utilizable, con advertencias menores.")
+        print("  [RESULTADO] instalación utilizable, con advertencias menores.")
     else:
-        print("  [RESULTADO] Instalacion 100% completa y validada.")
+        print("  [RESULTADO] instalación 100% completa y validada.")
     return EXIT_OK
 
 

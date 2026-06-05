@@ -134,7 +134,7 @@ st.markdown(
 
 # =============== 4. ENCABEZADO =================
 st.markdown(
-    '<div class="tt-zonas-title">⚙️ Configuración de Zonas (ROI)</div>',
+    '<div class="tt-zonas-title">⚙️ configuración de Zonas (ROI)</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
@@ -275,7 +275,7 @@ if st.sidebar.button("🧩 Cargar Default (Cruz EPM)"):
          "width": largo_abierto, "height": ancho_brazo, "fill": color_abierto, "stroke": "#ffffff", "strokeWidth": 2},
     ]
     
-    plantilla_json = {"version": "4.4.0", "objects": preset_objects}
+    plantilla_json = {"versión": "4.4.0", "objects": preset_objects}
     st.session_state["canvas_initial_json"] = plantilla_json
     st.session_state["lista_nombres_zonas"] = ["Centro 1", "Brazo Cerrado 1", "Brazo Cerrado 2", "Brazo Abierto 1", "Brazo Abierto 2"]
     import uuid
@@ -334,7 +334,7 @@ if canvas_result.json_data is not None:
     if "lista_nombres_zonas" not in st.session_state:
         st.session_state["lista_nombres_zonas"] = []
 
-    # Sincronización básica de longitud
+    # sincronización básica de longitud
     num_cajas = len(objects)
     num_nombres = len(st.session_state["lista_nombres_zonas"])
 
@@ -449,7 +449,7 @@ if canvas_result.json_data is not None:
 
             st.session_state["zonas_configuradas"] = zonas_para_guardar
             save_session()
-            st.success("✅ Configuración guardada y reescalada a la resolución del video.")
+            st.success("✅ configuración guardada y reescalada a la resolución del video.")
             st.json(zonas_para_guardar)
 
         st.markdown("</div>", unsafe_allow_html=True)

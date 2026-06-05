@@ -1,5 +1,5 @@
 """
-check_setup.py - Valida la configuración del proyecto
+check_setup.py - Válida la configuración del proyecto
 Ejecutar antes de usar el sistema por primera vez
 """
 

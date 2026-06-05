@@ -2,7 +2,7 @@
 
 Fecha: 2026-05-05
 Contexto: F1 promedio Grooming blind = 0.45, Thigmotaxis = 0.58. Objetivo
-deployable es F1 >= 0.85 promedio. Ver pilar 1 para metricas. Ver pilar 2
+deployable es F1 >= 0.85 promedio. Ver pilar 1 para métricas. Ver pilar 2
 para detalles tecnicos.
 
 ---
@@ -16,10 +16,10 @@ Sintoma: el RF aprende patrones especificos por animal mas que la firma
 transversal del comportamiento. Resultado: F1 varia entre 0.00 y 0.99
 segun el animal en LOO blind.
 
-**Solucion definitiva**: etiquetar 14-30 videos mas (cuando esten
+**Solución definitiva**: etiquetar 14-30 videos mas (cuando esten
 disponibles).
 
-**Solucion intermedia (este plan)**: exprimir lo que tenemos con tecnicas
+**Solución intermedia (este plan)**: exprimir lo que tenemos con tecnicas
 de ensemble, augmentation y modelos complementarios. Objetivo realista
 con 26 videos: F1 ~0.70-0.80.
 
@@ -75,7 +75,7 @@ Archivo a modificar: `src/scripts/generar_video_prediccion.py`
 1. Agregar nuevo `--grooming-source ensemble_conditional`
 2. Cargar artefactos B-SOiD desde `data/bsoid_models/bsoid_artifacts_all26_fine.pkl`
 3. En la rama `ensemble_conditional`:
-   - Predecir con SimBA RF (codigo actual)
+   - Predecir con SimBA RF (código actual)
    - Contar positivos
    - Si > umbral: continuar como `rf` source
    - Si <= umbral: predecir B-SOiD (cargar features ego-centricas, RF auxiliar predice motivo, mapear a P_grooming) y aplicar OR
@@ -84,13 +84,13 @@ Archivo a modificar: `src/scripts/generar_video_prediccion.py`
 Tambien actualizar `src/scripts/run_behavior_pipeline.py` para pasar
 estos args.
 
-### 3.4 Validacion
+### 3.4 Validación
 
 Re-correr `loo_full_bsoid.py` modificado para que evalue tambien la
 estrategia `ensemble_conditional`. Comparar promedios contra los 13 LOO
 existentes.
 
-**Criterio de exito**: F1 promedio Grooming blind >= 0.60 (vs 0.56
+**Criterio de éxito**: F1 promedio Grooming blind >= 0.60 (vs 0.56
 ensemble siempre).
 
 ## 4. Mejora #2: Mirror augmentation
@@ -105,7 +105,7 @@ respecto al eje X. Podemos generar datos sinteticos espejeando.
 **Dataset efectivo: 26 → 52 videos** (acercando al minimo recomendado de
 40-60 para Grooming).
 
-Es una tecnica estandar en computer vision (data augmentation).
+Es una técnica estandar en computer vision (data augmentation).
 
 ### 4.2 Procedimiento
 
@@ -137,18 +137,18 @@ Nuevo script: `src/scripts/mirror_augmentation.py`
 ### 4.4 Riesgos
 
 - Si la camara tiene asimetria sistematica (montaje no perfectamente
-  simetrico), el mirror introduce ruido. Verificacion: revisar que
+  simetrico), el mirror introduce ruido. Verificación: revisar que
   zonas_activas.json sea simetrica respecto a x=640.
 - El B-SOiD requiere reentreno tambien (las features ego-centricas
   cambian).
 
-### 4.5 Validacion
+### 4.5 Validación
 
 LOO blind sobre los videos originales (no sobre los espejos), con el
 modelo entrenado en 52 videos. Comparar F1 promedio vs el actual (0.45
 SimBA solo, 0.56 ensemble).
 
-**Criterio de exito**: F1 promedio Grooming blind sube al menos +0.10
+**Criterio de éxito**: F1 promedio Grooming blind sube al menos +0.10
 respecto a usar solo 26 videos.
 
 ## 5. Mejora #3: Reentrenar LSTM con 26 videos
@@ -180,12 +180,12 @@ directamente. Soluciones:
 5. Actualizar `data/models/lstm_grooming_yolo/grooming_lstm.keras` y
    metadata.json (best_threshold, etc.).
 
-### 5.4 Validacion
+### 5.4 Validación
 
 LOO blind sobre los mismos 13 videos validados anteriormente. Comparar
 F1 con la regla `rescue` modificada (RF + LSTM nueva).
 
-**Criterio de exito**: F1 promedio Grooming blind sube +0.05 respecto a
+**Criterio de éxito**: F1 promedio Grooming blind sube +0.05 respecto a
 RF solo. Idealmente sube +0.10.
 
 ## 6. Mejora #4: Bagging multi-semilla SimBA
@@ -209,12 +209,12 @@ la sensibilidad a animales especificos.
    aceptar lista de modelos. Predecir con cada uno y promediar.
 4. Costo: 5x el tamano en disco (5 x 269 MB = 1.35 GB). Aceptable.
 
-### 6.3 Validacion
+### 6.3 Validación
 
 LOO blind con bagging activado. Esperamos varianza reducida entre
 videos (menos catastrofes F1=0).
 
-**Criterio de exito**: maxima diferencia F1 entre videos blind se reduce
+**Criterio de éxito**: maxima diferencia F1 entre videos blind se reduce
 en al menos 30%. Por ejemplo, si actual rango es [0.00, 0.99], con
 bagging deberia ser [0.30, 0.95].
 
@@ -223,7 +223,7 @@ bagging deberia ser [0.30, 0.95].
 ### 7.1 Justificacion
 
 Threshold operativo fijo 0.41 puede no ser optimo para todos los
-videos. Calibracion dinamica basada en la distribucion de probabilidades
+videos. Calibracion dinámica basada en la distribucion de probabilidades
 predichas.
 
 ### 7.2 Procedimiento
@@ -237,13 +237,13 @@ Al predecir un video:
 Esto es heuristico. Puede integrarse con la mejora #1 (ensemble
 condicional).
 
-### 7.3 Validacion
+### 7.3 Validación
 
 LOO blind con calibracion. Comparar F1.
 
-**Criterio de exito**: F1 promedio +0.02 - 0.05.
+**Criterio de éxito**: F1 promedio +0.02 - 0.05.
 
-## 8. Orden recomendado de ejecucion
+## 8. Orden recomendado de ejecución
 
 ```
 [1] Ensemble condicional         → milestone: F1 0.45 → 0.55-0.60
@@ -253,12 +253,12 @@ LOO blind con calibracion. Comparar F1.
 [5] Calibracion threshold        → milestone: F1 +0.02-0.05 final
 ```
 
-Despues de cada paso, hacer LOO blind sobre los 13 videos. Si un paso
+Después de cada paso, hacer LOO blind sobre los 13 videos. Si un paso
 no aporta, revisar antes de seguir.
 
 ## 9. Checkpoint cada paso
 
-Despues de implementar cada mejora, generar reporte:
+Después de implementar cada mejora, generar reporte:
 - `reportes/checkpoint_M{n}_{nombre}_{fecha}.md`
 - Incluir tabla LOO completa
 - Comparar con baseline anterior
@@ -270,14 +270,14 @@ Despues de implementar cada mejora, generar reporte:
   pipeline. Complejidad no justificable con ganancia incierta dado
   problema raiz (datos limitados).
 - **Subclasificacion B-SOiD de tipos de grooming** (paw/face vs head vs
-  body): bonita pero no critica. Hacer despues si las mejoras 1-5 dan
+  body): bonita pero no critica. Hacer después si las mejoras 1-5 dan
   el F1 deployable.
 - **Features periodicas custom** (FFT, autocorr): SimBA las filtra
   silenciosamente. No vale la pena pelearse con SimBA — hay que
   parchear su pipeline o usar otro framework. Las features ego-centricas
   ya capturan la firma temporal via ventanas y velocidades.
 
-## 11. Solucion definitiva (cuando haya recursos)
+## 11. solución definitiva (cuando haya recursos)
 
 **Etiquetar 14-30 videos mas** llevaria el dataset a 40-60, en el rango
 recomendado por la literatura para Grooming. Esto NO se puede hacer

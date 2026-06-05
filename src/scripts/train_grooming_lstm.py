@@ -73,7 +73,7 @@ def collect_dataset(project_root: Path, window: int, stride: int, validation_fra
     targets_dir = project_root / "project_folder" / "csv" / "targets_inserted"
     pairs = [(p.stem, p, targets_dir / p.name) for p in sorted(features_dir.glob("*.csv")) if (targets_dir / p.name).exists()]
     if len(pairs) < 3:
-        raise RuntimeError("Se necesitan al menos 3 videos con features + targets para una validacion razonable.")
+        raise RuntimeError("Se necesitan al menos 3 videos con features + targets para una validación razonable.")
 
     validation_count = max(1, int(round(len(pairs) * validation_fraction)))
     train_pairs = pairs[:-validation_count]

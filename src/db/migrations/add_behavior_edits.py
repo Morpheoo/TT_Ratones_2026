@@ -27,10 +27,12 @@ def migrate():
                     edited_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     before_open     FLOAT,
                     before_closed   FLOAT,
+                    before_center   FLOAT,
                     before_grooming FLOAT,
                     before_thigmo   FLOAT,
                     after_open      FLOAT,
                     after_closed    FLOAT,
+                    after_center    FLOAT,
                     after_grooming  FLOAT,
                     after_thigmo    FLOAT,
                     note            TEXT
@@ -40,6 +42,13 @@ def migrate():
             conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS idx_behavior_edits_exp "
                 "ON behavior_edits(experiment_id, edited_at DESC);"
+            ))
+            # Asegurar que las columnas center existan en DBs creadas con versión anterior
+            conn.execute(text(
+                "ALTER TABLE behavior_edits ADD COLUMN IF NOT EXISTS before_center FLOAT;"
+            ))
+            conn.execute(text(
+                "ALTER TABLE behavior_edits ADD COLUMN IF NOT EXISTS after_center FLOAT;"
             ))
             conn.commit()
             print("[OK] behavior_edits table ready.")

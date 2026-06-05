@@ -226,7 +226,7 @@ def test_connection():
     try:
         with engine.connect() as conn:
             # Test 1: Conexión básica
-            result = conn.execute(text("SELECT version()")).scalar()
+            result = conn.execute(text("SELECT versión()")).scalar()
             print(f"[OK] Conexión exitosa a PostgreSQL:")
             print(f"     Versión: {result}")
             

@@ -27,7 +27,7 @@ importlib.reload(ui_theme)
 from ui_theme import render_topbar, use_theme, inject_sidebar_profile
 from video_context_banner import render_video_banner
 
-st.set_page_config(page_title="Keypoints | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Keypoints", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
@@ -83,7 +83,7 @@ def get_trim_summary():
     start_seconds = int(st.session_state.get("inicio_recorte", 0) or 0)
     end_seconds = st.session_state.get("fin_recorte")
     if end_seconds is None:
-        return f"{format_mm_ss(start_seconds)} -> fin del video"
+        return f"{format_mm_ss(start_seconds)} -> fin del vídeo"
     return f"{format_mm_ss(start_seconds)} -> {format_mm_ss(end_seconds)}"
 
 
@@ -229,7 +229,7 @@ def parse_extract_progress(lines, current_progress):
             total = max(int(trim_match.group(2)), 1)
             ratio = current / total
             progress = max(progress, 0.12 + (0.18 * ratio))
-            status = f"Recortando video... {int(ratio * 100)}%"
+            status = f"Recortando vídeo... {int(ratio * 100)}%"
             break
 
         heartbeat_match = re.search(r"\[HEARTBEAT\]\s+inference\s+elapsed=(\d+)s", line)
@@ -264,23 +264,23 @@ def parse_extract_progress(lines, current_progress):
             status = f"Renderizando validación bbox... {int(ratio * 100)}%"
             break
 
-        if "[ENGINE] EXITO: metricas generadas" in line or "[OUTPUT] FEATURE_CSV=" in line:
+        if "[ENGINE] EXITO: métricas generadas" in line or "[OUTPUT] FEATURE_CSV=" in line:
             progress = max(progress, 0.94)
-            status = "Bridge SimBA listo."
+            status = "Puente SimBA listo."
             break
 
-    if any("SUCCESS: Keypoints prep pipeline complete." in line for line in lines) or any(
+    if any("SUCCESS: Extracción de keypoints completada." in line for line in lines) or any(
         line.startswith("[OUTPUT] FINAL_FEATURE_CSV=") for line in lines
     ):
         progress = 1.0
-        status = "Keypoints, filtro bbox y bridge SimBA listos."
+        status = "Keypoints, filtro bbox y puente SimBA listos."
 
     return progress, status, collect_output_markers(lines)
 
 
 def parse_render_progress(lines, current_progress):
     progress = max(current_progress, 0.05)
-    status = "Preparando render del overlay..."
+    status = "Preparando renderizado de la capa..."
 
     total_frames = None
     for line in lines:
@@ -291,7 +291,7 @@ def parse_render_progress(lines, current_progress):
                 total_frames = None
         if "[RENDER] Done" in line:
             progress = 1.0
-            status = "Overlay de keypoints completado."
+            status = "Capa de keypoints completada."
         elif line.startswith("[OUTPUT] OVERLAY_VIDEO="):
             progress = max(progress, 0.96)
             status = "Finalizando archivo de vista previa..."
@@ -413,7 +413,7 @@ def launch_log_viewer_console(log_path, title):
 
     if not os.path.exists(log_path):
         with open(log_path, "w", encoding="utf-8") as file_handle:
-            file_handle.write("[INFO] Esperando logs...\n")
+            file_handle.write("[INFO] Esperando registros...\n")
 
     command = (
         f"$host.UI.RawUI.WindowTitle = '{safe_title}'; "
@@ -440,7 +440,7 @@ def launch_background_extract(command):
         "--log",
         log_path,
         "--label",
-        "TT 2026 - DLC Keypoints",
+        "Keypoints",
         "--",
     ] + command
 
@@ -474,8 +474,8 @@ def cancel_background_extract(meta):
         return
 
     log_path = meta.get("log_path") or get_extract_log_path()
-    append_log_line(log_path, "[STEP] CANCELLED")
-    append_log_line(log_path, "[INFO] Cancellation requested from Streamlit.")
+    append_log_line(log_path, "[STEP] CANCELADO")
+    append_log_line(log_path, "[INFO] Cancelación solicitada desde Streamlit.")
 
     pid = meta.get("pid")
     if pid:
@@ -521,7 +521,7 @@ def get_extract_snapshot():
 
             if outcome == "completed":
                 progress = 1.0
-                status = "Keypoints, filtro bbox y bridge SimBA listos."
+                status = "Keypoints, filtro bbox y puente SimBA listos."
                 if not meta.get("outputs_imported"):
                     sync_extract_outputs(outputs)
                     meta["outputs_imported"] = True
@@ -546,7 +546,7 @@ def get_extract_snapshot():
             inferred_outcome = infer_extract_outcome(lines)
             if inferred_outcome == "completed":
                 progress = 1.0
-                status = "Keypoints, filtro bbox y bridge SimBA listos."
+                status = "Keypoints, filtro bbox y puente SimBA listos."
             elif inferred_outcome == "cancelled":
                 progress = min(max(progress, 0.1), 0.95)
                 status = "Extracción cancelada por el usuario."
@@ -631,7 +631,7 @@ def collect_generated_files():
 
 def build_keypoints_main_outputs():
     candidates = [
-        ("Video analizado", st.session_state.get("ultimo_video_analizado")),
+        ("Vídeo analizado", st.session_state.get("ultimo_video_analizado")),
         ("Pose DLC cruda (H5)", st.session_state.get("ultimo_pose_crudo_file")),
         ("Pose filtrada bbox (H5)", st.session_state.get("ultimo_pose_filtrado")),
         ("CSV filtrado bbox", st.session_state.get("ultimo_pose_filtrado_csv")),
@@ -656,9 +656,9 @@ def is_extract_completed(snapshot=None):
         if meta.get("status") == "completed":
             return True
         status = str(snapshot.get("status", ""))
-        return status == "Keypoints, filtro bbox y bridge SimBA listos."
+        return status == "Keypoints, filtro bbox y puente SimBA listos."
 
-    return st.session_state.get("keypoints_last_status") == "Keypoints, filtro bbox y bridge SimBA listos."
+    return st.session_state.get("keypoints_last_status") == "Keypoints, filtro bbox y puente SimBA listos."
 
 
 def render_output_panel(snapshot=None):
@@ -703,7 +703,7 @@ def render_output_panel(snapshot=None):
 
     if yolo_kp_video:
         st.markdown("---")
-        st.markdown("##### Vista previa YOLO Pose")
+        st.markdown("##### Vista previa de YOLO Pose")
         st.video(yolo_kp_video)
     elif overlay_path:
         st.markdown("---")
@@ -722,7 +722,7 @@ def render_output_panel(snapshot=None):
         if yolo_kp_video:
             st.code(yolo_kp_video, language=None)
         else:
-            st.caption("Los videos de keypoints YOLO se guardan en `keypoints_yolo/`.")
+            st.caption("Los videos de keypoints de YOLO se guardan en `keypoints_yolo/`.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -830,7 +830,7 @@ def remove_close_warning():
                     topWin.__tt_keypoints_unload_listener = null;
                 }
             } catch (err) {
-                console.warn('No se pudo remover advertencia de cierre:', err);
+                console.warn('No se pudo remover la advertencia de cierre:', err);
             }
         })();
     </script>
@@ -1121,7 +1121,7 @@ elif action == "render":
     try:
         command, output_path, pose_path = build_render_command()
     except Exception as error:
-        st.session_state["keypoints_last_status"] = f"No se pudo iniciar el render: {error}"
+        st.session_state["keypoints_last_status"] = f"No se pudo iniciar el renderizado: {error}"
         st.session_state["keypoints_last_progress"] = 0.0
         st.session_state["keypoints_last_logs"] = f"[ERROR] {error}"
     else:
@@ -1130,8 +1130,8 @@ elif action == "render":
             command=command,
             log_path=render_log_path,
             parser=parse_render_progress,
-            success_status="Vista previa HUD generada correctamente.",
-            error_status="La generacion del overlay termino con error.",
+            success_status="Vista previa generada correctamente.",
+            error_status="La generación de la capa terminó con error.",
         )
         if return_code == 0:
             overlay_path = outputs.get("overlay_video") or output_path
@@ -1165,7 +1165,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     f"""
     <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Identidad Institucional IPN &bull; ESCOM &bull; TT 2026
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
     </div>
     """,
     unsafe_allow_html=True,

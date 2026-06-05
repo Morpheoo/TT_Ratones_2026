@@ -46,7 +46,7 @@ def sanitize_input(value: str, max_length: int = 255) -> str:
 
 
 def validate_email_format(email: str) -> bool:
-    """Valida formato básico de email y previene caracteres sospechosos."""
+    """Válida formato básico de email y previene caracteres sospechosos."""
     if not email or len(email) > 254:  # RFC 5321
         return False
 
@@ -66,7 +66,7 @@ def validate_email_format(email: str) -> bool:
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
     """
-    Valida fortaleza de contraseña.
+    Válida fortaleza de contraseña.
     Retorna (es_valida, mensaje_error)
     """
     if len(password) < 8:
@@ -104,7 +104,7 @@ def check_password(password: str, hashed: str) -> bool:
 
 def authenticate(email, password):
     """Authenticate a user against the PostgreSQL database with input validation."""
-    # Validación de entrada - Prevención de inyección SQL
+    # validación de entrada - Prevención de inyección SQL
     if not email or not password:
         log_security_event(
             "LOGIN_FAILED", user=email or "unknown",
@@ -218,7 +218,7 @@ def authenticate(email, password):
     return None
 
 def validate_ipn_domain(email: str) -> bool:
-    """Valida si el correo pertenece al dominio IPN."""
+    """Válida si el correo pertenece al dominio IPN."""
     allowed_domains = ["@ipn.mx", "@alumno.ipn.mx"]
     return any(email.endswith(dom) for dom in allowed_domains)
 
@@ -336,7 +336,7 @@ def register_user(email, password, role="investigador", full_name=None,
 
     try:
         with engine.connect() as conn:
-            with conn.begin():  # Toda la operacion dentro de una transaccion
+            with conn.begin():  # Toda la operación dentro de una transaccion
                 # 2. Verificar si existe
                 check = text("SELECT id FROM users WHERE username = :email")
                 if conn.execute(check, {"email": email}).fetchone():
@@ -463,7 +463,7 @@ def verify_otp(email, code):
             db_code = res[1]
             created_at = res[2]
             
-            # Validación de expiración (5 minutos)
+            # validación de expiración (5 minutos)
             if created_at:
                 check_time = text("""
                     SELECT EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - verification_code_created_at))/60 

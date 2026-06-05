@@ -18,10 +18,43 @@ from ui_theme import render_topbar, use_theme, inject_sidebar_profile
 # Importar sistema de tratamientos
 from treatments import initialize_treatments_table, get_all_treatments, add_treatment, delete_treatment
 
-st.set_page_config(page_title="Ingesta de Video | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Ingesta de vídeo", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
+
+# CSS para traducir file_uploader completamente a español
+st.markdown("""
+<style>
+/* Ocultar textos originales en inglés y reemplazar por español */
+[data-testid="stFileUploader"] section small {
+    font-size: 0;
+}
+
+[data-testid="stFileUploader"] section small::before {
+    content: "Límite 4GB por archivo • MP4, MOV, AVI, MPEG4";
+    font-size: 0.875rem;
+}
+
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] div div {
+    font-size: 0;
+}
+
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] div div::before {
+    content: "Arrastra y suelta el archivo aquí";
+    font-size: 1rem;
+}
+
+[data-testid="stFileUploader"] button[kind="secondary"] {
+    font-size: 0;
+}
+
+[data-testid="stFileUploader"] button[kind="secondary"]::before {
+    content: "Examinar archivos";
+    font-size: 0.875rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
@@ -30,11 +63,11 @@ if not st.session_state.get("logged_in"):
 run_page_splash(
     "page_ingesta",
     [
-        "Inicializando modulo de ingesta...",
+        "Inicializando módulo de ingesta...",
         "Verificando almacenamiento local...",
         "Habilitando captura experimental...",
     ],
-    subtitle="TT 2026 - Preparando ingesta de video...",
+    subtitle="Preparando ingesta de vídeo...",
 )
 
 # ================= SIDEBAR =================
@@ -83,14 +116,14 @@ def get_video_metadata(video_path, modified_time):
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():
         capture.release()
-        raise RuntimeError("No se pudo abrir el video para calcular su duracion.")
+        raise RuntimeError("No se pudo abrir el video para calcular su duración.")
 
     fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
     frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     capture.release()
 
     if fps <= 0 or frame_count <= 0:
-        raise RuntimeError("No se pudo obtener la duracion del video.")
+        raise RuntimeError("No se pudo obtener la duración del video.")
 
     duration_seconds = int(round(frame_count / fps))
     return {
@@ -238,20 +271,20 @@ with c1:
                     else:
                         st.error(msg)
                 else:
-                    st.warning("Ingresa un nombre válido para el tratamiento")
+                    st.warning("Ingresa un nombre válido para el tratamiento.")
     
     # Solo admin puede eliminar tratamientos
     if user_role == "admin":
         with st.expander("Gestionar tratamientos"):
             tratamiento_a_eliminar = st.selectbox(
-                "Selecciona tratamiento a eliminar",
+                "Selecciona tratamiento a eliminar.",
                 options=treatment_names,
                 key="tratamiento_eliminar_select"
             )
             
             col_warn, col_del = st.columns([2, 1])
             with col_warn:
-                st.caption("Esta acción desactivará el tratamiento si está en uso")
+                st.caption("Esta acción desactivará el tratamiento si está en uso.")
             with col_del:
                 if st.button("Eliminar", key="btn_delete_treatment", type="secondary", use_container_width=True):
                     # Obtener ID del tratamiento
@@ -293,7 +326,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 # ================= 5. PROCESAMIENTO INICIAL =================
 if preparar_video:
     if video_file is None:
-        st.error("Carga un video antes de preparar el recorte.")
+        st.error("Carga un vídeo antes de preparar el recorte.")
     elif not id_raton:
         st.error("Ingrese un ID válido para el espécimen.")
     else:
@@ -338,7 +371,7 @@ if "video_en_edicion" in st.session_state:
 
             quick_cols = st.columns(3)
             with quick_cols[0]:
-                if st.button("Usar video completo", use_container_width=True, key="trim_full_video"):
+                if st.button("Usar vídeo completo", use_container_width=True, key="trim_full_video"):
                     set_trim_widget_values(0, duration_seconds)
                     st.rerun()
             with quick_cols[1]:

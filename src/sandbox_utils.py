@@ -21,7 +21,7 @@ PRODUCTIVO_KEY = "grooming_thigmotaxis_yolo"
 def list_available_simba_projects(simba_root: Path) -> list[str]:
     """Devuelve los nombres de proyectos SimBA reconocidos por el selector.
 
-    Un proyecto valido es una carpeta hija que contiene `project_folder/`
+    Un proyecto válido es una carpeta hija que contiene `project_folder/`
     Y cuyo nombre es el productivo o empieza con `sandbox_` (creados por
     `bootstrap_sandbox.py`). Eso filtra proyectos legacy (DLC, viejos
     sandboxes hechos a mano) del selector de la UI.

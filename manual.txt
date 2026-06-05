@@ -51,7 +51,7 @@ En el slider responsivo se deben
 usar imágenes con bajo contraste
 7
 Datos numéricos pertinentes para nivel superior – opciones (numeralia):
-1. Número de estudiantes matriculados (actuales y egresados por generación).
+1. número de estudiantes matriculados (actuales y egresados por generación).
 2. Porcentaje de titulados o tasas de graduación.
 3. Programas académicos ofrecidos (licenciaturas, maestrías, doctorados).
 4. Tasa de empleabilidad de egresados.
@@ -84,7 +84,7 @@ Facilita tu experiencia en nuestro sitio web explorando las principales seccione
 comunidad. Utiliza los siguientes enlaces para acceder a la información clave. Navega fácilmente por estas opciones y mantente 
 conectado con nuestras actualizaciones y oportunidades:
 • Estudiantes: Recursos y servicios para tu éxito académico.
-• Aspirantes: Información sobre programas académicos y procesos de admisión.
+• Aspirantes: información sobre programas académicos y procesos de admisión.
 • Docentes: Datos y recursos para tu desarrollo profesional.
 • Servicios: Servicios disponibles para estudiantes y personal.
 • Egresados: Oportunidades y mantenimientos de contacto para graduados.

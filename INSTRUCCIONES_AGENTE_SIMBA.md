@@ -12,7 +12,7 @@ Me parece una estrategia perfecta, agregando los videos que mencionas la validac
 4. `C7-R1.mov`
 5. `R5DZ_01mar24.mp4` (El extra elegido para enseñar la conducta)
 
-**Prueba / Validación Ciega (Predicción y Video OpenCV con `generar_video_prediccion.py`):**
+**Prueba / validación Ciega (Predicción y Video OpenCV con `generar_video_prediccion.py`):**
 1. `DZP-R1.mov` (El que está ejecutándose actualmente)
 2. `R5B20_01mar24.mp4` (El extra elegido de forma ciega)
 

@@ -24,7 +24,7 @@ importlib.reload(ui_theme)
 from ui_theme import use_theme, render_topbar, inject_sidebar_profile
 
 st.set_page_config(
-    page_title="Comparación | IPN - ESCOM",
+    page_title="Comparación",
     page_icon="assets/logos/logo_ria.png",
     layout="wide"
 )
@@ -43,7 +43,7 @@ run_page_splash(
         "Preparando herramientas de comparación...",
         "Generando visualizaciones comparativas...",
     ],
-    subtitle="TT 2026 - Análisis Comparativo de Experimentos EPM",
+    subtitle="Análisis de comparación entre grupos experimentales",
 )
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -169,7 +169,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("##### Grupo 1")
     group1_treatment = st.selectbox(
-        "Tratamiento para Grupo 1:",
+        "Tratamiento para grupo 1:",
         options=all_treatments,
         index=all_treatments.index(prev_treatment_g1) if prev_treatment_g1 in all_treatments else 0,
         key="selectbox_treatment_g1"
@@ -185,7 +185,7 @@ with col1:
     valid_prev_g1 = [label for label in prev_selected_g1 if label in group1_available_labels]
 
     selected_group1_labels = st.multiselect(
-        "Selecciona experimentos para Grupo 1:",
+        "Selecciona experimentos para grupo 1:",
         options=group1_available_labels,
         default=valid_prev_g1 if st.session_state.get('comparison_ready', False) else [],
         key="multiselect_g1",
@@ -217,7 +217,7 @@ with col2:
     default_treatment_g2 = prev_treatment_g2 if prev_treatment_g2 in available_treatments_g2 else available_treatments_g2[0]
 
     group2_treatment = st.selectbox(
-        "Tratamiento para Grupo 2:",
+        "Tratamiento para grupo 2:",
         options=available_treatments_g2,
         index=available_treatments_g2.index(default_treatment_g2) if default_treatment_g2 in available_treatments_g2 else 0,
         key="selectbox_treatment_g2"
@@ -233,11 +233,11 @@ with col2:
     valid_prev_g2 = [label for label in prev_selected_g2 if label in group2_available_labels]
 
     selected_group2_labels = st.multiselect(
-        "Selecciona experimentos para Grupo 2:",
+        "Selecciona experimentos para grupo 2:",
         options=group2_available_labels,
         default=valid_prev_g2 if st.session_state.get('comparison_ready', False) else [],
         key="multiselect_g2",
-        help="Puedes seleccionar múltiples experimentos. Usa Ctrl+Click o Cmd+Click"
+        help="Puedes seleccionar múltiples experimentos."
     )
 
     n_group2 = len(selected_group2_labels)
@@ -271,12 +271,12 @@ if n_group2 < 4 or n_group2 > 8:
 
 # Verificar si tienen el mismo número
 if n_group1 != n_group2:
-    st.error(f"Los grupos deben tener la misma cantidad de experimentos. Grupo 1: {n_group1}, Grupo 2: {n_group2}")
+    st.error(f"Los grupos deben tener la misma cantidad de experimentos. Grupo 1: {n_group1}, Grupo 2: {n_group2}.")
     st.info("Ajusta tus selecciones para que ambos grupos tengan el mismo número de experimentos.")
     st.stop()
 
-# Validación exitosa
-st.success(f"✓ Validación exitosa: Ambos grupos tienen **{n_group1}** experimento(s) seleccionado(s)")
+# validación exitosa
+st.success(f"✓ Validación exitosa: Ambos grupos tienen **{n_group1}** experimentos seleccionados.")
 
 # Botón para ejecutar la comparación
 if st.button("Comparar grupos", type="primary", use_container_width=True):
@@ -295,8 +295,8 @@ if not st.session_state.get('comparison_ready', False):
 # Recuperar selecciones de session_state
 selected_group1_labels = st.session_state.get('selected_g1', [])
 selected_group2_labels = st.session_state.get('selected_g2', [])
-group1_treatment = st.session_state.get('treatment_g1', 'Grupo1')
-group2_treatment = st.session_state.get('treatment_g2', 'Grupo2')
+group1_treatment = st.session_state.get('treatment_g1', 'grupo 1')
+group2_treatment = st.session_state.get('treatment_g2', 'grupo 2')
 
 # Obtener los DataFrames correspondientes
 df_group1 = df_experiments[df_experiments['label'].isin(selected_group1_labels)].copy()
@@ -387,11 +387,11 @@ st.markdown("Tabla consolidada para análisis estadístico (ANOVA, prueba t)")
 
 # Variables de interés
 metrics = {
-    'time_open_arms': 'Tiempo Brazos Abiertos (s)',
-    'time_closed_arms': 'Tiempo Brazos Cerrados (s)',
-    'time_center': 'Tiempo Centro (s)',
-    'grooming_duration': 'Grooming (s)',
-    'thigmotaxis_duration': 'Tigmotaxis (s)'
+    'time_open_arms': 'Tiempo en brazos abiertos (en segundos)',
+    'time_closed_arms': 'Tiempo en brazos cerrados (en segundos)',
+    'time_center': 'Tiempo en centro (en segundos)',
+    'grooming_duration': 'Tiempo en Grooming (en segundos)',
+    'thigmotaxis_duration': 'Tiempo en Tigmotaxis (en segundos)'
 }
 
 # Calcular estadísticas por grupo y métrica
@@ -482,7 +482,7 @@ with tab1:
             ))
 
     fig_bars.update_layout(
-        title=f'{selected_metric_name} - Comparación de Grupos',
+        title=f'{selected_metric_name} - comparación de Grupos',
         yaxis_title=selected_metric_name,
         xaxis_title='Grupo',
         showlegend=True,
@@ -496,10 +496,10 @@ with tab1:
     col_n1, col_n2 = st.columns(2)
     with col_n1:
         n1 = df_plot[df_plot['Grupo'] == 'Grupo 1']['N'].iloc[0]
-        st.metric("N Grupo 1", n1)
+        st.metric("Número de experimentos en grupo 1", n1)
     with col_n2:
         n2 = df_plot[df_plot['Grupo'] == 'Grupo 2']['N'].iloc[0]
-        st.metric("N Grupo 2", n2)
+        st.metric("Número de experimentos en grupo 2", n2)
 
 with tab2:
     st.markdown("##### Comparación detallada")
@@ -517,8 +517,8 @@ with tab2:
 
             comparison_table.append({
                 'Variable': metric_name,
-                f'Grupo 1 Media±DE': f"{group1_data['Media'].iloc[0]:.2f} ± {group1_data['Desv. Est.'].iloc[0]:.2f}",
-                f'Grupo 2 Media±DE': f"{group2_data['Media'].iloc[0]:.2f} ± {group2_data['Desv. Est.'].iloc[0]:.2f}",
+                f'Grupo 1 Media ± desviación estándar': f"{group1_data['Media'].iloc[0]:.2f} ± {group1_data['Desv. Est.'].iloc[0]:.2f}",
+                f'Grupo 2 Media ± desviación estándar': f"{group2_data['Media'].iloc[0]:.2f} ± {group2_data['Desv. Est.'].iloc[0]:.2f}",
                 'Diferencia': f"{diff:+.2f}",
                 '% Cambio': f"{pct_diff:+.1f}%"
             })
@@ -553,7 +553,7 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
         # Título
         elements.append(Paragraph("Prototipo de análisis EPM - Comparación de grupos", styles['Title']))
         elements.append(Spacer(1, 12))
-        elements.append(Paragraph("Instituto Politecnico Nacional - ESCOM", styles['Normal']))
+        elements.append(Paragraph("IPN ESCOM", styles['Normal']))
         elements.append(Spacer(1, 12))
         elements.append(Paragraph(f"Reporte: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
         elements.append(Spacer(1, 20))
@@ -574,8 +574,8 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
         for _, row in df_comparison_table.iterrows():
             table_data.append([
                 str(row['Variable'])[:25],
-                str(row[f'Grupo 1 Media±DE'])[:20],
-                str(row[f'Grupo 2 Media±DE'])[:20],
+                str(row[f'Grupo 1 Media ± desviación estándar'])[:20],
+                str(row[f'Grupo 2 Media ± desviación estándar'])[:20],
                 str(row['Diferencia']),
                 str(row['% Cambio'])
             ])
@@ -600,7 +600,7 @@ def generate_comparison_pdf(df_comparison_table, df_stats, group1_treatment, gro
         elements.append(Paragraph("Estadísticas descriptivas", styles['Heading3']))
         elements.append(Spacer(1, 10))
         
-        stats_data = [['Variable', 'Grupo', 'Media', 'DE', 'N']]
+        stats_data = [['Variable', 'Grupo', 'Media', 'Desviación estándar', 'Número de sujetos']]
         
         for _, row in df_stats.iterrows():
             stats_data.append([
@@ -648,12 +648,13 @@ st.markdown("---")
 st.markdown("#### Exportar consolidado para análisis estadístico")
 
 st.info("""
-**Formato de Exportación:**
-- **Hoja 1 (Datos Individuales):** Datos crudos de cada sujeto experimental
-- **Hoja 2 (Estadísticas por Grupo):** Media, Desviación Estándar, Error Estándar, N
-- **Hoja 3 (Resumen Comparativo):** Diferencias entre grupos
-- **Formato compatible** con SPSS, R, GraphPad Prism, JASP
-""")
+**Formato de exportación:**
+- **Hoja 1 (datos individuales):** Datos crudos de cada sujeto experimental.
+- **Hoja 2 (estadísticas por grupo):** Media, desviación estándar, error estándar, número de sujetos por grupo y métrica.
+- **Hoja 3 (resumen comparativo):** Diferencias entre grupos.
+- **Formato compatible** con SPSS, R, GraphPad Prism, JASP.
+"""
+)
 
 # Preparar datos para exportación
 
@@ -665,12 +666,12 @@ df_individual_export = df_comparison[[
 ]].copy()
 
 df_individual_export.columns = [
-    'Grupo', 'ID_Raton', 'Tratamiento', 'Fecha',
-    'Tiempo_Brazos_Abiertos_s', 'Tiempo_Brazos_Cerrados_s', 'Tiempo_Centro_s',
-    'Grooming_s', 'Tigmotaxis_s'
+    'Grupo', 'ID del ratón', 'Tratamiento', 'Fecha',
+    'Tiempo en brazos Abiertos_s', 'Tiempo en brazos Cerrados', 'Tiempo en Centro',
+    'Tiempo en Grooming', 'Tiempo en Thigmotaxis'
 ]
 
-# Hoja 2: Estadísticas descriptivas por grupo
+# Hoja 2: estadísticas descriptivas por grupo
 df_stats_export = df_stats.copy()
 
 # Hoja 3: Resumen comparativo
@@ -710,7 +711,7 @@ with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
     # Hoja 1: Datos individuales
     df_individual_export.to_excel(writer, index=False, sheet_name='Datos_Individuales')
 
-    # Hoja 2: Estadísticas por grupo
+    # Hoja 2: estadísticas por grupo
     df_stats_export.to_excel(writer, index=False, sheet_name='Estadisticas_Descriptivas')
 
     # Hoja 3: Resumen comparativo
@@ -765,7 +766,6 @@ with col_exp1:
         type="primary",
         use_container_width=True
     )
-    st.caption("Consolidado completo con 4 hojas")
 
 with col_exp2:
     csv_stats = df_stats_export.to_csv(index=False).encode('utf-8-sig')
@@ -798,9 +798,9 @@ with col_exp3:
             )
             st.caption("Reporte de comparación")
         else:
-            st.error("Error al generar PDF")
+            st.error("Error al generar PDF.")
     except Exception as e:
-        st.error(f"No se pudo generar PDF")
+        st.error(f"No se pudo generar PDF.")
 
 # ================= 10. RECOMENDACIONES PARA ANÁLISIS =================
 st.markdown("---")
@@ -812,36 +812,36 @@ with st.expander(" Recomendaciones para pruebas estadísticas"):
     with col_guide1:
         st.markdown("**Pruebas paramétricas:**")
         st.markdown("""
-        - **Prueba t de Student** (2 grupos)
-          - Verificar normalidad (Shapiro-Wilk)
-          - Verificar homogeneidad de varianzas (Levene)
-          - Si N₁ ≈ N₂ y datos normales
+        - **Prueba t de Student** (2 grupos).
+          - Verificar normalidad (Shapiro-Wilk).
+          - Verificar homogeneidad de varianzas (Levene).
+          - Si N₁ ≈ N₂ y datos normales.
 
-        - **ANOVA de una vía** (>2 grupos)
-          - Comparar múltiples tratamientos
-          - Post-hoc: Tukey, Bonferroni
+        - **ANOVA de una vía** (>2 grupos).
+          - Comparar múltiples tratamientos.
+          - Post-hoc: Tukey, Bonferroni.
         """)
 
     with col_guide2:
         st.markdown("**Pruebas no paramétricas:**")
         st.markdown("""
-        - **U de Mann-Whitney** (2 grupos)
-          - Alternativa a t de Student
-          - No requiere normalidad
-          - Datos ordinales o no normales
+        - **U de Mann-Whitney** (2 grupos).
+          - Alternativa a t de Student.
+          - No requiere normalidad.
+          - Datos ordinales o no normales.
 
-        - **Kruskal-Wallis** (>2 grupos)
-          - Alternativa a ANOVA
-          - Post-hoc: Dunn
+        - **Kruskal-Wallis** (mayor a 2 grupos).
+          - Alternativa a ANOVA.
+          - Post-hoc: Dunn.
         """)
 
     st.markdown("---")
     st.markdown("**Interpretación del tamaño del efecto (d de Cohen):**")
     st.markdown("""
-    - **|d| < 0.2:** Efecto trivial
-    - **0.2 ≤ |d| < 0.5:** Efecto pequeño
-    - **0.5 ≤ |d| < 0.8:** Efecto mediano
-    - **|d| ≥ 0.8:** Efecto grande
+    - **|d| < 0.2:** Efecto trivial.
+    - **0.2 ≤ |d| < 0.5:** Efecto pequeño.
+    - **0.5 ≤ |d| < 0.8:** Efecto mediano.
+    - **|d| ≥ 0.8:** Efecto grande.
     """)
 
     st.markdown("---")
@@ -878,3 +878,13 @@ if st.button("Guardar notas", type="primary"):
         st.warning("No hay notas para guardar.")
 
 st.markdown("---")
+# Footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

@@ -98,7 +98,7 @@ def check_env_file() -> bool:
 def check_docker_installed() -> bool:
     """Verifica que Docker esté disponible en PATH"""
     log("Verificando Docker CLI...", "INFO")
-    if run_cmd(["docker", "--version"], "docker --version"):
+    if run_cmd(["docker", "--versión"], "docker --versión"):
         log("Docker CLI encontrado", "OK")
         return True
     log("Docker CLI NO encontrado. Instala Docker Desktop o docker-ce", "ERROR")
@@ -123,11 +123,11 @@ def check_docker_compose() -> bool:
     """Verifica que docker-compose esté disponible"""
     log("Verificando docker-compose...", "INFO")
     # Intenta primero "docker compose" (versión integrada en Docker 20.10+)
-    if run_cmd(["docker", "compose", "version"], "docker compose version"):
+    if run_cmd(["docker", "compose", "versión"], "docker compose versión"):
         log("docker compose (integrado) encontrado", "OK")
         return True
     # Fallback a "docker-compose" (versión standalone)
-    if run_cmd(["docker-compose", "--version"], "docker-compose --version"):
+    if run_cmd(["docker-compose", "--versión"], "docker-compose --versión"):
         log("docker-compose (standalone) encontrado", "OK")
         return True
     log("docker-compose NO encontrado. Instala Docker Compose", "ERROR")
@@ -140,9 +140,9 @@ def start_containers() -> bool:
     
     # Detecta si usar "docker compose" o "docker-compose"
     compose_cmd = None
-    if run_cmd(["docker", "compose", "version"], ""):
+    if run_cmd(["docker", "compose", "versión"], ""):
         compose_cmd = ["docker", "compose"]
-    elif run_cmd(["docker-compose", "--version"], ""):
+    elif run_cmd(["docker-compose", "--versión"], ""):
         compose_cmd = ["docker-compose"]
     else:
         log("No se encontró docker-compose", "ERROR")

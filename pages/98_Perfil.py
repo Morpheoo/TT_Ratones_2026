@@ -33,7 +33,7 @@ run_page_splash(
         "Cargando preferencias personales...",
         "Preparando panel de seguridad...",
     ],
-    subtitle="TT 2026 - Cargando perfil...",
+    subtitle="Cargando perfil...",
 )
 
 # ================= SIDEBAR =================
@@ -62,7 +62,7 @@ with st.sidebar:
     # Sidebar con navegación
     inject_sidebar_profile(show_admin_button=True)
 
-render_topbar("Configuración de Perfil")
+render_topbar("Configuración del perfil")
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 def get_display_name(raw: str) -> str:
@@ -209,6 +209,17 @@ with col_form:
                                 {"h": new_hash, "u": user_raw}
                             )
                             conn.commit()
-                            st.success("✔ Contraseña actualizada correctamente.")
+                            st.success("Contraseña actualizada correctamente.")
                 except Exception as e:
                     st.error(f"Error al actualizar la contraseña: {e}")
+
+# Footer
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

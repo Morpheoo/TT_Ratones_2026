@@ -307,7 +307,7 @@ software:
 
 
                                                 Tabla 5: "Reglas de Negocio"
-4.2 Análisis de las herramientas a utilizar
+4.2 análisis de las herramientas a utilizar
 Las herramientas por utilizar en este prototipo se dividen de la siguiente manera:
 
 
@@ -319,7 +319,7 @@ Las herramientas por utilizar en este prototipo se dividen de la siguiente maner
     •    Algoritmos de clasificación (Clustering).
     •    Herramientas estadísticas.
     •    Conceptos etológicos para análisis de ansiedad.
-4.2.1 Análisis de técnicas de detección de objetos
+4.2.1 análisis de técnicas de detección de objetos
 Se analizaron las siguientes técnicas de detección de objetos:
 
 
@@ -337,7 +337,7 @@ de inferencia fue menor que         varias implementaciones de Faster R         
 milisegundos [55]. También suele ser más preciso que Retina Ne                 t y EfficientDet por márgenes de más
 de 40% [56]. Por otra parte, Adhikari et al sostienen que              YOLO equilibra mejores factores como la
 precisión, velocidad, robustez y facilidad de         uso [57].
-4.2.2 Análisis de técnicas de estimación de pose con aprendizaje profundo
+4.2.2 análisis de técnicas de estimación de pose con aprendizaje profundo
 Se analizaron las siguientes      técnicas de estimación de pose con aprendizaje profundo               :
 
 
@@ -357,7 +357,7 @@ imágenes, en comparación con otras herramientas que utilizan mayores cantidade
 alcanzan una precisión como la de         DLC [59].
 
 
-4.2.3 Análisis de técnicas de estimación de pose
+4.2.3 análisis de técnicas de estimación de pose
 Se analizaron las siguientes técnicas de estimación de pose             :
 
 
@@ -372,7 +372,7 @@ Se analizaron las siguientes técnicas de estimación de pose             :
 Según Lauer et al, Pose Estimation basada en DLC suele ser precisa sin necesidad de un marcador
 además de que es adaptable a varias especies de animales [60]. Mientras tanto, Kinect Skeleton y Vicon
 requieren de marcadores y es limitado en entornos naturales [61].
-4.2.4 Análisis de herramientas de seguimiento visual
+4.2.4 análisis de herramientas de seguimiento visual
 Se analizaron las siguientes herramientas de seguimiento visual:
 
 
@@ -393,7 +393,7 @@ Se eligió CAMShift gracias a su simplicidad y eficiencia. CAMShift es basado en
 entornos controlados [62]. En cambio, MeanShift se pierde fácilmente con cambios de escala [63].
 CAMShift no requiere una carga significativa de recursos computacionales a diferencia de CSRT y
 KLT que, no solo requieren más recursos, sino que también no funciona bien con oclusiones [64].
-4.2.5 Análisis de arquitecturas de redes neuronales profundas para visión por
+4.2.5 análisis de arquitecturas de redes neuronales profundas para visión por
 computadora
 
 
@@ -416,7 +416,7 @@ MLP, CNN aplica filtros para detectar patrones jerárquicos, desde bordes       
 --- Page 73 ---
 MLP trata a la imagen como un vector plano ignorando relaciones especiales [65]. Según Rajagukguk
 et al, CNN tiene una aplicación exitosa en la supervisión de animales [66].
-4.2.6 Análisis de arquitecturas de aprendizaje profundo para series temporales
+4.2.6 análisis de arquitecturas de aprendizaje profundo para series temporales
 De forma conjunta, se optó por utilizar las siguientes arquitecturas:
 
     •   RNN (Red Neuronal Recurrente).
@@ -427,13 +427,13 @@ con anterioridad, además de que maneja entradas y salidas de longitud variable 
 LSTM retienen información por largos períodos de tiempos capturando tendencias de largo plazo [68].
 Mientras tanto, los Transformers suelen examinar las secuencias de entrada simultáneamente en vez
 de paso a paso [69].
-4.2.7 Análisis de técnicas de minería de datos
+4.2.7 análisis de técnicas de minería de datos
 Se optó por utilizar K-Means ya que reduce la complejidad de una imagen ya que se puede utilizar
 como herramienta de apoyo para segmentar poblaciones [70]. Por otra parte, Random Forest ayuda a
 clasificar el comportamiento animal a partir de datos de postura o movimiento, según Rew et al [71].
 Las Máquinas de Soporte Vectorial (SVM) son una opción robusta para clasificar comportamientos de
 animales cuando se cuentan con datos de etiquetado para el entrenamiento, según Mosquera et al [72].
-4.2.8 Análisis de sistemas operativos
+4.2.8 análisis de sistemas operativos
 Se analizaron los siguientes sistemas operativos:
 
 
@@ -445,7 +445,7 @@ Se analizaron los siguientes sistemas operativos:
 Se optó por usar Windows como sistema operativo del prototipo debido a su compatibilidad con
 herramientas  de  Deep  Learning  además  de  que  hay  soporte  técnico  comercial  que  evita
 incompatibilidades entre herramientas.
-4.2.9 Análisis de los lenguajes de programación
+4.2.9 análisis de los lenguajes de programación
 Se analizaron los siguientes lenguajes de programación:
 
 
@@ -462,7 +462,7 @@ Se analizaron los siguientes lenguajes de programación:
 --- Page 74 ---
 Se optó por utilizar el lenguaje de programación Python debido a su velocidad de desarrollo y
 rendimiento en tareas de Machine Learning.
-4.3 Análisis de riesgos
+4.3 análisis de riesgos
 En concordancia con la metodología espiral de Boehm, se determina un proceso sistemático
 para detectar, evaluar y manejar los riesgos relacionados con el desarrollo del prototipo. Este
 procedimiento es un elemento fundamental de la planificación porque posibilita prever eventos

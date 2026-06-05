@@ -35,7 +35,7 @@ Para capturar mejor la variabilidad, utilizaremos un conjunto de datos que mezcl
 
 4.  **Entrenamiento del Modelo:**
     -   Se entrenará un nuevo clasificador Random Forest con los datos combinados de los 4 videos.
-    -   Validación cruzada (Cross-Validation) para asegurar generalización.
+    -   validación cruzada (Cross-Validation) para asegurar generalización.
 
 5.  **Validación Final:**
     -   Se correrá el nuevo modelo sobre el video `R5B20_01mar24_full` (procesado en alta resolución) para verificar la precisión y reducción de falsos positivos.

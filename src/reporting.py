@@ -16,7 +16,7 @@ class EPMReport(FPDF):
         self.set_font('Arial', 'B', 15)
         self.set_text_color(255, 255, 255) # White
         self.set_y(5)
-        self.cell(0, 10, 'Reporte de Analisis EPM - TT 2026', 0, 1, 'C')
+        self.cell(0, 10, 'Reporte de análisis EPM - TT 2026', 0, 1, 'C')
         
         # Subtitle or Institute
         self.set_font('Arial', '', 10)
@@ -32,7 +32,7 @@ class EPMReport(FPDF):
         # Arial italic 8
         self.set_font('Arial', 'I', 8)
         # Page number
-        self.cell(0, 10, 'Pagina ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
+        self.cell(0, 10, 'Página ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
 
 def generate_pdf_report(user_name, role, kpis, plots=None, filename="reporte_epm.pdf"):
     """
@@ -61,7 +61,7 @@ def generate_pdf_report(user_name, role, kpis, plots=None, filename="reporte_epm
     pdf.cell(0, 10, f"- Tiempo Total: {kpis.get('tiempo_total', 0):.1f} s", 0, 1)
     pdf.cell(0, 10, f"- Tiempo en Brazos Abiertos: {kpis.get('tiempo_abiertos', 0):.1f} s ({kpis.get('pref_abiertos', 0):.1f}%)", 0, 1)
     pdf.cell(0, 10, f"- Tiempo en Brazos Cerrados: {kpis.get('tiempo_cerrados', 0):.1f} s", 0, 1)
-    pdf.cell(0, 10, f"- Numero de Entradas (Actividad): {kpis.get('entradas', 0)}", 0, 1)
+    pdf.cell(0, 10, f"- número de Entradas (Actividad): {kpis.get('entradas', 0)}", 0, 1)
     
     pdf.ln(10)
     
@@ -73,11 +73,11 @@ def generate_pdf_report(user_name, role, kpis, plots=None, filename="reporte_epm
     pref = kpis.get('pref_abiertos', 0)
     text = ""
     if pref < 15:
-        text = "El especimen muestra niveles elevados de ansiedad, permaneciendo principalmente en los brazos cerrados."
+        text = "El espécimen muestra niveles elevados de ansiedad, permaneciendo principalmente en los brazos cerrados."
     elif pref < 30:
-        text = "El especimen muestra un comportamiento de exploracion moderado."
+        text = "El espécimen muestra un comportamiento de exploracion moderado."
     else:
-        text = "El especimen muestra una alta exploracion de brazos abiertos, lo cual puede indicar un efecto ansiolitico."
+        text = "El espécimen muestra una alta exploracion de brazos abiertos, lo cual puede indicar un efecto ansiolitico."
         
     pdf.multi_cell(0, 10, text)
     
@@ -85,7 +85,7 @@ def generate_pdf_report(user_name, role, kpis, plots=None, filename="reporte_epm
     if plots:
         pdf.add_page()
         pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 10, 'Graficas del Analisis', 0, 1)
+        pdf.cell(0, 10, 'Graficas del Análisis', 0, 1)
         pdf.ln(5)
         
         for p_path in plots:

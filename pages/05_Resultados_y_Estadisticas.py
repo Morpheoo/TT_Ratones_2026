@@ -24,7 +24,7 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import use_theme, render_topbar, inject_sidebar_profile
 
-st.set_page_config(page_title="Resultados | IPN - ESCOM", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Resultados y estadísticas", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
@@ -80,7 +80,7 @@ BEHAVIOR_COLORS = {
     "Grooming acumulado": IPN_AZUL_PETROLEO,
     "Thigmotaxis acumulado": IPN_NARANJA_QUEMADO,
 }
-# Mapping para el chart "Comparativa rapida" donde cada barra es una metrica.
+# Mapping para el chart "Comparativa rápida" donde cada barra es una métrica.
 GLOBAL_METRIC_COLORS = {
     "Brazos abiertos": IPN_GUINDA,
     "Brazos cerrados": IPN_CARBON,
@@ -139,7 +139,7 @@ def filter_history_scope(df_hist, scope):
     if df_hist.empty:
         return df_hist
 
-    if scope == "Ultimo completado":
+    if scope == "Último completado":
         latest_completed_id = get_latest_completed_id(df_hist)
         if latest_completed_id is None:
             return df_hist.iloc[0:0].copy()
@@ -172,11 +172,11 @@ def apply_plot_style(fig, *, height=360, show_y_grid=True):
 
 
 def results_loading_sequence():
-    yield 30, "Estableciendo conexion persistente..."
+    yield 30, "Estableciendo conexión persistente..."
     from db.connection import get_db_engine
 
     engine = get_db_engine()
-    yield 100, "Sincronizacion de registros exitosa."
+    yield 100, "Sincronización de registros exitosa."
     return engine
 
 
@@ -240,7 +240,7 @@ def load_history_dataframe(engine):
 def delete_owned_experiments(engine, experiment_ids, username):
     experiment_ids = sorted({int(exp_id) for exp_id in experiment_ids if int(exp_id) > 0})
     if not experiment_ids:
-        return 0, [], "No hay experimentos validos seleccionados para borrar."
+        return 0, [], "No hay experimentos válidos seleccionados para borrar."
     if not username:
         return 0, experiment_ids, "No se encontró el usuario activo en sesión."
 
@@ -298,7 +298,7 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, center_t,
     Solo administradores e investigadores deben invocarla.
     """
     if not engine:
-        return False, "No hay conexión a la base de datos"
+        return False, "No hay conexión a la base de datos."
 
     from db.behavior_edits import ensure_behavior_edits_schema, fetch_user_id_by_email
 
@@ -415,7 +415,7 @@ def update_experiment_times(engine, experiment_id, open_t, closed_t, center_t,
                 },
             )
             conn.commit()
-            return True, "Tiempos actualizados y registrados en historial"
+            return True, "Tiempos actualizados y registrados en historial."
     except Exception as e:
         return False, f"Error al actualizar tiempos: {str(e)}"
 
@@ -570,9 +570,9 @@ def classify_zone_bucket(zone_name):
 def build_distribution_dataframe(metrics):
     return pd.DataFrame(
         [
-            {"Categoria": "Abiertos", "Segundos": metrics["open_t"]},
-            {"Categoria": "Cerrados", "Segundos": metrics["closed_t"]},
-            {"Categoria": "Centro", "Segundos": metrics["center_t"]},
+            {"Categoría": "Abiertos", "Segundos": metrics["open_t"]},
+            {"Categoría": "Cerrados", "Segundos": metrics["closed_t"]},
+            {"Categoría": "Centro", "Segundos": metrics["center_t"]},
         ]
     )
 
@@ -663,14 +663,14 @@ def render_global_kpis(df_hist):
     grooming_mean = df_hist["grooming_t"].mean() if not df_hist.empty and "grooming_t" in df_hist.columns else 0.0
 
     with m1:
-        st.metric("Total experimentos", len(df_hist))
+        st.metric("Total de experimentos", len(df_hist))
     with m2:
         latest_date = str(df_hist["experiment_date"].max()) if not df_hist.empty and "experiment_date" in df_hist.columns else "N/A"
         st.metric("Último registro", latest_date)
     with m3:
-        st.metric("Prom. abiertos", format_seconds(open_mean))
+        st.metric("Promedio en brazos abiertos", format_seconds(open_mean))
     with m4:
-        st.metric("Prom. grooming", format_seconds(grooming_mean))
+        st.metric("Promedio en grooming", format_seconds(grooming_mean))
 
 
 def render_global_chart(df_view):
@@ -683,10 +683,10 @@ def render_global_chart(df_view):
     melted = chart_df.melt(
         id_vars=["Registro"],
         value_vars=["open_t", "closed_t", "grooming_t", "thigmo_t"],
-        var_name="Metrica",
+        var_name="Métrica",
         value_name="Segundos",
     )
-    melted["Metrica"] = melted["Metrica"].map(
+    melted["Métrica"] = melted["Métrica"].map(
         {
             "open_t": "Brazos abiertos",
             "closed_t": "Brazos cerrados",
@@ -698,7 +698,7 @@ def render_global_chart(df_view):
         melted,
         x="Registro",
         y="Segundos",
-        color="Metrica",
+        color="Métrica",
         barmode="group",
         color_discrete_map=GLOBAL_METRIC_COLORS,
     )
@@ -720,9 +720,9 @@ def generate_experiments_csv(df_experiments):
     ]].copy()
     
     export_df.columns = [
-        'ID Experimento', 'ID Ratón', 'Tratamiento', 'Fecha Experimento', 'Responsable',
-        'Tiempo Brazos Abiertos (s)', 'Tiempo Brazos Cerrados (s)', 'Tiempo Centro (s)',
-        'Grooming (s)', 'Thigmotaxis (s)', 'Estado Análisis', 'Creado Por', 'Fecha Creación'
+        'ID del experimento', 'ID del ratón', 'Tratamiento', 'Fecha del experimento', 'Responsable',
+        'Tiempo en brazos abiertos (en segundos)', 'Tiempo en brazos cerrados (en segundos)', 'Tiempo en el centro (en segundos)',
+        'Grooming (en segundos)', 'Thigmotaxis (en segundos)', 'Estado del análisis', 'Creado por', 'Fecha de creación'
     ]
     
     # Agregar BOM UTF-8 para compatibilidad con Excel y reconocimiento de acentos
@@ -802,8 +802,8 @@ def generate_experiments_pdf(df_experiments):
         elements.append(Paragraph(f"Reporte: {datetime.now().strftime('%d/%m/%Y')}", styles['Normal']))
         elements.append(Spacer(1, 20))
         
-        # Tabla de datos
-        table_data = [['ID', 'Raton', 'Tratamiento', 'Fecha', 'Abiertos', 'Cerrados', 'Grooming', 'Thigmo']]
+        # Tabla de datos con encabezados acortados
+        table_data = [['ID Exp', 'ID Ratón', 'Tratamiento', 'Fecha', 'T. Abiertos (s)', 'T. Cerrados (s)', 'Grooming (s)', 'Thigmo (s)']]
         
         for _, row in df_experiments.iterrows():
             table_data.append([
@@ -817,16 +817,21 @@ def generate_experiments_pdf(df_experiments):
                 f"{float(row['thigmo_t']):.1f}"
             ])
         
-        table = Table(table_data)
+        # Definir anchos de columna específicos (total ~7 pulgadas)
+        col_widths = [0.5*inch, 0.7*inch, 1.2*inch, 0.9*inch, 1.0*inch, 1.0*inch, 0.9*inch, 0.8*inch]
+        
+        table = Table(table_data, colWidths=col_widths)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
         ]))
         
         elements.append(table)
@@ -837,7 +842,7 @@ def generate_experiments_pdf(df_experiments):
         elements.append(Spacer(1, 12))
         
         stats_data = [
-            ['Metrica', 'Promedio'],
+            ['Métrica', 'Promedio'],
             ['Brazos Abiertos', f"{df_experiments['open_t'].mean():.1f} s"],
             ['Brazos Cerrados', f"{df_experiments['closed_t'].mean():.1f} s"],
             ['Grooming', f"{df_experiments['grooming_t'].mean():.1f} s"],
@@ -955,14 +960,14 @@ def generate_experiments_html_as_pdf(df_experiments):
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Ratón</th>
+                    <th>ID del experimento</th>
+                    <th>ID del ratón</th>
                     <th>Tratamiento</th>
-                    <th>Fecha</th>
-                    <th>Abiertos (s)</th>
-                    <th>Cerrados (s)</th>
-                    <th>Grooming (s)</th>
-                    <th>Thigmo (s)</th>
+                    <th>Fecha del experimento</th>
+                    <th>Tiempo en brazos abiertos (en segundos)</th>
+                    <th>Tiempo en brazos cerrados (en segundos)</th>
+                    <th>Tiempo en grooming (en segundos)</th>
+                    <th>Tiempo en thigmotaxis (en segundos)</th>
                 </tr>
             </thead>
             <tbody>
@@ -987,7 +992,7 @@ def generate_experiments_html_as_pdf(df_experiments):
         </table>
         
         <div class="summary">
-            <h3>Estadísticas Resumidas</h3>
+            <h3>Estadísticas resumidas</h3>
             <table style="width: 80%; margin: 10px auto;">
                 <tr>
                     <th>Métrica</th>
@@ -1047,10 +1052,10 @@ def render_edit_badge(engine, record_id):
     st.markdown(
         f"<div style='background:#FFF6E6;border-left:4px solid {IPN_NARANJA_QUEMADO};"
         f"padding:8px 12px;border-radius:4px;margin:6px 0;font-size:0.85rem;'>"
-        f"Tiempos editados manualmente — ultima edicion por <b>{edited_by}</b> "
+        f"Tiempos editados manualmente. Última edición hecha por <b>{edited_by}</b> "
         f"({last.get('edited_role') or 'rol N/D'}) el {edited_when}. "
         f"Total de ediciones: <b>{len(edits)}</b>. "
-        f"<span style='color:#666;'>(ver historial al final del panel)</span>"
+        f"<span style='color:#666;'>(Ver historial al final del panel)</span>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -1209,13 +1214,26 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
         render_edit_badge(engine, record_id)
 
     info_left, info_right = st.columns(2)
+    
+    # Traducir estado a español
+    status_translation = {
+        "completed": "Completado",
+        "pending": "Pendiente",
+        "error": "Error",
+        "processing": "Procesando"
+    }
+    estado_traducido = status_translation.get(
+        str(record.get('analysis_status', '')).lower(),
+        record.get('analysis_status', '')
+    )
+    
     with info_left:
         st.write(f"**Sujeto:** {record['rat_id']}")
         st.write(f"**Tratamiento:** {record['treatment']}")
         st.write(f"**Responsable:** {record['responsible']}")
     with info_right:
         st.write(f"**Fecha:** {record['experiment_date']}")
-        st.write(f"**Estado:** {record['analysis_status']}")
+        st.write(f"**Estado:** {estado_traducido}")
         if trajectory_bundle:
             st.write(f"**Trayectoria:** `{os.path.basename(trajectory_bundle['trajectory_path'])}`")
 
@@ -1279,9 +1297,9 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
         fig_pie = px.pie(
             distribution_df,
             values="Segundos",
-            names="Categoria",
+            names="Categoría",
             hole=0.55,
-            color="Categoria",
+            color="Categoría",
             color_discrete_map=ZONE_CATEGORY_COLORS,
         )
         fig_pie.update_traces(textfont=dict(color="white"), marker=dict(line=dict(color=colors["bg_card"], width=2)))
@@ -1361,7 +1379,7 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
         st.image(
             heatmap_image,
             use_container_width=True,
-            caption="Mapa de permanencia (colormap PLASMA) superpuesto sobre un frame del video original.",
+            caption="Mapa de calor superpuesto sobre un frame del video original.",
         )
 
         # Recuadro separado con la leyenda de la escala de colores.
@@ -1414,7 +1432,7 @@ render_topbar()
 st.markdown("### Módulo 05: Resultados y estadísticas")
 st.markdown(
     """
-    Dashboard para revisar metrica conductual real del experimento:
+    Panel para revisar métrica conductual real del experimento:
     tiempo total en brazos abiertos, brazos cerrados, centro, grooming y thigmotaxis.
     """
 )
@@ -1438,7 +1456,7 @@ try:
 
         st.markdown('<div class="content-card">', unsafe_allow_html=True)
         st.markdown("#### Historial experimental")
-        scope_options = ["Ultimo completado", "Completados", "Todos", "Pendientes"]
+        scope_options = ["Último completado", "Completados", "Todos", "Pendientes"]
         history_scope = st.selectbox(
             "Vista del historial",
             scope_options,
@@ -1464,8 +1482,24 @@ try:
             treatments = ["Todos"] + sorted([value for value in df_scope["treatment"].dropna().unique().tolist() if value])
             q_treat = st.selectbox("Filtrar por tratamiento", treatments)
         with filter_col3:
-            statuses = ["Todos"] + sorted([value for value in df_scope["analysis_status"].dropna().unique().tolist() if value])
-            q_status = st.selectbox("Estado", statuses)
+            # Traducir estados a español para el selector
+            status_translation = {
+                "completed": "Completado",
+                "pending": "Pendiente",
+                "error": "Error",
+                "processing": "Procesando"
+            }
+            raw_statuses = [value for value in df_scope["analysis_status"].dropna().unique().tolist() if value]
+            translated_statuses = [
+                status_translation.get(str(value).lower(), value) 
+                for value in raw_statuses
+            ]
+            statuses = ["Todos"] + sorted(set(translated_statuses))
+            q_status_display = st.selectbox("Estado", statuses)
+            
+            # Convertir la selección traducida de vuelta al valor original para filtrar
+            reverse_translation = {v: k for k, v in status_translation.items()}
+            q_status = reverse_translation.get(q_status_display.lower(), q_status_display) if q_status_display != "Todos" else "Todos"
 
         # Filtro adicional para investigadores
         show_only_mine = False
@@ -1508,6 +1542,18 @@ try:
                 "analysis_status",
             ]
         ].copy()
+        
+        # Traducir valores de estado a español
+        status_translation = {
+            "completed": "Completado",
+            "pending": "Pendiente",
+            "error": "Error",
+            "processing": "Procesando"
+        }
+        display_df["analysis_status"] = display_df["analysis_status"].astype(str).str.lower().map(
+            lambda x: status_translation.get(x, x)
+        )
+        
         display_df = display_df.rename(
             columns={
                 "id": "ID",
@@ -1786,7 +1832,6 @@ try:
                     use_container_width=True,
                     key="download_csv_results"
                 )
-                st.caption("Datos tabulares compatibles con Excel")
             
             with col_json:
                 json_data = generate_experiments_json(selected_view)
@@ -1798,7 +1843,6 @@ try:
                     use_container_width=True,
                     key="download_json_results"
                 )
-                st.caption("Formato estructurado para APIs")
             
             with col_pdf:
                 try:
@@ -1813,7 +1857,6 @@ try:
                             use_container_width=True,
                             key="download_pdf_results"
                         )
-                        st.caption("Reporte profesional imprimible")
                     else:
                         st.error("Error al generar PDF")
                 except Exception as e:
@@ -1893,7 +1936,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     f"""
     <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Identidad Institucional IPN &bull; ESCOM &bull; TT 2026
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
     </div>
     """,
     unsafe_allow_html=True,

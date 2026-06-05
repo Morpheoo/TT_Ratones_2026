@@ -22,7 +22,7 @@ def _sidebar_nav_css(colors: dict) -> str:
      3. Ingesta       (01_*)
      4. Keypoints     (02_*)
      5. Zonas         (03_*)
-     6. Análisis      (04_*)
+     6. análisis      (04_*)
      7. Resultados    (05_*)
      8. Perfil        (98_*)
      9. Admin         (99_*)
@@ -58,10 +58,6 @@ def _sidebar_nav_css(colors: dict) -> str:
     }"""
 
 def use_theme():
-    """
-    Sistema de Diseño Premium Institucional IPN-ESCOM.
-    Basado en requerimientos visuales avanzados (Dashboard Científico).
-    """
     colors = {
         "primary": "#6A1B3F",       # Guinda principal
         "primary_dark": "#4E1830",  # Guinda profundo
@@ -221,7 +217,7 @@ def use_theme():
         content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>');
         display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
     }}
-    /* 6. Analisis */
+    /* 6. análisis */
     [data-testid="stSidebarNavItems"] li:nth-child(6) a span:first-child::before {{
         content: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>');
         display: inline-block; vertical-align: middle; margin-right: 12px; margin-bottom: 2px; opacity: 0.9;
@@ -528,7 +524,7 @@ def use_theme():
 def render_topbar(title="Prototipo técnico para análisis automatizado de comportamiento"):
     """Renderiza la barra superior limpia (Topbar) con logos institucionales reales"""
     colors = use_theme()
-    
+
     user_name_raw = st.session_state.get("user_name", "Usuario")
     # Format name, remove numbers and capitalize. If specific user, format nicely.
     user_name = user_name_raw
@@ -541,12 +537,18 @@ def render_topbar(title="Prototipo técnico para análisis automatizado de compo
         else:
             user_name = name_part.capitalize()
     
-    role = st.session_state.get("role", "Investigador").capitalize()
+    role_raw = st.session_state.get("role", "investigador").lower()
+    role_map = {
+        "admin": "Administrador",
+        "investigador": "Investigador",
+        "estudiante": "Estudiante"
+    }
+    role = role_map.get(role_raw, role_raw.capitalize())
     
     import datetime
-    meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
     now = datetime.datetime.now()
-    date_str = f"{now.day} de {meses[now.month-1]}, {now.year}"
+    date_str = f"{now.day} de {meses[now.month-1]} de {now.year}"
     
     logo_ipn_path = os.path.join("assets", "logos", "logo-ipn-guinda.png")
     logo_escom_path = os.path.join("assets", "logos", "logo-escom.png")
@@ -559,7 +561,6 @@ def render_topbar(title="Prototipo técnico para análisis automatizado de compo
     if ipn_b64 and escom_b64:
         logos_html = (
             f'<img src="{ipn_b64}" style="height: 100px; margin-right: 12px; opacity: 0.95;">'
-            f'<div style="width: 1px; height: 50px; background: {colors["border"]}; margin: 0 10px;"></div>'
             f'<img src="{escom_b64}" style="height: 58px; margin-left: 12px; opacity: 0.95;" title="ESCOM">'
         )
     else:
@@ -571,6 +572,7 @@ def render_topbar(title="Prototipo técnico para análisis automatizado de compo
         {logos_html}
         <div style="width: 1px; height: 35px; background: {colors['border']}; margin: 0 20px;"></div>
         <div style="color: {colors['text_main']}; font-size: 1.25rem; font-weight: 700;">{title}</div>
+        <div style="width: 1px; height: 50px; background: {colors['border']}; margin: 0 10px;"></div>
     </div>
     <div class="topbar-right" style="align-items: center; gap: 2rem;">
         <div style="text-align: right;">
@@ -582,6 +584,151 @@ def render_topbar(title="Prototipo técnico para análisis automatizado de compo
     </div>
 </div>
 """, unsafe_allow_html=True)
+    
+    # Aviso legal y Términos debajo del header
+    col_legal1, col_legal2 = st.columns(2)
+    
+    with col_legal1:
+        with st.expander("Aviso Legal", expanded=False):
+            st.markdown("""
+### AVISO LEGAL
+
+#### 1. Datos identificativos
+
+La presente plataforma constituye un prototipo tecnológico desarrollado en el marco de actividades académicas y de investigación realizadas en la Escuela Superior de Cómputo en conjunto con la Escuela Nacional de Medicina y Homeopatía del Instituto Politécnico Nacional.
+
+Este prototipo es propiedad del Instituto Politécnico Nacional con domicilio en Av. Luis Enrique Erro s/n, Unidad Profesional Adolfo López Mateos, Zacatenco, Alcaldía Gustavo A. Madero, C.P. 07738, Ciudad de México.
+
+Para cualquier consulta relacionada con el funcionamiento de la plataforma, los usuarios podrán contactar a los responsables del proyecto a través de los medios institucionales correspondientes.
+
+- glazarov1500@alumno.ipn.mx
+- emuzquizp1800@alumno.ipn.mx
+- hportocarreror1700@alumno.ipn.mx
+
+#### 2. Condiciones de uso
+
+El acceso y utilización de esta plataforma implica la aceptación plena de las disposiciones contenidas en el presente Aviso Legal.
+
+La plataforma tiene fines exclusivamente científicos, académicos y de investigación. Los resultados generados por los modelos de inteligencia artificial tienen carácter auxiliar y no sustituyen el criterio, análisis o validación de los investigadores responsables.
+
+Los responsables del proyecto se reservan el derecho de modificar, actualizar o suspender parcial o totalmente el contenido y funcionamiento de la plataforma sin previo aviso.
+
+#### 3. Propiedad intelectual
+
+El código fuente, modelos de inteligencia artificial, bases de datos, documentación técnica, interfaces gráficas, diseños, logotipos y demás elementos que integran la plataforma se encuentran protegidos por la Ley Federal del Derecho de Autor y demás disposiciones aplicables en materia de propiedad intelectual.
+
+Queda prohibida la reproducción, distribución, modificación, comercialización o utilización no autorizada de dichos contenidos sin el consentimiento expreso de los titulares de los derechos correspondientes.
+
+Asimismo, la plataforma incorpora componentes de software de código abierto utilizados conforme a los términos establecidos en sus respectivas licencias.
+
+#### 4. Responsabilidad
+
+Los responsables del proyecto no garantizan la ausencia de errores en los resultados generados por el sistema ni asumen responsabilidad por las decisiones, interpretaciones o acciones realizadas por terceros con base en dichos resultados.
+
+El uso de la información proporcionada por la plataforma es responsabilidad exclusiva del usuario.
+
+#### 5. Protección de datos
+
+La plataforma no recopila ni procesa datos personales sensibles de personas físicas durante su operación ordinaria.
+
+En caso de que se recabe información de contacto o datos administrativos relacionados con investigadores, colaboradores o usuarios, estos serán tratados conforme a lo dispuesto por la Ley Federal de Protección de Datos Personales en Posesión de los Particulares y demás normativa aplicable.
+
+#### 6. Uso de animales de laboratorio
+
+Los datos procesados por la plataforma provienen de investigaciones realizadas conforme a la normativa aplicable al uso y cuidado de animales de laboratorio, incluyendo la Norma Oficial Mexicana NOM-062-ZOO-1999 y los lineamientos éticos e institucionales correspondientes.
+
+La plataforma no interviene directamente en procedimientos experimentales sobre animales, limitándose al procesamiento y análisis de registros previamente obtenidos.
+
+#### 7. Legislación aplicable
+
+El presente Aviso Legal se rige por las leyes vigentes de los Estados Unidos Mexicanos. Cualquier controversia derivada de la interpretación o aplicación de este documento será resuelta conforme a la legislación mexicana aplicable.
+            """)
+    
+    with col_legal2:
+        with st.expander("Términos y Condiciones", expanded=False):
+            st.markdown("""
+### TÉRMINOS Y CONDICIONES DE USO
+
+#### 1. Objeto
+Los presentes Términos y Condiciones regulan el acceso y uso de la plataforma de análisis conductual asistido por inteligencia artificial desarrollada como proyecto académico en la Escuela Superior de Cómputo (ESCOM) del Instituto Politécnico Nacional (IPN).
+
+El acceso y utilización de la plataforma implican la aceptación plena de las disposiciones aquí establecidas.
+
+#### 2. Finalidad de la plataforma
+La plataforma tiene como objetivo apoyar actividades de investigación científica, docencia y desarrollo tecnológico relacionadas con el análisis automatizado del comportamiento animal mediante técnicas de inteligencia artificial y visión por computadora.
+
+La información generada por la plataforma tiene fines exclusivamente académicos, científicos y educativos.
+
+#### 3. Usuarios
+Podrán utilizar la plataforma investigadores, docentes, estudiantes y demás personas autorizadas por los responsables del proyecto.
+
+Los usuarios se comprometen a utilizar la plataforma de manera lícita, ética y conforme a la legislación mexicana aplicable.
+
+#### 4. Uso permitido
+El usuario podrá:
+
+- Acceder a las funcionalidades disponibles de la plataforma.
+- Cargar y procesar datos experimentales relacionados con proyectos de investigación.
+- Consultar resultados, métricas y análisis generados por el sistema.
+
+El usuario deberá garantizar que cuenta con las autorizaciones necesarias para el uso de los datos que incorpore a la plataforma.
+
+#### 5. Restricciones de uso
+Queda prohibido:
+
+- Utilizar la plataforma para fines ilícitos o contrarios a la normatividad aplicable.
+- Intentar acceder sin autorización a sistemas, bases de datos o servicios asociados.
+- Modificar, descompilar, realizar ingeniería inversa o interferir con el funcionamiento de la plataforma, salvo en los casos permitidos por la legislación aplicable.
+- Utilizar los resultados generados como único criterio para la toma de decisiones que requieran validación científica o profesional adicional.
+
+#### 6. Propiedad intelectual
+El software, documentación, modelos de inteligencia artificial, diseños, bases de datos y demás elementos que integran la plataforma están protegidos por la Ley Federal del Derecho de Autor, la Ley Federal de Protección a la Propiedad Industrial y demás disposiciones aplicables.
+
+Los derechos patrimoniales correspondientes pertenecen a sus autores y titulares respectivos.
+
+Las herramientas de software libre empleadas conservan las licencias originales otorgadas por sus desarrolladores.
+
+#### 7. Uso de datos
+La plataforma está diseñada para procesar información experimental relacionada con estudios de comportamiento animal.
+
+Los usuarios son responsables de asegurar que los datos incorporados al sistema cumplan con la legislación aplicable, así como con las normas institucionales y éticas correspondientes.
+
+Cuando proceda, el tratamiento de información se realizará conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares y demás disposiciones aplicables.
+
+#### 8. Investigación con animales
+El uso de la plataforma en proyectos experimentales deberá observar la normativa vigente aplicable al bienestar animal, incluyendo la Norma Oficial Mexicana NOM-062-ZOO-1999 y las disposiciones institucionales correspondientes.
+
+La responsabilidad sobre el cumplimiento de dichas normas recae en los investigadores y responsables de cada proyecto.
+
+#### 9. Exclusión de garantías
+La plataforma se proporciona "tal como está" para fines académicos y de investigación.
+
+Los responsables del proyecto no garantizan la ausencia total de errores, interrupciones o imprecisiones en los resultados generados por los modelos de inteligencia artificial.
+
+Los resultados obtenidos deberán ser interpretados y validados por personal competente.
+
+#### 10. Limitación de responsabilidad
+El Instituto Politécnico Nacional, la Escuela Superior de Cómputo y los desarrolladores del proyecto no serán responsables por daños directos o indirectos derivados del uso, interpretación o aplicación de los resultados proporcionados por la plataforma.
+
+#### 11. Modificaciones
+Los responsables del proyecto podrán actualizar los presentes Términos y Condiciones en cualquier momento para adecuarlos a cambios normativos, tecnológicos o institucionales.
+
+Las modificaciones entrarán en vigor desde su publicación en el sitio web.
+
+#### 12. Legislación aplicable y jurisdicción
+Los presentes Términos y Condiciones se regirán por las leyes vigentes de los Estados Unidos Mexicanos.
+
+Cualquier controversia relacionada con la interpretación o aplicación de estos términos será resuelta conforme a la legislación mexicana aplicable y ante las autoridades competentes de la Ciudad de México.
+            """)
+    
+    # Link al manual de usuario
+    st.markdown(f"""
+        <div style="text-align: center; margin-top: 1rem; padding: 0.75rem; background: {colors['bg_card']}; border-radius: 8px; border: 1px solid {colors['border']};">
+            <a href="https://filebin.net/2h3xb87qengioqcy" target="_blank" style="color: {colors['primary']}; text-decoration: none; font-weight: 600; font-size: 0.9rem;">
+                ¿Necesitas ayuda? Consulta el manual de usuario
+            </a>
+        </div>
+    """, unsafe_allow_html=True)
 
 def inject_sidebar_profile(show_admin_button=False):
     """Inyecta el layout HTML para la cabecera y branding en el sidebar."""
@@ -604,9 +751,6 @@ def inject_sidebar_profile(show_admin_button=False):
             st.image(logo_ria_path, width=80)
             
     st.sidebar.markdown(f"""
-        <div style="text-align:center; opacity:0.5; font-size:0.65rem; color:white; text-transform:uppercase; margin-top: 5px; margin-bottom: 2.2rem;">
-            Versión v3.1 – 2026<br>IPN - ESCOM
-        </div>
     """, unsafe_allow_html=True)
 
     # --- 4. CIERRE (ESPACIO FINAL) ---
@@ -614,7 +758,6 @@ def inject_sidebar_profile(show_admin_button=False):
 
 
 def inject_sidebar_navigation(show_admin_button=False):
-    """Inyecta navegación manual del sidebar (opcionalmente con Admin Panel)."""
     # Botón de Admin Panel (solo si show_admin_button=True y user es admin)
     if show_admin_button:
         user_role = st.session_state.get("role", "")

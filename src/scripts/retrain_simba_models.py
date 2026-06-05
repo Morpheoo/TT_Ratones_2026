@@ -9,7 +9,7 @@ Uso:
     .\\venv_310\\Scripts\\python.exe src\\scripts\\retrain_simba_models.py
 
 Opciones:
-    --dry-run       Solo valida el dataset sin entrenar
+    --dry-run       Solo válida el dataset sin entrenar
     --behavior X    Entrena solo un clasificador (Grooming o Thigmotaxis)
     --no-backup     No hacer backup de modelos anteriores
 """
@@ -188,7 +188,7 @@ def backup_models(behaviors: list[str]) -> None:
 
 def train_classifier(behavior: str) -> bool:
     """
-    Entrena un clasificador de SimBA para una conducta especifica.
+    Entrena un clasificador de SimBA para una conducta específica.
     Retorna True si fue exitoso.
     """
     header(f"ENTRENANDO: {behavior}")
@@ -236,7 +236,7 @@ def train_classifier(behavior: str) -> bool:
         print(f"   {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        print(f"   [TIME] Fallo despues de {elapsed:.1f}s")
+        print(f"   [TIME] Fallo después de {elapsed:.1f}s")
         return False
 
     # 3. Verificar que el modelo se guardo

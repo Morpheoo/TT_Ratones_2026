@@ -315,7 +315,7 @@ def _load_existing_roi_frames(roi_path: str) -> tuple[pd.DataFrame, pd.DataFrame
             polygon_df = pd.DataFrame(pd.read_hdf(roi_path, key="polygons"))
     except Exception as error:
         invalid_store = True
-        print(f"[ENGINE] ROI store invalido detectado: {error}")
+        print(f"[ENGINE] ROI store inválido detectado: {error}")
 
     if invalid_store:
         _backup_corrupt_roi_file(roi_path)
@@ -452,7 +452,7 @@ def _get_existing_canonical_rois(project_folder: str, video_name: str) -> list[s
 
 
 def _build_pose_bridge(input_csv: str, output_dir: str, video_name: str) -> str:
-    print("[ENGINE] Mapeando bodyparts DLC a configuracion SimBA 8bp...")
+    print("[ENGINE] Mapeando bodyparts DLC a configuración SimBA 8bp...")
     df_in = _load_pose_dataframe(input_csv)
     mapping = {
         "Nose": ["nose", "Nose", "nariz"],
@@ -580,7 +580,7 @@ def run_feature_extraction(
         derived_video_name = derived_video_name[:-4]
     video_name = (video_name or derived_video_name).strip()
 
-    print(f"\n[ENGINE] Iniciando extraccion de caracteristicas SimBA para {video_name}...")
+    print(f"\n[ENGINE] Iniciando extraccion de características SimBA para {video_name}...")
 
     try:
         zonas_list = _load_zonas_list(zonas_path)
@@ -646,7 +646,7 @@ def run_feature_extraction(
         df_features = _ensure_required_roi_columns(df_features)
         df_features.to_csv(feature_csv_path, index=False)
         df_features.to_csv(output_csv, index=False)
-        print(f"[ENGINE] EXITO: metricas generadas en {output_csv}")
+        print(f"[ENGINE] EXITO: métricas generadas en {output_csv}")
         return True
     except Exception as error:
         print(f"[ENGINE] ERROR FATAL: {error}")

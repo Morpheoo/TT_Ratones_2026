@@ -10,18 +10,18 @@ import platform
 
 def verify_gpu():
     print("="*40)
-    print(f"Python Version: {sys.version}")
+    print(f"Python Versión: {sys.versión}")
     print(f"Platform: {platform.platform()}")
     print("="*40)
     
     try:
-        print(f"PyTorch Version: {torch.__version__}")
+        print(f"PyTorch Versión: {torch.__version__}")
         
         cuda_available = torch.cuda.is_available()
         print(f"CUDA Available: {cuda_available}")
         
         if cuda_available:
-            print(f"CUDA Version: {torch.version.cuda}")
+            print(f"CUDA Versión: {torch.versión.cuda}")
             device_count = torch.cuda.device_count()
             print(f"GPU Device Count: {device_count}")
             
@@ -42,7 +42,7 @@ def verify_gpu():
     # Check DeepLabCut import status
     try:
         import deeplabcut
-        print(f"DeepLabCut Version: {deeplabcut.__version__}")
+        print(f"DeepLabCut Versión: {deeplabcut.__version__}")
         print(f"DeepLabCut File: {deeplabcut.__file__}")
     except ImportError:
         print("WARNING: DeepLabCut not installed or not found.")

@@ -74,7 +74,7 @@ def run_cmd(cmd, timeout=10):
 # ============================================================================
 print_header("TEST 1: Docker CLI Available")
 
-success, output = run_cmd(["docker", "--version"])
+success, output = run_cmd(["docker", "--versión"])
 print_test("Docker CLI installed", success, output.strip() if success else output[:50])
 
 if not success:
@@ -103,11 +103,11 @@ if not success:
 print_header("TEST 3: docker-compose Available")
 
 # Intenta "docker compose" primero (integrado en Docker 20.10+)
-success1, output1 = run_cmd(["docker", "compose", "version"])
+success1, output1 = run_cmd(["docker", "compose", "versión"])
 compose_cmd_integrated = success1
 
 # Fallback a "docker-compose" standalone
-success2, output2 = run_cmd(["docker-compose", "--version"])
+success2, output2 = run_cmd(["docker-compose", "--versión"])
 compose_cmd_standalone = success2
 
 if compose_cmd_integrated:
@@ -211,13 +211,13 @@ try:
             connect_timeout=5
         )
         cursor = conn.cursor()
-        cursor.execute("SELECT version();")
-        version = cursor.fetchone()[0]
+        cursor.execute("SELECT versión();")
+        versión = cursor.fetchone()[0]
         cursor.close()
         conn.close()
         
         print_test("psycopg2 connection", True, f"Connected successfully")
-        print_test("PostgreSQL version", True, version.split(',')[0])
+        print_test("PostgreSQL versión", True, versión.split(',')[0])
         
     except Exception as e:
         print_test("psycopg2 connection", False, str(e)[:80])

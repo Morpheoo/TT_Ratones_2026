@@ -13,7 +13,7 @@ if not _db_logger.handlers:
 # Cargar variables de entorno desde .env (si existe)
 load_dotenv(override=True)
 
-# Configuración de Conexión (Coincide con docker-compose.yml)
+# configuración de Conexión (Coincide con docker-compose.yml)
 DB_USER     = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 DB_HOST     = os.getenv("DB_HOST", "localhost")

@@ -20,7 +20,7 @@ CREATE TABLE treatments (
 );
 ```
 
-### Módulo Python
+### módulo Python
 
 Archivo: `src/treatments.py`
 
