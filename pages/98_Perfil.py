@@ -7,7 +7,7 @@ from session_utils import load_session, save_session
 from ui_components import run_page_splash
 
 st.set_page_config(
-    page_title="Perfil | Prototipo EPM",
+    page_title="Perfil",
     page_icon="assets/logos/logo_ria.png",
     layout="wide",
     initial_sidebar_state="expanded"

@@ -154,7 +154,7 @@ st.markdown('<div class="content-card">', unsafe_allow_html=True)
 st.markdown("#### Gestión de usuarios")
 
 # --- REGISTRO DE PERSONAL POR ADMINISTRADOR ---
-with st.expander("Regisrar nuevo usuario"):
+with st.expander("Registrar nuevo usuario"):
     st.info("Este formulario permite dar de alta a investigadores o estudiantes sin que tengan que esperar el correo de verificación.")
     with st.form("admin_register_form", clear_on_submit=True):
         col_a, col_b = st.columns(2)
@@ -215,7 +215,7 @@ st.dataframe(df_users, use_container_width=True, hide_index=True)
 st.markdown("---")
 cols = st.columns(2)
 with cols[0]:
-    st.markdown("##### Editar Privilegios")
+    st.markdown("##### Editar privilegios")
     u_sel = st.selectbox("Seleccionar usuario", df_users['username'])
     new_r = st.selectbox("Nuevo Rol", ["estudiante", "investigador", "admin"])
     

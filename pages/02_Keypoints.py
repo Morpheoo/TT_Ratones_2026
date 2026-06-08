@@ -114,7 +114,7 @@ def read_log_lines(log_path):
 
 def trim_log_text(lines, max_lines=120):
     if not lines:
-        return "[INFO] Aún no hay logs de ejecución."
+        return "[INFO] Aún no hay registros de ejecución."
     return "\n".join(lines[-max_lines:])
 
 
@@ -839,7 +839,7 @@ def remove_close_warning():
 
 
 def render_log_panel(snapshot=None):
-    st.markdown("#### Estado y logs")
+    st.markdown("#### Estado y registros")
     if snapshot:
         last_progress = float(snapshot.get("progress", 0.0) or 0.0)
         last_status = snapshot.get("status", "Aún no se inicia una ejecución real de keypoints.")
@@ -848,7 +848,7 @@ def render_log_panel(snapshot=None):
     else:
         last_progress = float(st.session_state.get("keypoints_last_progress", 0.0) or 0.0)
         last_status = st.session_state.get("keypoints_last_status", "Aún no se inicia una ejecución real de keypoints.")
-        last_logs = st.session_state.get("keypoints_last_logs", "[INFO] Aún no hay logs de ejecución.")
+        last_logs = st.session_state.get("keypoints_last_logs", "[INFO] Aún no hay registros de ejecución.")
         is_running = False
     
     # Mostrar animación si el proceso está corriendo
@@ -1060,7 +1060,7 @@ with col_left:
                 action = "cancel_extract"
         with c_action_2:
             if st.button(
-                "Abrir consola de logs",
+                "Abrir consola de registros",
                 use_container_width=True,
                 key="btn_open_keypoints_console",
             ):
@@ -1078,7 +1078,7 @@ with col_left:
             action = "extract"
         if os.path.exists(extract_snapshot["log_path"]):
             if st.button(
-                "Abrir última consola de logs",
+                "Abrir última consola de registros",
                 use_container_width=True,
                 key="btn_open_keypoints_console_idle",
             ):
@@ -1114,8 +1114,8 @@ elif action == "cancel_extract":
     st.rerun()
 
 elif action == "open_console":
-    launch_log_viewer_console(extract_snapshot["log_path"], "TT 2026 - Logs Keypoints")
-    st.toast("Se abrió una consola adicional para monitorear los logs.")
+    launch_log_viewer_console(extract_snapshot["log_path"], "Registro de keypoints")
+    st.toast("Se abrió una consola adicional para monitorear los registros.")
 
 elif action == "render":
     try:
