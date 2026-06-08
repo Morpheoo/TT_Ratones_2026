@@ -771,8 +771,8 @@ def inject_sidebar_navigation(show_admin_button=False):
     st.sidebar.markdown("#### Módulos del prototipo")
     
     pages = [
-        ("Home", "Home.py"),
-        ("Ingesta de video", "pages/01_Ingesta_de_Video.py"),
+        ("Inicio", "Home.py"),
+        ("Ingesta de vídeo", "pages/01_Ingesta_de_Video.py"),
         ("Keypoints", "pages/02_Keypoints.py"),
         ("Configuración de zonas", "pages/03_Configuracion_Zonas.py"),
         ("Análisis final", "pages/04_Analisis_Final.py"),
