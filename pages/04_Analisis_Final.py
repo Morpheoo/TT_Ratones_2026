@@ -32,7 +32,7 @@ from config import (
 )
 from sandbox_utils import get_active_simba_project_dir
 
-st.set_page_config(page_title="Análisis final | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Análisis final", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
@@ -99,7 +99,7 @@ def read_log_lines(log_path):
 
 def trim_log_text(lines, max_lines=180):
     if not lines:
-        return "[INFO] Aún no hay logs del pipeline."
+        return "[INFO] Aún no hay registros del flujo."
     return "\n".join(lines[-max_lines:])
 
 
@@ -843,10 +843,10 @@ def persist_summary_to_db(summary):
 
 
 def render_status_panel():
-    st.markdown("#### Estado y logs")
+    st.markdown("#### Estado y registros")
     last_progress = float(st.session_state.get("analysis_last_progress", 0.0) or 0.0)
     last_status = st.session_state.get("analysis_last_status", "Aún no se ejecuta el pipeline final.")
-    last_logs = st.session_state.get("analysis_last_logs", "[INFO] Aún no hay logs del pipeline.")
+    last_logs = st.session_state.get("analysis_last_logs", "[INFO] Aún no hay registros del flujo.")
 
     st.progress(min(max(last_progress, 0.0), 1.0), text=last_status)
     st.code(last_logs, language="bash")
@@ -1196,7 +1196,7 @@ with left_col:
             if st.button("Detener pipeline", use_container_width=True, key="btn_stop_analysis"):
                 action = "cancel"
         with col_log:
-            if st.button("Abrir consola de logs", use_container_width=True, key="btn_log_analysis"):
+            if st.button("Abrir consola de registros", use_container_width=True, key="btn_log_analysis"):
                 action = "open_console"
         if analysis_snapshot["meta"]:
             st.caption(f"PID activo: `{analysis_snapshot['meta'].get('pid')}`")
@@ -1245,7 +1245,7 @@ elif action == "open_console":
         cwd=os.getcwd(),
         creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
     )
-    st.toast("Se abrió consola de logs.")
+    st.toast("Se abrió consola de registros.")
 
 
 @st.fragment(run_every="2s" if analysis_snapshot.get("is_running") else None)

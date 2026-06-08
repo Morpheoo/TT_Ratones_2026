@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 
 # ================= 0. SETUP & PERSISTENCE =================
-st.set_page_config(page_title="Configuración de zonas | IPN", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Configuración de zonas", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 if os.path.join(os.getcwd(), "src") not in sys.path:
     sys.path.append(os.path.join(os.getcwd(), "src"))
@@ -399,10 +399,10 @@ with col_sidebar:
 
 with col_main:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown("#### 📐 Lienzo de configuración")
+    st.markdown("#### Lienzo de configuración")
     st.caption("*(Dibuja rectángulos de interés sobre el fotograma del video).*")
     
-    drawing_mode = "transform" if "Mover" in operación else ("line" if "Muro" in tipo_zona else "rect")
+    drawing_mode = "transform" if "Mover" in operacion else ("line" if "Muro" in tipo_zona else "rect")
     color_map = {
         "Brazo Abierto": "rgba(111, 29, 70, 0.4)",  # IPN Guinda
         "Brazo Cerrado": "rgba(99, 101, 105, 0.4)", # IPN Gray
