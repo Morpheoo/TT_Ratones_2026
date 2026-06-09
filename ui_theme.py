@@ -521,7 +521,7 @@ def use_theme():
     
     return colors
 
-def render_topbar(title="Prototipo técnico para análisis automatizado de comportamiento"):
+def render_topbar(title="Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad"):
     """Renderiza la barra superior limpia (Topbar) con logos institucionales reales"""
     colors = use_theme()
 
