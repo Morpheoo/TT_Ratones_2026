@@ -15,7 +15,7 @@ import ui_theme
 importlib.reload(ui_theme)
 from ui_theme import use_theme
 
-st.set_page_config(page_title="Login | Prototipo EPM", page_icon="assets/logos/logo_ria.png", layout="centered")
+st.set_page_config(page_title="Inicio de sesión", page_icon="assets/logos/logo_ria.png", layout="centered")
 
 load_session()
 colors = use_theme()

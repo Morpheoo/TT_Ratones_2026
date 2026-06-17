@@ -720,15 +720,30 @@ Los presentes Términos y Condiciones se regirán por las leyes vigentes de los 
 
 Cualquier controversia relacionada con la interpretación o aplicación de estos términos será resuelta conforme a la legislación mexicana aplicable y ante las autoridades competentes de la Ciudad de México.
             """)
-    
-    # Link al manual de usuario
-    st.markdown(f"""
-        <div style="text-align: center; margin-top: 1rem; padding: 0.75rem; background: {colors['bg_card']}; border-radius: 8px; border: 1px solid {colors['border']};">
-            <a href="https://filebin.net/2h3xb87qengioqcy" target="_blank" style="color: {colors['primary']}; text-decoration: none; font-weight: 600; font-size: 0.9rem;">
-                ¿Necesitas ayuda? Consulta el manual de usuario
-            </a>
-        </div>
-    """, unsafe_allow_html=True)
+
+    # Acceso al manual de usuario dentro del sistema
+    st.markdown(
+    f"""
+    <div style="
+        text-align: center;
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background: {colors['bg_card']};
+        border-radius: 8px;
+        border: 1px solid {colors['border']};
+        >
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+    if st.button(
+        "¿Necesitas ayuda? ¡Consulta el manual de usuario!",
+        key="manual_usuario_btn",
+        use_container_width=True
+    ):
+        st.switch_page("pages/97_Manual_Usuario.py")
+
 
 def inject_sidebar_profile(show_admin_button=False):
     """Inyecta el layout HTML para la cabecera y branding en el sidebar."""
@@ -772,6 +787,7 @@ def inject_sidebar_navigation(show_admin_button=False):
     
     pages = [
         ("Inicio", "Home.py"),
+        ("Manual de usuario", "pages/97_Manual_Usuario.py"),
         ("Ingesta de vídeo", "pages/01_Ingesta_de_Video.py"),
         ("Keypoints", "pages/02_Keypoints.py"),
         ("Configuración de zonas", "pages/03_Configuracion_Zonas.py"),
