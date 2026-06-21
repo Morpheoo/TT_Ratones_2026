@@ -477,7 +477,7 @@ def verify_otp(email, code):
                         message=f"OTP expirado ({minutes_passed:.1f} minutos desde emisión)",
                         level="WARNING", success=False
                     )
-                    return False, "⏳ El código ha expirado (más de 5 mins). Solicita uno nuevo."
+                    return False, "El código ha expirado (más de 5 minutos). Solicita uno nuevo."
 
             if str(db_code).strip() == str(code).strip():
                 # Activar
@@ -622,7 +622,7 @@ def reset_password(email, otp, new_password):
                         message=f"OTP de recuperación expirado ({minutes_passed:.1f} mins)",
                         level="WARNING", success=False
                     )
-                    return False, "⏳ El código ha expirado."
+                    return False, "El código ha expirado."
 
             if str(db_code).strip() != str(otp).strip():
                 log_security_event(

@@ -1106,7 +1106,7 @@ if not video_ok:
     st.warning("No hay video activo en esta sesión. Puedes cargar uno desde Ingesta o usar el selector de registros previos de arriba.")
 
 status_flags = resolve_status_flags()
-device_option = st.session_state.get("dlc_device_opt", "Auto (Recomendado)")
+device_option = st.session_state.get("dlc_device_opt", "Automático (Recomendado)")
 batch_size = int(st.session_state.get("dlc_batch_size", 16) or 16)
 zones_ready = bool(st.session_state.get("zonas_configuradas"))
 
@@ -1169,8 +1169,8 @@ with left_col:
         )
         device_option = st.selectbox(
             "Dispositivo de hardware",
-            ["Auto (Recomendado)", "CPU (Forzar)"],
-            index=0 if st.session_state.get("dlc_device_opt", "Auto (Recomendado)") == "Auto (Recomendado)" else 1,
+            ["Automático (recomendado)", "CPU (Forzar)"],
+            index=0 if st.session_state.get("dlc_device_opt", "Automático (recomendado)") == "Automático (recomendado)" else 1,
         )
         st.caption("Grooming usa RF calibrado con rescate temporal con redes LSTM cuando el RF queda en zona gris.")
         st.caption("El flujo reutiliza pose, features, LSTM y vídeo final si ya existen y siguen vigentes.")

@@ -521,7 +521,7 @@ def use_theme():
     
     return colors
 
-def render_topbar(title="Prototipo técnico para análisis automatizado de comportamiento"):
+def render_topbar(title="Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad"):
     """Renderiza la barra superior limpia (Topbar) con logos institucionales reales"""
     colors = use_theme()
 
@@ -749,7 +749,7 @@ def inject_sidebar_profile(show_admin_button=False):
     """Inyecta el layout HTML para la cabecera y branding en el sidebar."""
     colors = use_theme()
     # --- 1. CABECERA (TÍTULO) ---
-    st.sidebar.markdown('<div style="text-align:center; font-weight:800; color:white; letter-spacing:1px; padding-top:0.2rem;">PROTOTIPO EPM</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div style="text-align:center; font-weight:800; color:white; letter-spacing:1px; padding-top:0.2rem;">PROTOTIPO</div>', unsafe_allow_html=True)
     st.sidebar.markdown('<hr style="margin: 0.5rem 0; opacity:0.15;">', unsafe_allow_html=True)
 
     # --- 2. NAVEGACIÓN MANUAL (con o sin Admin Panel) ---

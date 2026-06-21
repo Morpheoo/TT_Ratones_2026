@@ -145,7 +145,7 @@ st.info("""
 **Instrucciones:**
 1. Selecciona el **tratamiento** para cada grupo
 2. Selecciona los **experimentos específicos** que deseas incluir de cada tratamiento
-3. Cada grupo debe tener **entre 4 y 8 experimentos** (válido para análisis estadístico)
+3. Cada grupo debe tener **entre 6 y 8 experimentos** (válido para análisis estadístico)
 4. Ambos grupos **deben tener la misma cantidad** de experimentos
 5. Presiona el botón **Comparar** para generar el análisis
 """)
@@ -169,7 +169,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("##### Grupo 1")
     group1_treatment = st.selectbox(
-        "Tratamiento para grupo 1:",
+        "Tratamiento para el grupo 1:",
         options=all_treatments,
         index=all_treatments.index(prev_treatment_g1) if prev_treatment_g1 in all_treatments else 0,
         key="selectbox_treatment_g1"
@@ -185,7 +185,7 @@ with col1:
     valid_prev_g1 = [label for label in prev_selected_g1 if label in group1_available_labels]
 
     selected_group1_labels = st.multiselect(
-        "Selecciona experimentos para grupo 1:",
+        "Selecciona experimentos para el grupo 1:",
         options=group1_available_labels,
         default=valid_prev_g1 if st.session_state.get('comparison_ready', False) else [],
         key="multiselect_g1",
@@ -197,12 +197,12 @@ with col1:
     if n_group1 > 0:
         if 4 <= n_group1 <= 8:
             st.success(f"Experimentos seleccionados: **{n_group1}** ✓")
-        elif n_group1 < 4:
-            st.warning(f"Experimentos seleccionados: **{n_group1}** (mínimo requerido: 4)")
+        elif n_group1 < 6:
+            st.warning(f"Experimentos seleccionados: **{n_group1}** (mínimo requerido: 6)")
         else:  # n_group1 > 8
             st.error(f"Experimentos seleccionados: **{n_group1}** (máximo permitido: 8)")
     else:
-        st.info("Selecciona entre 4 y 8 experimentos")
+        st.info("Selecciona entre 6 y 8 experimentos")
 
 with col2:
     st.markdown("##### Grupo 2")
@@ -217,7 +217,7 @@ with col2:
     default_treatment_g2 = prev_treatment_g2 if prev_treatment_g2 in available_treatments_g2 else available_treatments_g2[0]
 
     group2_treatment = st.selectbox(
-        "Tratamiento para grupo 2:",
+        "Tratamiento para el grupo 2:",
         options=available_treatments_g2,
         index=available_treatments_g2.index(default_treatment_g2) if default_treatment_g2 in available_treatments_g2 else 0,
         key="selectbox_treatment_g2"
@@ -233,7 +233,7 @@ with col2:
     valid_prev_g2 = [label for label in prev_selected_g2 if label in group2_available_labels]
 
     selected_group2_labels = st.multiselect(
-        "Selecciona experimentos para grupo 2:",
+        "Selecciona experimentos para el grupo 2:",
         options=group2_available_labels,
         default=valid_prev_g2 if st.session_state.get('comparison_ready', False) else [],
         key="multiselect_g2",
@@ -243,14 +243,14 @@ with col2:
     n_group2 = len(selected_group2_labels)
 
     if n_group2 > 0:
-        if 4 <= n_group2 <= 8:
+        if 6 <= n_group2 <= 8:
             st.success(f"Experimentos seleccionados: **{n_group2}** ✓")
-        elif n_group2 < 4:
-            st.warning(f"Experimentos seleccionados: **{n_group2}** (mínimo requerido: 4)")
+        elif n_group2 < 6:
+            st.warning(f"Experimentos seleccionados: **{n_group2}** (mínimo requerido: 6)")
         else:  # n_group2 > 8
             st.error(f"Experimentos seleccionados: **{n_group2}** (máximo permitido: 8)")
     else:
-        st.info("Selecciona entre 4 y 8 experimentos")
+        st.info("Selecciona entre 6 y 8 experimentos")
 
 # ================= VALIDACIÓN Y BOTÓN COMPARAR =================
 st.markdown("---")
@@ -260,13 +260,13 @@ if n_group1 == 0 or n_group2 == 0:
     st.warning("Debes seleccionar experimentos en ambos grupos antes de comparar.")
     st.stop()
 
-# Verificar rango permitido (4-8 experimentos)
-if n_group1 < 4 or n_group1 > 8:
-    st.error(f"Grupo 1: Se requieren entre 4 y 8 experimentos (actualmente: {n_group1})")
+# Verificar rango permitido (6-8 experimentos)
+if n_group1 < 6 or n_group1 > 8:
+    st.error(f"Grupo 1: Se requieren entre 6 y 8 experimentos (actualmente: {n_group1})")
     st.stop()
 
 if n_group2 < 4 or n_group2 > 8:
-    st.error(f"Grupo 2: Se requieren entre 4 y 8 experimentos (actualmente: {n_group2})")
+    st.error(f"Grupo 2: Se requieren entre 6 y 8 experimentos (actualmente: {n_group2})")
     st.stop()
 
 # Verificar si tienen el mismo número
