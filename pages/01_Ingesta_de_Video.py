@@ -32,7 +32,7 @@ st.markdown("""
 }
 
 [data-testid="stFileUploader"] section small::before {
-    content: "Límite 4GB por archivo • MP4, MOV, AVI, MPEG4";
+    content: "Límite de 4GB por archivo Solo se admiten archivos .MP4, MOV, AVI, MPEG4";
     font-size: 0.875rem;
 }
 
@@ -309,7 +309,7 @@ with c2:
     ).strip()
 
 video_file = st.file_uploader(
-    "Cargar video (MP4 / MOV / AVI)",
+    "Cargar vídeo",
     type=["mp4", "mov", "avi"],
     key="ingesta_video_file",
 )
@@ -317,7 +317,7 @@ video_file = st.file_uploader(
 st.markdown("---")
 button_cols = st.columns([1, 2])
 with button_cols[0]:
-    preparar_video = st.button("Preparar video y recortar", type="primary", use_container_width=True)
+    preparar_video = st.button("Preparar vídeo y recortar", type="primary", use_container_width=True)
 with button_cols[1]:
     if video_file is not None:
         st.caption("Después de preparar el video podrás definir el minuto y segundo exactos a analizar.")
@@ -471,7 +471,7 @@ if "video_en_edicion" in st.session_state:
                 if guardar_y_keypoints:
                     st.switch_page("pages/02_Keypoints.py")
                 else:
-                    st.success("Parámetros de recorte guardados. Ya puedes continuar con Keypoints o Configuración de zonas.")
+                    st.success("Parámetros de recorte guardados. Ya puedes continuar con la extracción de keypoints o configuración de zonas.")
         except Exception as error:
             st.warning(f"Error al preparar el editor de recorte: {error}")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -481,7 +481,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     f"""
     <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        IPN - Unidad de Investigación de Comportamiento Animal 2026
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
     </div>
     """,
     unsafe_allow_html=True,

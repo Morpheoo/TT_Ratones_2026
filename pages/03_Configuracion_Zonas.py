@@ -376,7 +376,7 @@ with col_sidebar:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     st.markdown("#### Herramientas de dibujo")
     tipo_zona = st.radio(
-        "Clasificación de ROI:",
+        "Clasificación de zonas de interés:",
         ["Brazo Abierto", "Brazo Cerrado", "Centro", "Muro / Pared"],
         format_func=lambda x: {
             "Brazo Abierto": "Brazo abierto",

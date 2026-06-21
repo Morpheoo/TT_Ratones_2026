@@ -258,7 +258,7 @@ elif st.session_state.auth_mode == "register":
             
             st.markdown("""
                 <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
-                    <strong>Términos y condiciones:</strong> Al registrarte en el Prototipo EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
+                    <strong>Términos y condiciones:</strong> Al registrarte en este prototipo, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
                 </div>
             """, unsafe_allow_html=True)
             accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
@@ -324,7 +324,7 @@ elif st.session_state.auth_mode == "register":
             
             st.markdown("""
                 <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 8px; font-size: 0.75rem; color: #555; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); text-align: justify;">
-                    <strong>Términos y condiciones:</strong> Al registrarte en el Prototipo EPM, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
+                    <strong>Términos y condiciones:</strong> Al registrarte en este prototipo, te comprometes al uso estrictamente académico y ético de las herramientas de análisis IA. Los datos generados son propiedad del laboratorio y deben ser tratados con confidencialidad según los lineamientos del IPN. El mal uso de la plataforma resultará en la suspensión inmediata del acceso.
                 </div>
             """, unsafe_allow_html=True)
             accepted = st.checkbox("He leído y acepto los lineamientos institucionales y términos de uso.")
@@ -383,7 +383,7 @@ elif st.session_state.auth_mode == "verify":
         st.rerun()
     
     with st.form("verify_form"):
-        otp_code = st.text_input("Código de Verificación (6 dígitos)", placeholder="123456", max_chars=6)
+        otp_code = st.text_input("Código de verificación", placeholder="123456", max_chars=6)
         verify_submit = st.form_submit_button("Verificar cuenta", type="primary", use_container_width=True)
     
     if verify_submit:
@@ -704,7 +704,6 @@ Cualquier controversia relacionada con la interpretación o aplicación de estos
 # Link al manual de usuario
 st.markdown(f"""
     <div style="text-align:center; color: {text_sub_c}; font-size: 0.75rem;">
-        Prototipo técnico para análisis automatizado de comportamiento &copy; 2026<br>
-        Laboratorio de Proyectos Profesionales — IPN ESCOM
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
     </div>
 """, unsafe_allow_html=True)

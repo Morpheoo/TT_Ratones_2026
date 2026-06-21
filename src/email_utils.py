@@ -51,14 +51,14 @@ def send_verification_email(to_email, code):
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = to_email
-        msg['Subject'] = "Código de verificación - TT Ratones 2026"
+        msg['Subject'] = "Código de verificación - Prototipo de análisis de comportamiento de especímenes"
 
         body = f"""
         <html>
           <body>
-            <h2>Verificación de Cuenta</h2>
+            <h2>Verificación de cuenta</h2>
             <p>Hola,</p>
-            <p>Tu código de verificación para el prototipo TT Ratones 2026 es:</p>
+            <p>Tu código de verificación para el prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad es:</p>
             <h1 style="color: #2e7d32; font-size: 32px;">{code}</h1>
             <p>Ingresa este código en la aplicación para activar tu cuenta.</p>
             <p>Si no solicitaste este código, ignora este mensaje.</p>

@@ -1007,7 +1007,7 @@ if st.session_state.pop("keypoints_show_completion_toast", False):
 # ================= 4. MAIN LAYOUT =================
 action = None
 batch_size = int(st.session_state.get("dlc_batch_size", 16) or 16)
-device_option = st.session_state.get("dlc_device_opt", "Auto (recomendado)")
+device_option = st.session_state.get("dlc_device_opt", "Automático (recomendado)")
 
 col_left, col_right = st.columns([1, 1.35])
 
@@ -1032,8 +1032,8 @@ with col_left:
         )
         device_option = st.selectbox(
             "Dispositivo de hardware",
-            ["Auto (recomendado)", "CPU (forzar)"],
-            index=0 if st.session_state.get("dlc_device_opt", "Auto (recomendado)") == "Auto (recomendado)" else 1,
+            ["Automático (recomendado)", "CPU (forzar)"],
+            index=0 if st.session_state.get("dlc_device_opt", "Automático (recomendado)") == "Automático (recomendado)" else 1,
         )
         st.caption("Recomendación: deja 32 como tope, usa 16 por defecto y sube a 24/32 solo si la GPU se mantiene estable.")
         st.caption("Al terminar, este flujo aplica bbox y deja sincronizado el bridge hacia SimBA en automático.")
