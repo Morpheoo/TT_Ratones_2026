@@ -2,7 +2,19 @@ import streamlit as st
 import json
 import os
 
-SESSION_FILE = ".streamlit_session.json"
+
+def _app_data_dir() -> str:
+    configured = os.getenv("TT_APP_DATA_DIR", "").strip()
+    if configured:
+        path = os.path.abspath(os.path.expanduser(configured))
+    else:
+        base = os.getenv("LOCALAPPDATA") or os.path.expanduser("~/AppData/Local")
+        path = os.path.join(base, "TT_Ratones_2026")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+SESSION_FILE = os.path.join(_app_data_dir(), ".streamlit_session.json")
 
 def save_session():
     """Guarda las variables críticas del state en un archivo local."""

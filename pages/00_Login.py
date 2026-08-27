@@ -9,6 +9,7 @@ sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from session_utils import load_session, save_session
 from auth import authenticate, register_user, verify_otp, request_password_reset, reset_password
+from db.connection import is_offline_mode
 from ui_components import run_page_splash
 import importlib
 import ui_theme
@@ -33,15 +34,393 @@ run_page_splash(
 if "auth_mode" not in st.session_state:
     st.session_state.auth_mode = "login"
 
+if "public_view" not in st.session_state:
+    st.session_state.public_view = "login"
+
 # ================= 1. CABECERA LIMPIA LOGIN =================
-from ui_theme import get_image_base64
+from ui_theme import get_image_base64, render_user_manual_pdf
 logo_ria_path = os.path.join("assets", "logos", "logo_ria.png")
 app_logo_b64 = get_image_base64(logo_ria_path)
 img_tag = f'<img src="{app_logo_b64}" style="width: 150px; margin-bottom: 0.5rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));">' if app_logo_b64 else ''
+logo_ipn_b64 = get_image_base64(os.path.join("assets", "logos", "logo-ipn-guinda.png"))
+logo_escom_b64 = get_image_base64(os.path.join("assets", "logos", "logo-escom.png"))
+ipn_tag = f'<img src="{logo_ipn_b64}" class="institution-logo ipn-logo" alt="IPN">' if logo_ipn_b64 else '<strong>IPN</strong>'
+escom_tag = f'<img src="{logo_escom_b64}" class="institution-logo escom-logo" alt="ESCOM">' if logo_escom_b64 else '<strong>ESCOM</strong>'
 
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #5B1737 0%, #421026 100%) !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: #F8EEF2;
+    }
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] .stButton > button[kind="primary"],
+    [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+        background: rgba(255,255,255,0.02) !important;
+        color: #F8EEF2 !important;
+        border: 1.5px solid rgba(255,255,255,0.78) !important;
+        border-radius: 10px !important;
+        min-height: 48px !important;
+        font-weight: 700 !important;
+        box-shadow: none !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover,
+    [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+        background: rgba(255,255,255,0.10) !important;
+        color: #FFFFFF !important;
+        border-color: #FFFFFF !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stSidebar"] .stButton > button *,
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] *,
+    [data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
+        color: #F8EEF2 !important;
+    }
+    .landing-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        max-width: 1180px;
+        margin: 0 auto 1.3rem;
+    }
+    .institution-strip {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 2rem;
+        max-width: 1180px;
+        margin: 0 auto 1rem;
+        padding: 0 1rem;
+    }
+    .institution-left {
+        justify-self: start;
+    }
+    .institution-center {
+        justify-self: center;
+    }
+    .institution-right {
+        justify-self: end;
+    }
+    .institution-logo {
+        object-fit: contain;
+        opacity: 0.95;
+        filter: drop-shadow(0 8px 18px rgba(70, 24, 48, 0.12));
+    }
+    .ipn-logo {
+        height: 150px;
+    }
+    .escom-logo {
+        height: 64px;
+    }
+    .landing-card, .landing-section {
+        background: #FFFFFF;
+        border: 1px solid #EAE3E6;
+        border-radius: 18px;
+        padding: 1.35rem;
+        box-shadow: 0 12px 30px rgba(35, 18, 27, 0.05);
+    }
+    .hero-panel {
+        max-width: 1180px;
+        margin: 0 auto 1.4rem;
+        background: linear-gradient(135deg, rgba(106,27,63,0.08), rgba(255,255,255,0.92));
+        border: 1px solid #EAE3E6;
+        border-radius: 24px;
+        padding: 1.6rem;
+        display: grid;
+        grid-template-columns: 1.4fr 0.9fr;
+        gap: 1.2rem;
+        align-items: center;
+    }
+    .hero-points {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+        margin-top: 1rem;
+    }
+    .hero-point {
+        background: rgba(255,255,255,0.82);
+        border: 1px solid #EAE3E6;
+        border-radius: 14px;
+        padding: 0.8rem;
+        color: #4A102A;
+        font-weight: 700;
+        font-size: 0.88rem;
+    }
+    .mock-window {
+        background: #FFFFFF;
+        border: 1px solid #EAE3E6;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 18px 35px rgba(74,16,42,0.12);
+    }
+    .mock-top {
+        height: 34px;
+        background: #5B1737;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding-left: 12px;
+    }
+    .mock-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.7);
+    }
+    .mock-body {
+        padding: 1rem;
+    }
+    .mock-video {
+        height: 150px;
+        border-radius: 14px;
+        background:
+            radial-gradient(circle at 50% 42%, rgba(105,197,221,0.28) 0 8%, transparent 9%),
+            linear-gradient(90deg, rgba(106,27,63,0.10) 1px, transparent 1px),
+            linear-gradient(rgba(106,27,63,0.08) 1px, transparent 1px);
+        background-size: auto, 26px 26px, 26px 26px;
+        position: relative;
+    }
+    .mock-path {
+        position: absolute;
+        left: 22px;
+        right: 24px;
+        top: 55px;
+        height: 42px;
+        border: 3px solid #69C5DD;
+        border-top: 0;
+        border-left-color: transparent;
+        transform: rotate(-8deg);
+        border-radius: 45%;
+    }
+    .module-showcase {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        max-width: 1180px;
+        margin: 0 auto 1.5rem;
+    }
+    .module-card {
+        background: #FFFFFF;
+        border: 1px solid #EAE3E6;
+        border-radius: 20px;
+        padding: 1rem;
+        display: grid;
+        grid-template-columns: 94px 1fr;
+        gap: 1rem;
+        box-shadow: 0 12px 28px rgba(35, 18, 27, 0.045);
+    }
+    .module-visual {
+        min-height: 92px;
+        border-radius: 16px;
+        background: linear-gradient(145deg, #F8EEF2, #FFFFFF);
+        border: 1px solid #EAE3E6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6A1B3F;
+        font-size: 2rem;
+        font-weight: 850;
+    }
+    .module-card h4 {
+        margin: 0;
+        color: #241018;
+        font-size: 1.02rem;
+    }
+    .module-card p {
+        margin: 0.35rem 0 0;
+        color: #666;
+        line-height: 1.45;
+        font-size: 0.9rem;
+    }
+    .flow-line {
+        max-width: 1180px;
+        margin: 0 auto 1.4rem;
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+    .flow-step {
+        background: #5B1737;
+        color: #FFFFFF;
+        border-radius: 14px;
+        padding: 0.72rem;
+        text-align: center;
+        font-weight: 750;
+        font-size: 0.82rem;
+    }
+    .landing-card h3, .landing-section h3 {
+        margin: 0.25rem 0 0.55rem;
+        font-size: 1.15rem;
+    }
+    .landing-card p, .landing-section p {
+        color: #737373;
+        margin: 0;
+        line-height: 1.55;
+        font-size: 0.93rem;
+    }
+    .landing-kicker {
+        color: #6A1B3F;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-size: 0.72rem;
+        font-weight: 800;
+    }
+    .landing-section {
+        max-width: 1180px;
+        margin: 0 auto 2rem;
+    }
+    .landing-pill {
+        display: inline-block;
+        color: #4A102A;
+        background: #F8EEF2;
+        border: 1px solid #EAE3E6;
+        border-radius: 999px;
+        padding: 0.42rem 0.7rem;
+        margin: 0 0.35rem 0.5rem 0;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+    @media (max-width: 900px) {
+        .landing-grid {
+            grid-template-columns: 1fr;
+        }
+        .hero-panel, .module-showcase, .flow-line {
+            grid-template-columns: 1fr;
+        }
+        .module-card {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+with st.sidebar:
+    st.markdown(f"""
+    <div style="text-align:center; padding: 0.6rem 0 1.2rem;">
+        {img_tag}
+        <div style="font-weight:850; letter-spacing:1px; font-size:1.05rem;">PROTOTIPO EPM</div>
+        <div style="font-size:0.72rem; opacity:0.72; text-transform:uppercase; letter-spacing:1.4px; margin-top:0.25rem;">Navegación pública</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Presentación", use_container_width=True, type="primary" if st.session_state.public_view == "landing" else "secondary"):
+        st.session_state.public_view = "landing"
+        st.rerun()
+    if st.button("Inicio de sesión", use_container_width=True, type="primary" if st.session_state.public_view == "login" else "secondary"):
+        st.session_state.public_view = "login"
+        st.rerun()
+
+if st.session_state.public_view == "landing":
+    st.markdown(f"""
+<div class="institution-strip">
+    <div class="institution-left">{ipn_tag}</div>
+    <div class="institution-center">{img_tag}</div>
+    <div class="institution-right">{escom_tag}</div>
+</div>
+
+<div style="text-align: center; margin: 0 auto 1.6rem; max-width: 1150px;">
+    <div style="font-size: clamp(2rem, 4vw, 3.35rem); line-height: 1.15; margin-bottom: 0.75rem; letter-spacing: -1.1px; color: {colors['primary_dark']}; font-weight: 850;">
+        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad
+    </div>
+    <div style="font-size: 0.82rem; color: {colors['text_sub']}; text-transform: uppercase; font-weight: 750; letter-spacing: 2px;">
+        Instituto Politécnico Nacional — Escuela Superior de Cómputo
+    </div>
+</div>
+
+<div class="hero-panel">
+    <div>
+        <div class="landing-kicker">Sistema académico de análisis EPM</div>
+        <h3 style="font-size:1.55rem; margin:0.35rem 0; color:#241018;">Un flujo guiado para convertir video experimental en evidencia cuantitativa.</h3>
+        <p style="color:#666; line-height:1.62; margin:0;">
+            El prototipo centraliza la ingesta de videos, la extracción de puntos anatómicos, la delimitación de zonas del laberinto elevado en cruz,
+            la clasificación automática de conductas y la generación de resultados visuales para apoyar estudios de ansiedad en especímenes de laboratorio.
+        </p>
+        <div class="hero-points">
+            <div class="hero-point">Procesamiento local y reproducible</div>
+            <div class="hero-point">Usuarios, roles y auditoría</div>
+            <div class="hero-point">Reportes y visualizaciones</div>
+            <div class="hero-point">Comparación entre tratamientos</div>
+        </div>
+    </div>
+    <div class="mock-window">
+        <div class="mock-top"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span></div>
+        <div class="mock-body">
+            <div class="mock-video"><div class="mock-path"></div></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-top:0.75rem;">
+                <div class="landing-pill" style="margin:0; text-align:center;">Trayectoria</div>
+                <div class="landing-pill" style="margin:0; text-align:center;">Keypoints</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="flow-line">
+    <div class="flow-step">1. Ingesta</div>
+    <div class="flow-step">2. Keypoints</div>
+    <div class="flow-step">3. Zonas</div>
+    <div class="flow-step">4. Análisis</div>
+    <div class="flow-step">5. Resultados</div>
+    <div class="flow-step">6. Comparación</div>
+</div>
+
+<div class="module-showcase">
+    <div class="module-card">
+        <div class="module-visual">🎞</div>
+        <div><h4>Ingesta de video</h4><p>Carga videos experimentales, valida el archivo activo y permite definir recortes temporales para analizar solo el segmento relevante.</p></div>
+    </div>
+    <div class="module-card">
+        <div class="module-visual">⌖</div>
+        <div><h4>Extracción de keypoints</h4><p>Ejecuta la estimación de pose para obtener coordenadas anatómicas, preparar overlays y generar archivos base para el análisis posterior.</p></div>
+    </div>
+    <div class="module-card">
+        <div class="module-visual">▦</div>
+        <div><h4>Configuración de zonas</h4><p>Permite marcar brazos abiertos, brazos cerrados, centro y paredes del EPM para interpretar permanencia, cruces y comportamiento espacial.</p></div>
+    </div>
+    <div class="module-card">
+        <div class="module-visual">AI</div>
+        <div><h4>Análisis final</h4><p>Integra trayectoria, zonas y modelos de clasificación para detectar grooming, thigmotaxis y métricas conductuales del experimento.</p></div>
+    </div>
+    <div class="module-card">
+        <div class="module-visual">▤</div>
+        <div><h4>Resultados y estadísticas</h4><p>Presenta tiempos, mapas de calor, trayectoria, tablas, exportaciones y reportes para documentar el comportamiento observado.</p></div>
+    </div>
+    <div class="module-card">
+        <div class="module-visual">⇄</div>
+        <div><h4>Comparación</h4><p>Consolida experimentos por tratamiento para revisar diferencias entre grupos y preparar datos para análisis estadístico externo.</p></div>
+    </div>
+</div>
+
+<div class="landing-grid">
+    <div class="landing-card">
+        <div class="landing-kicker">Administración</div>
+        <h3>Usuarios y roles</h3>
+        <p>El sistema separa acceso de estudiantes, investigadores y administradores, con panel de gestión para mantener control institucional.</p>
+    </div>
+    <div class="landing-card">
+        <div class="landing-kicker">Trazabilidad</div>
+        <h3>Historial del análisis</h3>
+        <p>El flujo conserva contexto de video, registros de experimentos, resultados y ediciones manuales auditadas cuando aplica.</p>
+    </div>
+    <div class="landing-card">
+        <div class="landing-kicker">Uso académico</div>
+        <h3>Apoyo a investigación</h3>
+        <p>La plataforma facilita revisar evidencia visual y numérica sin sustituir el criterio del investigador responsable.</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+    st.stop()
 st.markdown(f"""
+<div class="institution-strip">
+    <div class="institution-left">{ipn_tag}</div>
+    <div class="institution-center">{img_tag}</div>
+    <div class="institution-right">{escom_tag}</div>
+</div>
 <div style="text-align: center; margin-bottom: 2rem;">
-    {img_tag}
     <div style="font-size: 2.2rem; margin-bottom: 0.2rem; letter-spacing: -0.5px; color: {colors['primary_dark']}; font-weight: 800;">
         Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad
     </div>
@@ -290,9 +669,12 @@ elif st.session_state.auth_mode == "register":
                     accepted_terms=accepted
                 )
                 if success:
-                    st.success("Registro enviado. Revisa tu correo para el código de verificación.")
-                    st.session_state.auth_mode = "verify"
-                    st.session_state.pending_verification_email = new_email
+                    st.success(msg)
+                    if is_offline_mode():
+                        st.session_state.auth_mode = "login"
+                    else:
+                        st.session_state.auth_mode = "verify"
+                        st.session_state.pending_verification_email = new_email
                     time.sleep(1)
                     st.rerun()
                 else:
@@ -356,9 +738,12 @@ elif st.session_state.auth_mode == "register":
                     accepted_terms=accepted
                 )
                 if success:
-                    st.success("Registro enviado. Revisa tu correo para el código de verificación.")
-                    st.session_state.auth_mode = "verify"
-                    st.session_state.pending_verification_email = new_email
+                    st.success(msg)
+                    if is_offline_mode():
+                        st.session_state.auth_mode = "login"
+                    else:
+                        st.session_state.auth_mode = "verify"
+                        st.session_state.pending_verification_email = new_email
                     time.sleep(1)
                     st.rerun()
                 else:
@@ -473,7 +858,11 @@ elif st.session_state.auth_mode == "forgot_password":
         else:
             success, msg = request_password_reset(recovery_email)
             if success:
-                st.success("Código de recuperación enviado a tu correo.")
+                if is_offline_mode():
+                    st.session_state.local_reset_code = msg.partition(":")[2].strip()
+                    st.success("Código de recuperación generado localmente.")
+                else:
+                    st.success("Código de recuperación enviado a tu correo.")
                 st.session_state.password_reset_email = recovery_email
                 st.session_state.auth_mode = "reset_password"
                 time.sleep(1)
@@ -493,7 +882,10 @@ elif st.session_state.auth_mode == "reset_password":
     # Mostrar el email al que se envió el código
     if "password_reset_email" in st.session_state:
         reset_email = st.session_state.password_reset_email
-        st.info(f"Código enviado a: {reset_email}")
+        if is_offline_mode() and st.session_state.get("local_reset_code"):
+            st.info(f"Código local de recuperación: {st.session_state.local_reset_code}")
+        else:
+            st.info(f"Código enviado a: {reset_email}")
     else:
         st.error("No hay solicitud de recuperación activa.")
         st.session_state.auth_mode = "login"
@@ -538,6 +930,7 @@ elif st.session_state.auth_mode == "reset_password":
                 # Limpiar estado
                 if "password_reset_email" in st.session_state:
                     del st.session_state.password_reset_email
+                st.session_state.pop("local_reset_code", None)
                 st.session_state.auth_mode = "login"
                 st.info("Ahora puedes iniciar sesión con tu nueva contraseña.")
                 time.sleep(1)
@@ -702,6 +1095,8 @@ Cualquier controversia relacionada con la interpretación o aplicación de estos
         """)
 
 # Link al manual de usuario
+render_user_manual_pdf(colors, key="login_user_manual_pdf")
+
 st.markdown(f"""
     <div style="text-align:center; color: {text_sub_c}; font-size: 0.75rem;">
         Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>

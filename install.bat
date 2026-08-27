@@ -14,7 +14,7 @@ REM ============================================================
 REM 1/10 - Verificar Python 3.10 y 3.11
 REM ============================================================
 echo [1/10] Verificando Python 3.10 y 3.11...
-py --versión >nul 2>&1
+py --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] No se encontro Python Launcher ^(comando py^).
     echo         Reinstala Python 3.10 y 3.11 desde python.org y marca:
@@ -25,7 +25,7 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-py -3.10 --versión >nul 2>&1
+py -3.10 --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] No se encontro Python 3.10.
     echo         Instalalo desde https://www.python.org/downloads/release/python-31011/
@@ -33,7 +33,7 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-py -3.11 --versión >nul 2>&1
+py -3.11 --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] No se encontro Python 3.11.
     echo         Instalalo desde https://www.python.org/downloads/release/python-3119/
@@ -41,8 +41,8 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-for /f "tokens=*" %%v in ('py -3.10 --versión') do echo   [OK] %%v
-for /f "tokens=*" %%v in ('py -3.11 --versión') do echo   [OK] %%v
+for /f "tokens=*" %%v in ('py -3.10 --version') do echo   [OK] %%v
+for /f "tokens=*" %%v in ('py -3.11 --version') do echo   [OK] %%v
 
 REM ============================================================
 REM 2/10 - Detectar GPU

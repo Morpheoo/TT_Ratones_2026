@@ -3,6 +3,7 @@ Módulo para gestión de tratamientos en el prototipo EPM
 """
 from sqlalchemy import text
 from src.db.connection import get_db_engine
+from src.db.dialect import is_sqlite
 
 
 def initialize_treatments_table():
@@ -13,9 +14,10 @@ def initialize_treatments_table():
     
     with engine.connect() as conn:
         with conn.begin():
-            conn.execute(text("""
+            id_definition = "INTEGER PRIMARY KEY AUTOINCREMENT" if is_sqlite(conn) else "SERIAL PRIMARY KEY"
+            conn.execute(text(f"""
                 CREATE TABLE IF NOT EXISTS treatments (
-                    id SERIAL PRIMARY KEY,
+                    id {id_definition},
                     name VARCHAR(100) UNIQUE NOT NULL,
                     description TEXT,
                     created_by INTEGER REFERENCES users(id),

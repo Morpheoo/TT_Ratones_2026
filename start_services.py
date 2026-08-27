@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Start services script - Levanta Docker y verifica que la BD esté lista ANTES de Streamlit.
-Uso: python start_services.py
-"""
+"""Inicializa SQLite offline o PostgreSQL/Docker antes de Streamlit."""
 
 import subprocess
 import time
@@ -98,7 +95,7 @@ def check_env_file() -> bool:
 def check_docker_installed() -> bool:
     """Verifica que Docker esté disponible en PATH"""
     log("Verificando Docker CLI...", "INFO")
-    if run_cmd(["docker", "--versión"], "docker --versión"):
+    if run_cmd(["docker", "--version"], "docker --version"):
         log("Docker CLI encontrado", "OK")
         return True
     log("Docker CLI NO encontrado. Instala Docker Desktop o docker-ce", "ERROR")
@@ -123,11 +120,11 @@ def check_docker_compose() -> bool:
     """Verifica que docker-compose esté disponible"""
     log("Verificando docker-compose...", "INFO")
     # Intenta primero "docker compose" (versión integrada en Docker 20.10+)
-    if run_cmd(["docker", "compose", "versión"], "docker compose versión"):
+    if run_cmd(["docker", "compose", "version"], "docker compose version"):
         log("docker compose (integrado) encontrado", "OK")
         return True
     # Fallback a "docker-compose" (versión standalone)
-    if run_cmd(["docker-compose", "--versión"], "docker-compose --versión"):
+    if run_cmd(["docker-compose", "--version"], "docker-compose --version"):
         log("docker-compose (standalone) encontrado", "OK")
         return True
     log("docker-compose NO encontrado. Instala Docker Compose", "ERROR")
@@ -140,9 +137,9 @@ def start_containers() -> bool:
     
     # Detecta si usar "docker compose" o "docker-compose"
     compose_cmd = None
-    if run_cmd(["docker", "compose", "versión"], ""):
+    if run_cmd(["docker", "compose", "version"], ""):
         compose_cmd = ["docker", "compose"]
-    elif run_cmd(["docker-compose", "--versión"], ""):
+    elif run_cmd(["docker-compose", "--version"], ""):
         compose_cmd = ["docker-compose"]
     else:
         log("No se encontró docker-compose", "ERROR")
@@ -245,16 +242,58 @@ def seed_admin_user() -> bool:
         return False
 
 
+def start_offline_database() -> bool:
+    """Inicializa la base SQLite local; no requiere servicios externos."""
+    log("Modo offline detectado: inicializando SQLite local...", "INFO")
+    try:
+        from src.db.connection import DATABASE_URL, init_db
+        from src.treatments import initialize_treatments_table
+
+        if not init_db():
+            log("No se pudo crear el esquema SQLite", "ERROR")
+            return False
+        if not initialize_treatments_table():
+            log("No se pudieron inicializar los tratamientos", "ERROR")
+            return False
+        project_root = Path(__file__).resolve().parent
+        simba_fixer = project_root / "src" / "scripts" / "fix_simba_paths.py"
+        if simba_fixer.exists():
+            result = subprocess.run(
+                [sys.executable, str(simba_fixer), "--project-root", str(project_root)],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                log(f"No se pudieron sincronizar las rutas SimBA: {result.stderr[-160:]}", "ERROR")
+                return False
+        log(f"SQLite listo en {DATABASE_URL.removeprefix('sqlite:///')}", "OK")
+        return True
+    except Exception as exc:
+        log(f"Error inicializando SQLite: {str(exc)[:160]}", "ERROR")
+        return False
+
+
 def main():
     """Orquesta el inicio de servicios"""
     print("\n" + "="*60)
-    print("🚀 INICIANDO SERVICIOS...")
+    print("INICIANDO SERVICIOS...")
     print("="*60 + "\n")
     
     try:
         # 0. Verificar y autogenerar .env si es necesario
         if not check_env_file():
             raise ServiceStartError("No se pudo configurar el archivo de entorno (.env)")
+
+        from src.db.connection import is_offline_mode
+        if is_offline_mode():
+            if not start_offline_database():
+                raise ServiceStartError("No se pudo inicializar la base SQLite local")
+            print("\n" + "="*60)
+            log("SERVICIOS OFFLINE LISTOS", "OK")
+            print("="*60 + "\n")
+            return 0
             
         # 1. Verificar que Docker está disponible
         if not check_docker_installed():
@@ -292,7 +331,7 @@ def main():
             log("Si no podes hacer login, revisa INITIAL_ADMIN_* en .env", "WARN")
 
         print("\n" + "="*60)
-        log("✨ TODOS LOS SERVICIOS ESTÁN LISTOS ✨", "OK")
+        log("TODOS LOS SERVICIOS ESTAN LISTOS", "OK")
         print("="*60 + "\n")
         return 0
     

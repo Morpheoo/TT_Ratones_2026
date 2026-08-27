@@ -1,57 +1,57 @@
+"""Arranque local de TT Ratones 2026."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+
 import streamlit.web.cli as stcli
-import os, sys, subprocess
 
-def resolve_path(path):
-    """
-    Esta función ayuda a encontrar los archivos (Home.py) tanto si estamos
-    corriendo en Python normal como si estamos dentro del .exe
-    """
-    if getattr(sys, '_MEIPASS', False):
-        return os.path.join(sys._MEIPASS, path)
-    return os.path.join(os.path.abspath("."), path)
 
-def ensure_services_ready():
-    """
-    Levanta los servicios (Docker, BD) ANTES de que Streamlit inicie.
-    Esto garantiza que todo está listo cuando el usuario abre la app.
-    """
-    print("\n" + "="*70)
-    print("🔧 PRE-CHECK: Verificando y levantando servicios...")
-    print("="*70)
-    
-    start_script = resolve_path("start_services.py")
-    
+def resolve_path(path: str) -> str:
+    """Resuelve recursos desde la carpeta instalada."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
+
+
+def ensure_services_ready() -> bool:
+    """Inicializa SQLite antes de levantar la interfaz."""
+    print("\n" + "=" * 70)
+    print("PRE-CHECK: Preparando los servicios locales...")
+    print("=" * 70)
+
     try:
         result = subprocess.run(
-            [sys.executable, start_script],
+            [sys.executable, resolve_path("start_services.py")],
             capture_output=False,
-            timeout=120  # Máximo 2 minutos para todo
+            timeout=120,
         )
         if result.returncode != 0:
-            print("\n[WARN] ADVERTENCIA: Los servicios no se iniciaron correctamente.")
-            print("    Streamlit continuará, pero la BD podría no estar disponible.\n")
+            print("\n[ERROR] No se pudo preparar la base de datos local.\n")
             return False
         return True
     except subprocess.TimeoutExpired:
-        print("\n[ERROR] TIMEOUT: Los servicios tardaron demasiado en iniciar.\n")
+        print("\n[ERROR] La preparacion local excedio el tiempo limite.\n")
         return False
-    except Exception as e:
-        print(f"\n[ERROR] ERROR al ejecutar start_services.py: {e}\n")
+    except Exception as exc:
+        print(f"\n[ERROR] No se pudo iniciar la aplicacion: {exc}\n")
         return False
 
+
 if __name__ == "__main__":
-    # 1. Levantar servicios PRIMERO
-    ensure_services_ready()
-    
-    # 2. Luego ejecutar Streamlit
-    print("\n" + "="*70)
-    print("🚀 Iniciando Streamlit...")
-    print("="*70 + "\n")
-    
+    if not ensure_services_ready():
+        raise SystemExit(1)
+
+    print("\n" + "=" * 70)
+    print("Iniciando TT Ratones 2026...")
+    print("=" * 70 + "\n")
     sys.argv = [
         "streamlit",
         "run",
-        resolve_path("Home.py"), # Apuntamos a tu archivo principal
+        resolve_path("Home.py"),
         "--global.developmentMode=false",
+        "--server.address=127.0.0.1",
+        "--server.headless=false",
+        "--browser.gatherUsageStats=false",
     ]
-    sys.exit(stcli.main())
+    raise SystemExit(stcli.main())

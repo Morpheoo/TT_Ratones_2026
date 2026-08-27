@@ -19,6 +19,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
 
+
+def python_runtime(version: str) -> Path:
+    """Usa el runtime empacado o el venv de desarrollo como fallback."""
+    packaged = ROOT / "runtime" / version / "python.exe"
+    if packaged.exists():
+        return packaged
+    legacy = "venv_310" if version == "py310" else "venv_311"
+    return ROOT / legacy / "Scripts" / "python.exe"
+
 # Codigos de retorno
 EXIT_OK = 0
 EXIT_FAIL = 1
@@ -65,32 +74,32 @@ def warn(msg: str) -> None:
 # ============================================================
 def check_python() -> None:
     header("1. Python y entornos virtuales")
-    print(f"  Python actual: {sys.versión.split()[0]} ({sys.executable})")
+    print(f"  Python actual: {sys.version.split()[0]} ({sys.executable})")
 
-    venv_310 = ROOT / "venv_310" / "Scripts" / "python.exe"
-    venv_311 = ROOT / "venv_311" / "Scripts" / "python.exe"
+    venv_310 = python_runtime("py310")
+    venv_311 = python_runtime("py311")
 
     if venv_310.exists():
         try:
             ver = subprocess.check_output(
-                [str(venv_310), "--versión"], text=True, stderr=subprocess.STDOUT
+                [str(venv_310), "--version"], text=True, stderr=subprocess.STDOUT
             ).strip()
-            ok(f"venv_310 -> {ver}")
+            ok(f"Python 3.10 privado -> {ver}")
         except Exception as exc:
             fail(f"venv_310 existe pero no responde: {exc}")
     else:
-        fail("venv_310 no existe (correr install.bat)")
+        fail("No existe el runtime privado de Python 3.10")
 
     if venv_311.exists():
         try:
             ver = subprocess.check_output(
-                [str(venv_311), "--versión"], text=True, stderr=subprocess.STDOUT
+                [str(venv_311), "--version"], text=True, stderr=subprocess.STDOUT
             ).strip()
-            ok(f"venv_311 -> {ver}")
+            ok(f"Python 3.11 privado -> {ver}")
         except Exception as exc:
             fail(f"venv_311 existe pero no responde: {exc}")
     else:
-        fail("venv_311 no existe (correr install.bat)")
+        fail("No existe el runtime privado de Python 3.11")
 
 
 # ============================================================
@@ -200,15 +209,19 @@ def check_imports_en_venv(venv_python: Path, paquetes: list[tuple[str, str]], la
 
 def check_imports() -> None:
     header("3. Imports criticos")
+    env_values = parse_env_file(ROOT / ".env") if (ROOT / ".env").exists() else {}
+    paquetes_311 = list(PAQUETES_VENV311)
+    if env_values.get("DB_BACKEND", "postgresql").lower() == "sqlite":
+        paquetes_311 = [item for item in paquetes_311 if item[0] != "psycopg2"]
     check_imports_en_venv(
-        ROOT / "venv_310" / "Scripts" / "python.exe",
+        python_runtime("py310"),
         PAQUETES_VENV310,
-        "venv_310",
+        "Python 3.10",
     )
     check_imports_en_venv(
-        ROOT / "venv_311" / "Scripts" / "python.exe",
-        PAQUETES_VENV311,
-        "venv_311",
+        python_runtime("py311"),
+        paquetes_311,
+        "Python 3.11",
     )
 
 
@@ -217,7 +230,7 @@ def check_imports() -> None:
 # ============================================================
 def check_cuda() -> None:
     header("4. PyTorch CUDA en venv_311")
-    venv_311 = ROOT / "venv_311" / "Scripts" / "python.exe"
+    venv_311 = python_runtime("py311")
     if not venv_311.exists():
         warn("venv_311 no existe, salteando")
         return
@@ -227,7 +240,7 @@ def check_cuda() -> None:
             "-c",
             "import torch; print(torch.__version__); "
             "print('cuda_available=' + str(torch.cuda.is_available())); "
-            "print('cuda_version=' + str(torch.versión.cuda)); "
+            "print('cuda_version=' + str(torch.version.cuda)); "
             "print('gpu=' + (torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'))",
         ]
         out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=60)
@@ -243,7 +256,11 @@ def check_cuda() -> None:
 # 5. Docker (opcional, para historial Postgres)
 # ============================================================
 def check_docker() -> None:
-    header("5. Docker Desktop (opcional, historial de análisis)")
+    header("5. Servicios de base de datos")
+    env_values = parse_env_file(ROOT / ".env") if (ROOT / ".env").exists() else {}
+    if env_values.get("DB_BACKEND", "postgresql").lower() == "sqlite":
+        ok("modo offline SQLite: Docker no es necesario")
+        return
     if not shutil.which("docker"):
         warn("docker no esta en PATH (la UI funciona, pero sin historial Postgres)")
         return
@@ -276,6 +293,12 @@ def parse_env_file(path: Path) -> dict[str, str]:
 
 def check_auth_env(values: dict[str, str]) -> None:
     """Válida lo necesario para no arrancar con BD vacia y registro bloqueado."""
+    backend = values.get("DB_BACKEND", "postgresql").strip().lower()
+    if backend == "sqlite":
+        ok("DB_BACKEND=sqlite (modo offline)")
+        ok("primer usuario local sera admin y no requiere OTP")
+        return
+
     required_db = ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "DB_HOST", "DB_PORT"]
     missing_db = [key for key in required_db if not values.get(key)]
     if missing_db:
@@ -320,7 +343,13 @@ def check_config() -> None:
         warn(".env no existe, pero hay .env.example. Copialo: copy .env.example .env")
     else:
         fail("No hay ni .env ni .env.example")
-    if (ROOT / "docker-compose.yml").exists():
+    backend = parse_env_file(env_file).get("DB_BACKEND", "postgresql").lower() if env_file.exists() else "postgresql"
+    if backend == "sqlite":
+        if (ROOT / "schema_sqlite.sql").exists():
+            ok("schema_sqlite.sql presente")
+        else:
+            fail("schema_sqlite.sql no existe")
+    elif (ROOT / "docker-compose.yml").exists():
         ok("docker-compose.yml presente")
     else:
         warn("docker-compose.yml no existe (Postgres no disponible)")
@@ -369,6 +398,10 @@ def check_simba_yolo_project() -> None:
             content = config_ini.read_text(encoding="utf-8")
         except Exception as exc:
             fail(f"No se pudo leer {config_ini.relative_to(ROOT)}: {exc}")
+            return
+
+        if "__TT_INSTALL_ROOT__" in content:
+            ok("project_config.ini usa el marcador portable del instalador")
             return
 
         keys_a_chequear = {

@@ -1,0 +1,6 @@
+# Modelos productivos que exceden o pueden acercarse al limite de GitHub.
+yolo_tracker.pt filter=lfs diff=lfs merge=lfs -text
+runs/pose/yolo11s_pose_raton_v4/weights/best.pt filter=lfs diff=lfs merge=lfs -text
+data/models/lstm_grooming_yolo/grooming_lstm.keras filter=lfs diff=lfs merge=lfs -text
+data/simba_projects/grooming_thigmotaxis_yolo/models/generated_models/Grooming.sav filter=lfs diff=lfs merge=lfs -text
+data/simba_projects/grooming_thigmotaxis_yolo/models/generated_models/Thigmotaxis.sav filter=lfs diff=lfs merge=lfs -text

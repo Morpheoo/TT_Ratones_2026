@@ -2,7 +2,8 @@ import random
 import bcrypt
 import re
 from sqlalchemy import text
-from db.connection import get_db_engine
+from db.connection import get_db_engine, is_offline_mode
+from db.dialect import minutes_since
 from email_utils import send_verification_email
 from security_logger import log_security_event
 
@@ -103,7 +104,7 @@ def check_password(password: str, hashed: str) -> bool:
          return False
 
 def authenticate(email, password):
-    """Authenticate a user against the PostgreSQL database with input validation."""
+    """Autentica un usuario contra la base configurada."""
     # validación de entrada - Prevención de inyección SQL
     if not email or not password:
         log_security_event(
@@ -230,7 +231,7 @@ def register_user(email, password, role="investigador", full_name=None,
                  boleta=None, carrera=None, escuela=None,
                  num_empleado=None, area=None, centro=None,
                  accepted_terms=False, force_verified=False):
-    """Register a new user in the PostgreSQL database with full profile data and input validation.
+    """Registra un usuario con validacion de entrada.
     
     Soporta dos tipos de perfil:
     - Estudiante (alumno): requiere boleta, carrera, escuela - dominio @alumno.ipn.mx
@@ -349,8 +350,14 @@ def register_user(email, password, role="investigador", full_name=None,
 
                 # 3. Auto-promocion a admin si el email esta en la lista
                 #    predefinida O si el admin lo esta forzando.
-                auto_admin = is_admin_email(email)
-                if auto_admin or force_verified:
+                first_offline_user = False
+                if is_offline_mode():
+                    user_count = conn.execute(text("SELECT COUNT(*) FROM users")).scalar() or 0
+                    first_offline_user = int(user_count) == 0
+
+                auto_admin = is_admin_email(email) or first_offline_user
+                offline_verified = is_offline_mode()
+                if auto_admin or force_verified or offline_verified:
                     effective_role = "admin" if auto_admin else role
                     is_verified = True
                     otp_code = None
@@ -393,7 +400,7 @@ def register_user(email, password, role="investigador", full_name=None,
                 })
 
                 # 5. Enviar correo OTP (saltado para admins predefinidos o forzados)
-                if not auto_admin and not force_verified:
+                if not auto_admin and not force_verified and not offline_verified:
                     sent, msg = send_verification_email(email, otp_code)
                     if not sent:
                         log_security_event(
@@ -409,7 +416,15 @@ def register_user(email, password, role="investigador", full_name=None,
                     message="Admin predefinido registrado y verificado automáticamente",
                     level="INFO", success=True
                 )
-                return True, "✅ Cuenta de administrador creada y verificada. Ya podés iniciar sesión."
+                return True, "Cuenta de administrador local creada. Ya puedes iniciar sesion."
+
+            if is_offline_mode():
+                log_security_event(
+                    "REGISTER_SUCCESS", user=email,
+                    message=f"Usuario local registrado sin OTP. Rol: {effective_role}",
+                    level="INFO", success=True
+                )
+                return True, "Cuenta local creada. Ya puedes iniciar sesion."
 
             log_security_event(
                 "REGISTER_SUCCESS", user=email,
@@ -465,11 +480,7 @@ def verify_otp(email, code):
             
             # validación de expiración (5 minutos)
             if created_at:
-                check_time = text("""
-                    SELECT EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - verification_code_created_at))/60 
-                    FROM users WHERE username = :e
-                """)
-                minutes_passed = conn.execute(check_time, {"e": email}).scalar() or 0
+                minutes_passed = minutes_since(created_at)
                 
                 if minutes_passed > 5:
                     log_security_event(
@@ -520,6 +531,14 @@ def resend_verification_code(email):
             conn.execute(update, {"otp": new_otp, "email": email})
             conn.commit()
             
+            if is_offline_mode():
+                log_security_event(
+                    "OTP_LOCAL", user=email,
+                    message="Codigo de recuperacion generado localmente",
+                    level="INFO", success=True
+                )
+                return True, f"Codigo local: {new_otp}"
+
             sent, msg = send_verification_email(email, new_otp)
             if sent:
                 log_security_event(
@@ -611,11 +630,7 @@ def reset_password(email, otp, new_password):
             
             # Checar expiración (reutilizando lógica, idealmente refactorizar en función helper)
             if created_at:
-                check_time = text("""
-                    SELECT EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - verification_code_created_at))/60 
-                    FROM users WHERE username = :e
-                """)
-                minutes_passed = conn.execute(check_time, {"e": email}).scalar() or 0
+                minutes_passed = minutes_since(created_at)
                 if minutes_passed > 5:
                     log_security_event(
                         "OTP_EXPIRED", user=email,

@@ -22,12 +22,16 @@ import importlib
 import ui_theme
 
 importlib.reload(ui_theme)
-from ui_theme import use_theme, render_topbar, inject_sidebar_profile
+from ui_theme import use_theme, render_topbar, inject_sidebar_profile, render_footer
+from db.dialect import ensure_column
 
 st.set_page_config(page_title="Resultados y estadísticas", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
+
+if not st.session_state.get("logged_in"):
+    st.switch_page("pages/00_Login.py")
 
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -181,7 +185,7 @@ def results_loading_sequence():
 
 
 def ensure_analysis_results_schema(conn):
-    conn.execute(text("ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS trajectory_path TEXT"))
+    ensure_column(conn, "analysis_results", "trajectory_path", "TEXT")
     conn.commit()
 
 
@@ -212,19 +216,20 @@ def load_history_dataframe(engine):
                 COALESCE(u.username, '') AS owner_email
             FROM experiments e
             LEFT JOIN (
-                SELECT DISTINCT ON (experiment_id)
-                    experiment_id,
-                    time_open_arms,
-                    time_closed_arms,
-                    time_center,
-                    grooming_duration,
-                    thigmotaxis_duration,
-                    status,
-                    trajectory_path,
-                    timestamp,
-                    id
-                FROM analysis_results
-                ORDER BY experiment_id, timestamp DESC, id DESC
+                SELECT experiment_id, time_open_arms, time_closed_arms,
+                       time_center, grooming_duration, thigmotaxis_duration,
+                       status, trajectory_path, timestamp, id
+                FROM (
+                    SELECT experiment_id, time_open_arms, time_closed_arms,
+                           time_center, grooming_duration, thigmotaxis_duration,
+                           status, trajectory_path, timestamp, id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY experiment_id
+                               ORDER BY timestamp DESC, id DESC
+                           ) AS row_number
+                    FROM analysis_results
+                ) ranked_results
+                WHERE row_number = 1
             ) ar
                 ON ar.experiment_id = e.id
             LEFT JOIN users u
@@ -1413,11 +1418,6 @@ def render_detail_panel(record, trajectory_bundle, engine=None,
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-# ================= 1. VERIFICAR LOGIN ==================
-if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesión antes de usar el prototipo.")
-    st.stop()
-
 # ================= 2. DATABASE CONNECTION =================
 engine = load_resource_with_splash(
     page_id="page_results",
@@ -1931,13 +1931,4 @@ try:
 except Exception as error:
     st.error(f"Error de base de datos o dashboard: {error}")
 
-# Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_footer()

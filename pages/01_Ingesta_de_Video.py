@@ -13,7 +13,7 @@ import importlib
 import ui_theme
 
 importlib.reload(ui_theme)
-from ui_theme import render_topbar, use_theme, inject_sidebar_profile
+from ui_theme import render_topbar, use_theme, inject_sidebar_profile, render_footer
 
 # Importar sistema de tratamientos
 from treatments import initialize_treatments_table, get_all_treatments, add_treatment, delete_treatment
@@ -476,13 +476,4 @@ if "video_en_edicion" in st.session_state:
             st.warning(f"Error al preparar el editor de recorte: {error}")
         st.markdown("</div>", unsafe_allow_html=True)
 
-# Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_footer()

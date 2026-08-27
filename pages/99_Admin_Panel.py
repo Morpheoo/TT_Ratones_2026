@@ -13,11 +13,12 @@ if os.getcwd() not in sys.path:
 from src.session_utils import load_session, save_session
 from src.auth import check_admin_access, register_user
 from src.db.connection import get_db_engine
+from src.db.dialect import latest_analysis_join_sql
 from src.ui_components import run_page_splash
 import importlib
 import ui_theme
 importlib.reload(ui_theme)
-from ui_theme import use_theme, render_topbar, inject_sidebar_profile
+from ui_theme import use_theme, render_topbar, inject_sidebar_profile, render_footer
 
 load_session()
 colors = use_theme()
@@ -80,9 +81,8 @@ st.divider()
 engine = get_db_engine()
 if engine is None:
     st.error(
-        "No hay conexion a la base de datos. Abre Docker Desktop y ejecuta "
-        "`launcher.bat` o `venv_311\\Scripts\\python.exe start_services.py` "
-        "para inicializar Postgres, crear tablas y sembrar el admin inicial."
+        "No hay conexion a la base de datos local. Ejecuta `launcher.bat` "
+        "o reinstala la aplicacion para reparar sus datos."
     )
     st.stop()
 
@@ -269,9 +269,10 @@ if admin_delete_notice:
     st.success(admin_delete_notice)
 
 with engine.connect() as conn:
+    latest_results_sql = latest_analysis_join_sql()
     df_exp = safe_df(pd.read_sql(
         text(
-            """
+            f"""
             SELECT
                 e.id,
                 e.rat_id,
@@ -281,15 +282,7 @@ with engine.connect() as conn:
                 e.processed,
                 COALESCE(ar.status, CASE WHEN e.processed THEN 'completed' ELSE 'pending' END) AS status
             FROM experiments e
-            LEFT JOIN (
-                SELECT DISTINCT ON (experiment_id)
-                    experiment_id,
-                    status,
-                    timestamp,
-                    id
-                FROM analysis_results
-                ORDER BY experiment_id, timestamp DESC, id DESC
-            ) ar
+            LEFT JOIN ({latest_results_sql}) ar
                 ON ar.experiment_id = e.id
             ORDER BY e.id DESC
             LIMIT 200
@@ -354,13 +347,4 @@ else:
             st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_footer()

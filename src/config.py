@@ -105,7 +105,17 @@ def get_ffmpeg_path():
         if os.path.exists(path):
             return str(path)
 
-    # 4. No encontrado
+    # 4. Usar el binario que imageio-ffmpeg incluye dentro del instalador.
+    try:
+        import imageio_ffmpeg
+
+        bundled_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        if bundled_ffmpeg and os.path.exists(bundled_ffmpeg):
+            return bundled_ffmpeg
+    except (ImportError, RuntimeError):
+        pass
+
+    # 5. No encontrado
     return None
 
 FFMPEG_PATH = get_ffmpeg_path()

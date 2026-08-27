@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+# CUDA 12.8 soporta RTX recientes y PyTorch mantiene fallback a CPU.
+torch==2.7.1+cu128
+torchvision==0.22.1+cu128
+-r requirements_py311_common.txt

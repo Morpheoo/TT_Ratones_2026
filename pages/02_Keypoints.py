@@ -24,13 +24,16 @@ import importlib
 import ui_theme
 
 importlib.reload(ui_theme)
-from ui_theme import render_topbar, use_theme, inject_sidebar_profile
+from ui_theme import render_topbar, use_theme, inject_sidebar_profile, render_footer
 from video_context_banner import render_video_banner
 
-st.set_page_config(page_title="Keypoints", page_icon="assets/logos/logo_ria.png", layout="wide")
+st.set_page_config(page_title="Extracción de keypoints", page_icon="assets/logos/logo_ria.png", layout="wide")
 
 load_session()
 colors = use_theme()
+
+if not st.session_state.get("logged_in"):
+    st.switch_page("pages/00_Login.py")
 
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -57,11 +60,6 @@ with st.sidebar:
     
     # Sidebar con navegación
     inject_sidebar_profile(show_admin_button=True)
-
-# ================= 1. VERIFICAR LOGIN ==================
-if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesión antes de usar el prototipo.")
-    st.stop()
 
 run_page_splash(
     "page_keypoints",
@@ -934,7 +932,7 @@ def build_render_command():
 
 # ================= 2. CABECERA =================
 render_topbar()
-st.markdown("### Módulo 02: Extracción de keypoints")
+st.markdown("### Extracción de keypoints")
 st.markdown(
     """
     Proceso de visión computacional para la extracción de coordenadas anatómicas.
@@ -1160,13 +1158,4 @@ else:
 
 render_runtime_monitor()
 
-# Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_footer()

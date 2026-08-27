@@ -69,14 +69,14 @@ tester = Tester()
 tester.section("1. VERIFICAR DOCKER BASICS")
 
 tester.test("Docker CLI disponible", 
-    lambda: tester.run_cmd(["docker", "--versión"]))
+    lambda: tester.run_cmd(["docker", "--version"]))
 
 tester.test("Docker daemon corriendo",
     lambda: tester.run_cmd(["docker", "info"]))
 
 tester.test("docker-compose disponible",
-    lambda: tester.run_cmd(["docker", "compose", "versión"]) or 
-            tester.run_cmd(["docker-compose", "--versión"]))
+    lambda: tester.run_cmd(["docker", "compose", "version"]) or
+            tester.run_cmd(["docker-compose", "--version"]))
 
 
 tester.section("2. VERIFICAR ARCHIVOS DEL PROYECTO")

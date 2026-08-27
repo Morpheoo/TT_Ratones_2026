@@ -107,7 +107,7 @@ def use_theme():
         max-width: 1400px !important;
     }}
 
-    /* === SIDEBAR (Guinda IPN) — SIEMPRE VISIBLE === */
+    /* === SIDEBAR (Guinda IPN) - SIEMPRE VISIBLE === */
     section[data-testid="stSidebar"] {{
         background-color: {colors['primary']} !important;
         background-image: linear-gradient(180deg, {colors['primary_dark']} 0%, {colors['primary']} 100%) !important;
@@ -262,7 +262,7 @@ def use_theme():
         visibility: hidden !important;
     }}
 
-    /* Botón para expandir sidebar cuando está colapsado — visible y guinda */
+    /* Boton para expandir sidebar cuando esta colapsado - visible y guinda */
     [data-testid="collapsedControl"] {{
         display: flex !important;
         visibility: visible !important;
@@ -286,7 +286,7 @@ def use_theme():
         height: 16px !important;
     }}
 
-    /* === TIPOGRAFÍA === */
+    /* === TIPOGRAFIA === */
     h1, h2, h3, h4, h5, h6 {{
         color: var(--text) !important;
         font-family: 'Inter', sans-serif !important;
@@ -560,7 +560,7 @@ def render_topbar(title="Prototipo para análisis automatizado y visualización 
     # El logo del IPN debe ser visiblemente equivalente o muy levemente mayor debido a jerarquía
     if ipn_b64 and escom_b64:
         logos_html = (
-            f'<img src="{ipn_b64}" style="height: 100px; margin-right: 12px; opacity: 0.95;">'
+            f'<img src="{ipn_b64}" style="height: 125px; margin-right: 12px; opacity: 0.95;">'
             f'<img src="{escom_b64}" style="height: 58px; margin-left: 12px; opacity: 0.95;" title="ESCOM">'
         )
     else:
@@ -571,7 +571,7 @@ def render_topbar(title="Prototipo para análisis automatizado y visualización 
     <div class="topbar-left" style="align-items: center; flex: 1;">
         {logos_html}
         <div style="width: 1px; height: 35px; background: {colors['border']}; margin: 0 20px;"></div>
-        <div style="color: {colors['text_main']}; font-size: 1.25rem; font-weight: 700;">{title}</div>
+        <div style="color: {colors['text_main']}; font-size: 1.05rem; font-weight: 700; line-height: 1.25; max-width: 760px;">{title}</div>
         <div style="width: 1px; height: 50px; background: {colors['border']}; margin: 0 10px;"></div>
     </div>
     <div class="topbar-right" style="align-items: center; gap: 2rem;">
@@ -584,6 +584,7 @@ def render_topbar(title="Prototipo para análisis automatizado y visualización 
     </div>
 </div>
 """, unsafe_allow_html=True)
+    return
     
     # Aviso legal y Términos debajo del header
     col_legal1, col_legal2 = st.columns(2)
@@ -720,7 +721,6 @@ Los presentes Términos y Condiciones se regirán por las leyes vigentes de los 
 
 Cualquier controversia relacionada con la interpretación o aplicación de estos términos será resuelta conforme a la legislación mexicana aplicable y ante las autoridades competentes de la Ciudad de México.
             """)
-
     # Acceso al manual de usuario dentro del sistema
     st.markdown(
     f"""
@@ -744,31 +744,91 @@ Cualquier controversia relacionada con la interpretación o aplicación de estos
     ):
         st.switch_page("pages/97_Manual_Usuario.py")
 
+def render_user_manual_pdf(colors=None, key="user_manual_pdf"):
+    """Muestra un acceso directo para descargar el manual de usuario local."""
+    colors = colors or use_theme()
+    manual_path = os.path.join("reportes", "Manual de Usario TT 2026-A155.pdf")
+
+    if not os.path.exists(manual_path):
+        st.warning("No se encontro el PDF del manual de usuario en la carpeta reportes.")
+        return
+
+    with open(manual_path, "rb") as pdf_file:
+        pdf_bytes = pdf_file.read()
+
+    st.download_button(
+        "Consulta el manual de usuario",
+        data=pdf_bytes,
+        file_name="Manual de Usuario TT 2026-A155.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        key=key,
+    )
+
+
+def render_footer():
+    """Renderiza el footer institucional con legales y manual de usuario."""
+    colors = use_theme()
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col_legal1, col_legal2 = st.columns(2)
+
+    with col_legal1:
+        with st.expander("Aviso Legal", expanded=False):
+            st.markdown("""
+### AVISO LEGAL
+
+La presente plataforma constituye un prototipo tecnológico desarrollado en el marco de actividades académicas y de investigación realizadas en la Escuela Superior de Cómputo en conjunto con la Escuela Nacional de Medicina y Homeopatía del Instituto Politécnico Nacional.
+
+La plataforma tiene fines exclusivamente científicos, académicos y de investigación. Los resultados generados por los modelos de inteligencia artificial tienen carácter auxiliar y no sustituyen el criterio, análisis o validación de los investigadores responsables.
+
+El código fuente, modelos de inteligencia artificial, bases de datos, documentación técnica, interfaces gráficas, diseños, logotipos y demás elementos que integran la plataforma se encuentran protegidos por la Ley Federal del Derecho de Autor y demás disposiciones aplicables.
+
+El uso de la información proporcionada por la plataforma es responsabilidad exclusiva del usuario.
+            """)
+
+    with col_legal2:
+        with st.expander("Términos y Condiciones", expanded=False):
+            st.markdown("""
+### TÉRMINOS Y CONDICIONES DE USO
+
+Los presentes Términos y Condiciones regulan el acceso y uso de la plataforma de análisis conductual asistido por inteligencia artificial desarrollada como proyecto académico en la Escuela Superior de Cómputo (ESCOM) del Instituto Politécnico Nacional (IPN).
+
+La plataforma debe utilizarse únicamente con fines lícitos, éticos, académicos y de investigación. Los usuarios son responsables de asegurar que los datos incorporados cumplan con la legislación aplicable y con las normas institucionales correspondientes.
+
+Los resultados obtenidos deberán ser interpretados y validados por personal competente. Los responsables del proyecto no serán responsables por daños directos o indirectos derivados del uso, interpretación o aplicación de dichos resultados.
+            """)
+
+    render_user_manual_pdf(colors, key="footer_user_manual_pdf")
+
+    st.markdown(f"""
+        <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.78rem; margin-top: 1rem;">
+            Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026
+        </div>
+    """, unsafe_allow_html=True)
+
 
 def inject_sidebar_profile(show_admin_button=False):
     """Inyecta el layout HTML para la cabecera y branding en el sidebar."""
     colors = use_theme()
-    # --- 1. CABECERA (TÍTULO) ---
-    st.sidebar.markdown('<div style="text-align:center; font-weight:800; color:white; letter-spacing:1px; padding-top:0.2rem;">PROTOTIPO</div>', unsafe_allow_html=True)
+    # --- 1. CABECERA (LOGO + TITULO) ---
+    logo_ria_path = os.path.join("assets", "logos", "logo_ria_desktop.png")
+    logo_ria_b64 = get_image_base64(logo_ria_path)
+    if logo_ria_b64:
+        st.sidebar.markdown(f"""
+<div style="display:flex; align-items:center; justify-content:center; gap: 0.6rem; margin: 0.2rem 0 0.4rem;">
+    <img src="{logo_ria_b64}" style="width:58px; height:58px; border-radius:8px; background:white;">
+    <div style="font-weight:800; color:white; letter-spacing:1px; font-size:0.95rem;">PROTOTIPO EPM</div>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.sidebar.markdown('<div style="text-align:center; font-weight:800; color:white; letter-spacing:1px; padding-top:0.2rem;">PROTOTIPO EPM</div>', unsafe_allow_html=True)
     st.sidebar.markdown('<hr style="margin: 0.5rem 0; opacity:0.15;">', unsafe_allow_html=True)
 
     # --- 2. NAVEGACIÓN MANUAL (con o sin Admin Panel) ---
     inject_sidebar_navigation(show_admin_button=show_admin_button)
     
-    # --- 3. BRANDING INSTITUCIONAL (Debajo de navegación) ---
-    st.sidebar.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
-    
-    # Centrado usando columnas nativas
-    c1, c2, c3 = st.sidebar.columns([1.4, 2, 1])
-    logo_ria_path = os.path.join("assets", "logos", "logo_ria_desktop.png")
-    with c2:
-        if os.path.exists(logo_ria_path):
-            st.image(logo_ria_path, width=80)
-            
-    st.sidebar.markdown(f"""
-    """, unsafe_allow_html=True)
-
-    # --- 4. CIERRE (ESPACIO FINAL) ---
+    # --- 3. CIERRE (ESPACIO FINAL) ---
     st.sidebar.markdown('<div style="height: 50px;"></div>', unsafe_allow_html=True)
 
 
@@ -788,8 +848,8 @@ def inject_sidebar_navigation(show_admin_button=False):
     pages = [
         ("Inicio", "Home.py"),
         ("Manual de usuario", "pages/97_Manual_Usuario.py"),
-        ("Ingesta de vídeo", "pages/01_Ingesta_de_Video.py"),
-        ("Keypoints", "pages/02_Keypoints.py"),
+        ("Ingesta de video", "pages/01_Ingesta_de_Video.py"),
+        ("Extracción de keypoints", "pages/02_Keypoints.py"),
         ("Configuración de zonas", "pages/03_Configuracion_Zonas.py"),
         ("Análisis final", "pages/04_Analisis_Final.py"),
         ("Resultados y estadísticas", "pages/05_Resultados_y_Estadisticas.py"),

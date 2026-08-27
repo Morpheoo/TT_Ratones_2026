@@ -22,7 +22,7 @@ if "init_done" not in st.session_state:
 import importlib
 import ui_theme
 importlib.reload(ui_theme)
-from ui_theme import use_theme, render_topbar, inject_sidebar_profile
+from ui_theme import use_theme, render_topbar, inject_sidebar_profile, render_footer
 colors = use_theme()
 
 # ================= 1. VERIFICAR LOGIN Y SIDEBAR =================
@@ -131,17 +131,25 @@ import subprocess
 # 1. Docker
 docker_ok = False
 docker_sub = "Docker no disponible"
+offline_mode = False
 try:
-    result = subprocess.run(
-        ["docker", "ps", "--format", "{{.Names}}"],
-        capture_output=True, text=True, timeout=3
-    )
-    if result.returncode == 0:
-        containers = [l.strip() for l in result.stdout.splitlines() if l.strip()]
-        docker_ok = len(containers) > 0
-        docker_sub = f"{containers[0]}" if containers else "Sin contenedores activos"
+    sys.path.insert(0, os.path.join(os.getcwd(), "src"))
+    from db.connection import is_offline_mode
+    offline_mode = is_offline_mode()
+    if offline_mode:
+        docker_ok = True
+        docker_sub = "SQLite integrado"
     else:
-        docker_sub = "Docker no responde"
+        result = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}"],
+            capture_output=True, text=True, timeout=3
+        )
+        if result.returncode == 0:
+            containers = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+            docker_ok = len(containers) > 0
+            docker_sub = f"{containers[0]}" if containers else "Sin contenedores activos"
+        else:
+            docker_sub = "Docker no responde"
 except Exception:
     docker_sub = "Docker no detectado"
 
@@ -157,7 +165,7 @@ try:
         with engine.connect() as conn:
             conn.execute(sqltxt("SELECT 1"))
         db_ok = True
-        db_sub = "PostgreSQL sincronizado"
+        db_sub = "SQLite local" if offline_mode else "PostgreSQL sincronizado"
     else:
         db_sub = "Motor no disponible"
 except Exception as e:
@@ -175,8 +183,8 @@ except Exception:
     pass
 
 kpi_card(c1, svg_docker,
-         "Docker",
-         "Activo" if docker_ok else "Inactivo",
+         "Almacenamiento" if offline_mode else "Docker",
+         "Local" if offline_mode else ("Activo" if docker_ok else "Inactivo"),
          docker_sub,
          docker_ok)
 
@@ -236,7 +244,7 @@ m1, m2, m3 = st.columns(3)
 with m1:
     module_card(svg_video, "Ingesta de video", "Sube y procesa tus videos experimentales", "btn_m1", "Comenzar", "pages/01_Ingesta_de_Video.py")
 with m2:
-    module_card(svg_keypoints, "Keypoints", "Detección y marcaje de puntos corporales.", "btn_m2", "Procesar", "pages/02_Keypoints.py")
+    module_card(svg_keypoints, "Extracción de keypoints", "Detección y marcaje de puntos corporales.", "btn_m2", "Procesar", "pages/02_Keypoints.py")
 with m3:
     module_card(svg_zones, "Configuración de zonas", "Define regiones de interés del EPM", "btn_m3", "Configurar", "pages/03_Configuracion_Zonas.py")
 
@@ -257,3 +265,5 @@ if st.session_state.get("role") == "admin":
         st.empty()
     with m9:
         st.empty()
+
+render_footer()

@@ -72,12 +72,12 @@ except Exception as e:
 print("\n[3/4] Verificando docker-compose...")
 compose_cmd = None
 try:
-    subprocess.check_output(["docker", "compose", "versión"], stderr=subprocess.STDOUT, creationflags=CF, timeout=5)
+    subprocess.check_output(["docker", "compose", "version"], stderr=subprocess.STDOUT, creationflags=CF, timeout=5)
     compose_cmd = ["docker", "compose"]
     print("  ✓ docker compose (integrado) encontrado")
 except:
     try:
-        subprocess.check_output(["docker-compose", "--versión"], stderr=subprocess.STDOUT, creationflags=CF, timeout=5)
+        subprocess.check_output(["docker-compose", "--version"], stderr=subprocess.STDOUT, creationflags=CF, timeout=5)
         compose_cmd = ["docker-compose"]
         print("  ✓ docker-compose (standalone) encontrado")
     except Exception as e:

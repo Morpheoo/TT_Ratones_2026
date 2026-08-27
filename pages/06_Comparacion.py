@@ -21,7 +21,7 @@ import importlib
 import ui_theme
 
 importlib.reload(ui_theme)
-from ui_theme import use_theme, render_topbar, inject_sidebar_profile
+from ui_theme import use_theme, render_topbar, inject_sidebar_profile, render_footer
 
 st.set_page_config(
     page_title="Comparación",
@@ -878,13 +878,4 @@ if st.button("Guardar notas", type="primary"):
         st.warning("No hay notas para guardar.")
 
 st.markdown("---")
-# Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_footer()

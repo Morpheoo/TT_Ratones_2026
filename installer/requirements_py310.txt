@@ -1,0 +1,21 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Motor SimBA + LSTM. Versiones tomadas del entorno productivo validado.
+torch==2.7.1+cpu
+torchvision==0.22.1+cpu
+tensorflow==2.10.0
+keras==2.10.0
+simba-uw-tf-dev==4.8.7
+tables==3.9.2
+numpy==1.26.4
+scipy==1.13.0
+pandas==2.2.2
+scikit-learn==1.4.2
+matplotlib==3.5.0
+opencv-python==4.8.1.78
+pillow==10.3.0
+PyYAML==6.0.2
+tqdm==4.67.0
+imageio==2.37.2
+imageio-ffmpeg==0.6.0
+python-dotenv==1.0.1

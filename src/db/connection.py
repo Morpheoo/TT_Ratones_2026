@@ -1,134 +1,186 @@
-import os
-import logging
-import streamlit as st
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
+"""Conexion de base de datos para los modos offline y servidor.
 
-# Logger dedicado para la capa de base de datos
+El instalador Windows usa SQLite y no necesita Docker ni un servicio de BD.
+El entorno de desarrollo existente puede seguir usando PostgreSQL.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+from pathlib import Path
+
+import streamlit as st
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import sessionmaker
+
+
 _db_logger = logging.getLogger("tt_ratones.db")
 if not _db_logger.handlers:
     _db_logger.setLevel(logging.WARNING)
 
-# Cargar variables de entorno desde .env (si existe)
 load_dotenv(override=True)
 
-# configuración de Conexión (Coincide con docker-compose.yml)
-DB_USER     = os.getenv("POSTGRES_USER")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-DB_HOST     = os.getenv("DB_HOST", "localhost")
-DB_PORT     = os.getenv("DB_PORT", "5432")
-DB_NAME     = os.getenv("POSTGRES_DB")
+DB_BACKEND = os.getenv("DB_BACKEND", "postgresql").strip().lower()
+if DB_BACKEND in {"postgres", "postgresql", "pg"}:
+    DB_BACKEND = "postgresql"
+elif DB_BACKEND in {"sqlite", "offline", "local"}:
+    DB_BACKEND = "sqlite"
+else:
+    raise ValueError(f"DB_BACKEND no soportado: {DB_BACKEND!r}")
 
-if not all([DB_USER, DB_PASSWORD, DB_NAME]):
-    raise ValueError(
-        "[ERROR] Faltan variables de entorno críticas de Base de Datos "
-        "(POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)."
+
+def _bundle_root() -> Path:
+    """Directorio de recursos tanto en fuente como dentro de PyInstaller."""
+    if getattr(sys, "_MEIPASS", None):
+        return Path(sys._MEIPASS).resolve()
+    return Path(__file__).resolve().parents[2]
+
+
+def get_app_data_dir() -> Path:
+    """Carpeta escribible y estable para datos locales del usuario."""
+    configured = os.getenv("TT_APP_DATA_DIR", "").strip()
+    if configured:
+        root = Path(configured).expanduser().resolve()
+    else:
+        local_app_data = os.getenv("LOCALAPPDATA", "").strip()
+        base = Path(local_app_data) if local_app_data else Path.home() / "AppData" / "Local"
+        root = base / "TT_Ratones_2026"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def is_sqlite_mode() -> bool:
+    return DB_BACKEND == "sqlite"
+
+
+def is_offline_mode() -> bool:
+    return is_sqlite_mode()
+
+
+if is_sqlite_mode():
+    configured_db = os.getenv("SQLITE_DB_PATH", "").strip()
+    sqlite_path = (
+        Path(configured_db).expanduser().resolve()
+        if configured_db
+        else get_app_data_dir() / "data" / "tt_ratones.db"
     )
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    DATABASE_URL = f"sqlite:///{sqlite_path.as_posix()}"
+else:
+    DB_USER = os.getenv("POSTGRES_USER")
+    DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("POSTGRES_DB")
+    if not all([DB_USER, DB_PASSWORD, DB_NAME]):
+        raise ValueError(
+            "[ERROR] Faltan variables de entorno criticas de PostgreSQL "
+            "(POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)."
+        )
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+def _enable_sqlite_pragmas(dbapi_connection, _connection_record) -> None:
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=30000")
+    cursor.close()
 
 
-# ────────────────────────────────────────────────────────────────────
-# @st.cache_resource: el engine se crea UNA SOLA VEZ por proceso
-# Streamlit, sin importar cuántas páginas lo importen o cuántos
-# reruns ocurran.  Elimina el overhead de reconexión en cada página.
-# ────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def _create_engine_cached():
-    """
-    Crea el engine UNA SOLA VEZ. Si falla, lanza excepción
-    para que @st.cache_resource NO guarde el resultado fallido.
-    """
-    engine = create_engine(
-        DATABASE_URL,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-        connect_args={"connect_timeout": 5},
-    )
+    if is_sqlite_mode():
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False, "timeout": 30},
+        )
+        event.listen(engine, "connect", _enable_sqlite_pragmas)
+    else:
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+            connect_args={"connect_timeout": 5},
+        )
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     return engine
 
 
 def get_db_engine():
-    """Wrapper seguro: retorna engine o None, sin cachear fallos."""
+    """Retorna el engine o None sin cachear intentos fallidos."""
     try:
         return _create_engine_cached()
-    except Exception as e:
-        _db_logger.error(f"Error creando motor SQL: {e}")
+    except Exception as exc:
+        _db_logger.error("Error creando motor SQL: %s", exc)
         return None
 
 
-
 def get_session_maker():
-    """Retorna un SessionLocal ligado al engine cacheado."""
     engine = get_db_engine()
     if engine is None:
         return None
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def init_db():
-    """Ejecuta el script schema.sql para inicializar tablas."""
+def _schema_path() -> Path:
+    filename = "schema_sqlite.sql" if is_sqlite_mode() else "schema.sql"
+    return _bundle_root() / filename
+
+
+def init_db() -> bool:
+    """Inicializa el esquema correspondiente de forma idempotente."""
     engine = get_db_engine()
-    if not engine:
+    if engine is None:
         return False
 
-    schema_path = os.path.join(os.getcwd(), "schema.sql")
-    if not os.path.exists(schema_path):
-        _db_logger.warning("No se encontró schema.sql")
+    schema_path = _schema_path()
+    if not schema_path.exists():
+        _db_logger.warning("No se encontro %s", schema_path)
         return False
 
     try:
-        with open(schema_path, "r", encoding="utf-8") as f:
-            sql_script = f.read()
-
-        def _has_executable_sql(statement):
-            """True si el statement tiene SQL real, no solo comentarios/whitespace."""
-            for raw_line in statement.splitlines():
-                line = raw_line.strip()
-                if not line or line.startswith("--"):
-                    continue
+        sql_script = schema_path.read_text(encoding="utf-8")
+        raw_connection = engine.raw_connection()
+        try:
+            raw_connection.executescript(sql_script) if is_sqlite_mode() else None
+            if is_sqlite_mode():
+                raw_connection.commit()
                 return True
-            return False
+        finally:
+            raw_connection.close()
 
-        # AUTOCOMMIT: cada statement se commitea por si solo. Si uno falla
-        # (ej. un CREATE/ALTER que el esquema actual de la DB no acepta),
-        # se loguea y el resto sigue aplicandose. Antes el script entero
-        # corria en UNA transaccion y un error temprano dejaba sin aplicar
-        # los ALTER TABLE de upgrade (e.g. before_center / after_center).
-        autocommit_conn = engine.connect().execution_options(
-            isolation_level="AUTOCOMMIT"
-        )
+        def has_executable_sql(statement: str) -> bool:
+            return any(
+                line.strip() and not line.strip().startswith("--")
+                for line in statement.splitlines()
+            )
+
         applied = 0
         failed = 0
-        with autocommit_conn as conn:
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
             for statement in sql_script.split(";"):
-                if not _has_executable_sql(statement):
+                if not has_executable_sql(statement):
                     continue
                 try:
                     conn.execute(text(statement))
                     applied += 1
-                except Exception as stmt_exc:
+                except Exception as exc:
                     failed += 1
-                    snippet = " ".join(statement.split())[:120]
-                    _db_logger.warning(
-                        f"schema.sql statement fallo (continuo con los demas): "
-                        f"{snippet}... -> {stmt_exc}"
-                    )
-        _db_logger.info(
-            f"schema.sql aplicado: {applied} statements OK, {failed} con error."
-        )
+                    _db_logger.warning("Statement de schema fallo: %s", exc)
+        _db_logger.info("schema aplicado: %s OK, %s con error", applied, failed)
         return True
-    except Exception as e:
-        _db_logger.error(f"Error ejecutando schema.sql: {e}")
+    except Exception as exc:
+        _db_logger.error("Error ejecutando schema: %s", exc)
         return False
 
 
 def get_db_session():
-    """Generator para uso directo del ORM."""
     SessionLocal = get_session_maker()
     if SessionLocal is None:
         return

@@ -22,8 +22,17 @@ from src.config import (
 )
 
 
-PY310 = PROJECT_ROOT / "venv_310" / "Scripts" / "python.exe"
-PY311 = PROJECT_ROOT / "venv_311" / "Scripts" / "python.exe"
+def bundled_python(version: str) -> Path:
+    """Resolve the packaged runtime first, with the developer venv as fallback."""
+    packaged = PROJECT_ROOT / "runtime" / version / "python.exe"
+    if packaged.exists():
+        return packaged
+    legacy_name = "venv_310" if version == "py310" else "venv_311"
+    return PROJECT_ROOT / legacy_name / "Scripts" / "python.exe"
+
+
+PY310 = bundled_python("py310")
+PY311 = bundled_python("py311")
 RUN_SUPERANIMAL_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "run_superanimal.py"
 APPLY_BBOX_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "apply_dlc_bbox_constraint.py"
 COMPUTE_FEATURES_SCRIPT = PROJECT_ROOT / "src" / "scripts" / "compute_simba_features.py"
@@ -592,7 +601,7 @@ def main() -> int:
         log("[STEP] BOOT")
         
         # Actualizar rutas de SimBA automáticamente
-        fix_simba_script = PROJECT_ROOT / "fix_simba_paths.py"
+        fix_simba_script = PROJECT_ROOT / "src" / "scripts" / "fix_simba_paths.py"
         if fix_simba_script.exists():
             log("[INFO] Actualizando rutas de SimBA...")
             try:

@@ -18,12 +18,15 @@ from session_utils import load_session, save_session
 import importlib
 import ui_theme
 importlib.reload(ui_theme)
-from ui_theme import use_theme, render_topbar, inject_sidebar_profile
+from ui_theme import use_theme, render_topbar, inject_sidebar_profile, render_footer
 from simba_roi_bridge import sync_streamlit_rois_to_simba
 from sandbox_utils import get_active_simba_project_dir
 
 load_session()
 colors = use_theme()
+
+if not st.session_state.get("logged_in"):
+    st.switch_page("pages/00_Login.py")
 
 # ================= SIDEBAR =================
 with st.sidebar:
@@ -50,11 +53,6 @@ with st.sidebar:
     
     # Sidebar con navegación
     inject_sidebar_profile(show_admin_button=True)
-
-# ================= 1. VERIFICAR LOGIN ==================
-if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesión antes de usar el prototipo.")
-    st.stop()
 
 # ================= 2. VIDEO CHECK & LOGIC =================
 if "ruta_video_actual" not in st.session_state:
@@ -295,7 +293,7 @@ def _persist_zones_to_db(zones, scale_factor):
     if not engine:
         return {
             "ok": False,
-            "message": "No se encontró conexión a PostgreSQL para guardar las zonas históricas.",
+            "message": "No se encontró conexión a la base de datos para guardar las zonas históricas.",
         }
 
     video_path = st.session_state.get("ruta_video_actual")
@@ -457,10 +455,4 @@ if canvas_result.json_data:
                 st.warning(roi_sync["message"])
         st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(f"""
-    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
-    </div>
-""", unsafe_allow_html=True)
+render_footer()

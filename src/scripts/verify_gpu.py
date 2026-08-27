@@ -10,7 +10,7 @@ import platform
 
 def verify_gpu():
     print("="*40)
-    print(f"Python Versión: {sys.versión}")
+    print(f"Python Versión: {sys.version}")
     print(f"Platform: {platform.platform()}")
     print("="*40)
     
@@ -21,7 +21,7 @@ def verify_gpu():
         print(f"CUDA Available: {cuda_available}")
         
         if cuda_available:
-            print(f"CUDA Versión: {torch.versión.cuda}")
+            print(f"CUDA Versión: {torch.version.cuda}")
             device_count = torch.cuda.device_count()
             print(f"GPU Device Count: {device_count}")
             

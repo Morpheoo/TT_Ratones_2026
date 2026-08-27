@@ -22,7 +22,10 @@ from datetime import datetime
 #  1. configuración del logger de archivo
 # ─────────────────────────────────────────────
 
-LOG_DIR = os.path.join(os.getcwd(), "logs")
+_configured_data_dir = os.getenv("TT_APP_DATA_DIR", "").strip()
+_local_app_data = os.getenv("LOCALAPPDATA") or os.path.expanduser("~/AppData/Local")
+_app_data_dir = os.path.abspath(os.path.expanduser(_configured_data_dir)) if _configured_data_dir else os.path.join(_local_app_data, "TT_Ratones_2026")
+LOG_DIR = os.path.join(_app_data_dir, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "security.log")
 

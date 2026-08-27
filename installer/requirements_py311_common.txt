@@ -1,0 +1,22 @@
+# Interfaz, YOLO y persistencia local.
+streamlit==1.53.1
+ultralytics==8.3.237
+numpy==1.26.4
+pandas==2.1.4
+scipy==1.12.0
+scikit-learn==1.8.0
+opencv-python==4.11.0.86
+SQLAlchemy==2.0.45
+bcrypt==5.0.0
+python-dotenv==1.2.1
+plotly==6.5.0
+streamlit-drawable-canvas-fix==0.9.8
+moviepy==1.0.3
+imageio==2.37.2
+imageio-ffmpeg==0.6.0
+openpyxl==3.1.5
+fpdf2==2.8.5
+pillow==11.3.0
+PyYAML==6.0.3
+psutil==7.1.3
+tqdm==4.67.1

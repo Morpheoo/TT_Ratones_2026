@@ -11,14 +11,17 @@ una correccion sobre la salida cruda del modelo.
 
 from sqlalchemy import text
 
+from .dialect import ensure_column, is_sqlite
+
 
 def ensure_behavior_edits_schema(conn):
     """Crea la tabla on-demand para que la primera carga no rompa
     si la migracion no se corrio manualmente."""
+    id_definition = "INTEGER PRIMARY KEY AUTOINCREMENT" if is_sqlite(conn) else "SERIAL PRIMARY KEY"
     conn.execute(text(
-        """
+        f"""
         CREATE TABLE IF NOT EXISTS behavior_edits (
-            id              SERIAL PRIMARY KEY,
+            id              {id_definition},
             experiment_id   INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
             edited_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
             edited_by_email TEXT,
@@ -26,10 +29,12 @@ def ensure_behavior_edits_schema(conn):
             edited_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             before_open     FLOAT,
             before_closed   FLOAT,
+            before_center   FLOAT,
             before_grooming FLOAT,
             before_thigmo   FLOAT,
             after_open      FLOAT,
             after_closed    FLOAT,
+            after_center    FLOAT,
             after_grooming  FLOAT,
             after_thigmo    FLOAT,
             note            TEXT
@@ -40,6 +45,8 @@ def ensure_behavior_edits_schema(conn):
         "CREATE INDEX IF NOT EXISTS idx_behavior_edits_exp "
         "ON behavior_edits(experiment_id, edited_at DESC);"
     ))
+    ensure_column(conn, "behavior_edits", "before_center", "FLOAT")
+    ensure_column(conn, "behavior_edits", "after_center", "FLOAT")
     conn.commit()
 
 

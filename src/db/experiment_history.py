@@ -4,6 +4,8 @@ from typing import Any
 
 from sqlalchemy import text
 
+from .dialect import is_sqlite
+
 
 def _normalize_zone_name(zone: dict[str, Any]) -> str:
     return (
@@ -106,9 +108,10 @@ def replace_experiment_rois(
     for zone in zonas:
         if not isinstance(zone, dict):
             continue
+        coordinates_value = ":coordinates_json" if is_sqlite(conn) else "CAST(:coordinates_json AS JSONB)"
         conn.execute(
             text(
-                """
+                f"""
                 INSERT INTO roi_configurations (
                     experiment_id,
                     zone_type,
@@ -118,7 +121,7 @@ def replace_experiment_rois(
                 VALUES (
                     :experiment_id,
                     :zone_type,
-                    CAST(:coordinates_json AS JSONB),
+                    {coordinates_value},
                     :scale_factor
                 )
                 """

@@ -21,7 +21,7 @@ import importlib
 import ui_theme
 
 importlib.reload(ui_theme)
-from ui_theme import render_topbar, use_theme, inject_sidebar_profile
+from ui_theme import render_topbar, use_theme, inject_sidebar_profile, render_footer
 from video_context_banner import render_video_banner
 from config import (
     GROOMING_MODEL,
@@ -31,6 +31,7 @@ from config import (
     THIGMOTAXIS_MODEL_YOLO,
 )
 from sandbox_utils import get_active_simba_project_dir
+from db.dialect import ensure_column
 
 st.set_page_config(page_title="Análisis final", page_icon="assets/logos/logo_ria.png", layout="wide")
 
@@ -39,8 +40,7 @@ colors = use_theme()
 
 # ================= 1. VERIFICAR LOGIN ==================
 if not st.session_state.get("logged_in"):
-    st.warning("Debes iniciar sesión antes de usar el prototipo.")
-    st.stop()
+    st.switch_page("pages/00_Login.py")
 
 run_page_splash(
     "page_analysis_final",
@@ -460,7 +460,7 @@ def fetch_reprocessable_experiments(limit=25):
         return []
 
     with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS trajectory_path TEXT"))
+        ensure_column(conn, "analysis_results", "trajectory_path", "TEXT")
         conn.commit()
         rows = conn.execute(
             text(
@@ -478,13 +478,16 @@ def fetch_reprocessable_experiments(limit=25):
                     COUNT(r.id) AS zone_count
                 FROM experiments e
                 LEFT JOIN (
-                    SELECT DISTINCT ON (experiment_id)
-                        experiment_id,
-                        trajectory_path,
-                        timestamp,
-                        id
-                    FROM analysis_results
-                    ORDER BY experiment_id, timestamp DESC, id DESC
+                    SELECT experiment_id, trajectory_path, timestamp, id
+                    FROM (
+                        SELECT experiment_id, trajectory_path, timestamp, id,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY experiment_id
+                                   ORDER BY timestamp DESC, id DESC
+                               ) AS row_number
+                        FROM analysis_results
+                    ) ranked_results
+                    WHERE row_number = 1
                 ) ar
                     ON ar.experiment_id = e.id
                 LEFT JOIN roi_configurations r
@@ -525,7 +528,7 @@ def load_previous_experiment_context(record):
 
     engine = get_db_engine()
     if not engine:
-        return False, "No se encontró conexión a PostgreSQL para recuperar zonas históricas."
+        return False, "No se encontró conexión a la base de datos para recuperar zonas históricas."
 
     experiment_id = int(record["id"])
     zones = load_experiment_zones(engine, experiment_id)
@@ -683,7 +686,7 @@ def persist_summary_to_db(summary):
 
         engine = get_db_engine()
         if not engine:
-            return "No se encontró una conexión activa a PostgreSQL."
+            return "No se encontró una conexión activa a la base de datos."
 
         video_path = st.session_state.get("ruta_video_actual")
         if not video_path:
@@ -793,7 +796,7 @@ def persist_summary_to_db(summary):
                 ).fetchone()
                 experiment_id = int(created[0])
 
-            conn.execute(text("ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS trajectory_path TEXT"))
+            ensure_column(conn, "analysis_results", "trajectory_path", "TEXT")
             conn.execute(
                 text("DELETE FROM analysis_results WHERE experiment_id = :experiment_id"),
                 {"experiment_id": experiment_id},
@@ -1278,13 +1281,4 @@ else:
 
 render_analysis_monitor()
 
-# Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div style="text-align: center; color: {colors['text_sub']}; font-size: 0.8rem;">
-        Prototipo para análisis automatizado y visualización de comportamiento de especímenes en modelos de ansiedad &copy; 2026<br>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_footer()
